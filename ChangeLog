@@ -1,0 +1,8 @@
+v0.03 Mon, 04 Jul 2005 14:15:06 +0200
+        + removed forced (int) types for ptr,rowids
+	
+v0.02 ?
+	+ ?
+
+v0.01 Sat, 11 Jun 2005 10:32:05 +0200 (moocow)
+	+ initial version
