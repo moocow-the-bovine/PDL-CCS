@@ -4,7 +4,7 @@
 ## Header Administrivia
 ##======================================================================
 
-our $VERSION = '0.03';
+our $VERSION = '0.02';
 pp_setversion($VERSION);
 
 ##------------------------------------------------------
@@ -73,7 +73,7 @@ EOH
 ##------------------------------------------------------
 ## nnz() : get number of nonzero values
 pp_def('nnz',
-       Pars => 'a(N); int+ [o]nnz()',
+       Pars => 'a(N); int [o]nnz()',
        Code =>
 ('
   $nnz()=0;
@@ -96,7 +96,7 @@ along the the 1st dimension.
 ##------------------------------------------------------
 ## nnza() : get number of non-approximate zero values
 pp_def('nnza',
-       Pars => 'a(N); eps(); int+ [o]nnz()',
+       Pars => 'a(N); eps(); int [o]nnz()',
        Code => ('$nnz()=0; loop (N) %{ if (abs($a()) > $eps()) ++$nnz(); %}'),
        Doc =>
 q(Like nnz() using tolerance constant $eps().
@@ -109,10 +109,10 @@ For 1d PDLs, should be equivalent to:
 ##------------------------------------------------------
 ## ccsencode() : encoding
 pp_def('ccsencodefull',
-       Pars => 'a(N,M); [o]ptr(N); [o]rowids(Nnz); [o]nzvals(Nnz)',
+       Pars => 'a(N,M); int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz)',
        Code =>
 q(
-  long nnzi=0;
+  int nnzi=0;
   loop (N) %{
     $ptr() = nnzi;
     loop (M) %{
@@ -146,10 +146,10 @@ See L<EXAMPLES> below for an example.
 ##------------------------------------------------------
 ## ccsencodefulla() : encoding (approximate)
 pp_def('ccsencodefulla',
-       Pars => 'a(N,M); eps(); [o]ptr(N); [o]rowids(Nnz); [o]nzvals(Nnz)',
+       Pars => 'a(N,M); eps(); int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz)',
        Code =>
 q(
-  long nnzi=0;
+  int nnzi=0;
   loop (N) %{
     $ptr() = nnzi;
     loop (M) %{
@@ -172,16 +172,16 @@ $eps() to determine which elements are to be treated as zeroes.
 ##------------------------------------------------------
 ## _ccsdecode() : dencoding
 pp_def('ccsdecodefull',
-       Pars => 'ptr(N); rowids(Nnz); nzvals(Nnz); [o]dense(N,M)',
+       Pars => 'int ptr(N); int rowids(Nnz); nzvals(Nnz); [o]dense(N,M)',
        Code =>
 q(
-  long ni, nnzimax, nnzi=$ptr(N=>0);
+  int ni, nnzimax, nnzi=$ptr(N=>0);
   for (ni=1; ni <= $SIZE(N); ni++) {
-    long colid = ni-1;
+    int colid = ni-1;
     if (ni != $SIZE(N)) nnzimax = $ptr(N=>ni);
     else                nnzimax = $SIZE(Nnz);
     for (; nnzi < nnzimax; nnzi++) {
-      long rowid = $rowids(Nnz=>nnzi);
+      int rowid = $rowids(Nnz=>nnzi);
       $dense(N=>colid, M=>rowid) = $nzvals(Nnz=>nnzi);
     }
   }
@@ -208,7 +208,7 @@ pp_addpm(<<'EOPM');
 
 =for sig
 
-  Signature: (a(N,M); [o]ptr(N); [o]rowids(Nnz); [o]nzvals(Nnz))
+  Signature: (a(N,M); int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz))
 
 Convenience method.
 Encodes matrix $a() in compressed column format
@@ -246,7 +246,7 @@ pp_addpm(<<'EOPM');
 
 =for sig
 
-  Signature: (a(N,M); eps(); [o]ptr(N); [o]rowids(Nnz); [o]nzvals(Nnz))
+  Signature: (a(N,M); eps(); int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz))
 
 Convenience method.
 Encodes matrix $a() in compressed column format
@@ -286,7 +286,7 @@ pp_addpm(<<'EOPM');
 
 =for sig
 
-  Signature: (ptr(N); rowids(Nnz); nzvals(Nnz); [o]dense(N,M))
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); [o]dense(N,M))
 
 Convenience method.
 Decodes compressed column format vectors $ptr(), $rowids(), and $nzvals()
