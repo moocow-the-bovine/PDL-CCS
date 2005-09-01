@@ -3,9 +3,6 @@ MANIFEST
 MANIFEST.SKIP
 Makefile.PL
 CCS.pd
-CCS.pm
-CCS.xs
-CCS.c
 README.txt
 t/common.plt
 t/00_basic.t

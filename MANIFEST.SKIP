@@ -11,6 +11,9 @@
 ^graveyard\.
 ^Makefile$
 ^testme\.perl$
+^CCS.pm$
+^CCS.xs$
+^CCS.c$
 ^README\.pod$
 \.html$
 \.tmp$
