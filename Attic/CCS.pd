@@ -1,10 +1,10 @@
-#-*- Mode: Perl -*-
+#-*- Mode: CPerl -*-
 
 ##======================================================================
 ## Header Administrivia
 ##======================================================================
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 pp_setversion($VERSION);
 
 ##------------------------------------------------------
@@ -90,6 +90,8 @@ For 1d PDLs, should be equivalent to:
 For k>1 dimensional PDLs, projects via number of nonzero elements
 to N-1 dimensions by computing the number of nonzero elements
 along the the 1st dimension.
+
+This method is obsolete: use $a->setvaltobad(0)->ngood() instead.
 ),
       );
 
@@ -106,9 +108,43 @@ For 1d PDLs, should be equivalent to:
 ),
       );
 
+
 ##------------------------------------------------------
-## ccsencode() : encoding
-pp_def('ccsencodefull',
+## ngood() : get number of good values
+pp_def('ngood',
+       Pars => 'a(N); int+ [o]ngood()',
+       Code =>'$ngood() = $SIZE(N);',
+       HandleBad=>1,
+       BadCode=>
+('
+  $GENERIC(a) a_val;
+  threadloop %{
+   $GENERIC(ngood) ngoodi = 0;
+   loop(N) %{
+    a_val = $a();
+    if ( $ISGOODVAR(a_val,a) ) { ++ngoodi; }
+   %}
+   $ngood() = ngoodi;
+  %}
+'),
+         CopyBadStatusCode => '$SETPDLSTATEGOOD(ngood); /* always make sure the output is "good" */',
+         BadDoc=>'The output PDL $ngood() always has its bad flag cleared.',
+         Doc =>
+q(Get number of good elements in a PDL $a();
+For 1d PDLs, should be equivalent to:
+
+ $ngood = nelem(which($a->isgood()));
+
+For k>1 dimensional PDLs, projects via number of good elements
+to N-1 dimensions by computing the number of good elements
+along the the 1st dimension.
+),
+      );
+
+
+##------------------------------------------------------
+## ccsencodefull_nz() : encoding (zeros are "missing")
+pp_def('ccsencodefull_nz',
        Pars => 'a(N,M); [o]ptr(N); [o]rowids(Nnz); [o]nzvals(Nnz)',
        Code =>
 q(
@@ -144,8 +180,8 @@ See L<EXAMPLES> below for an example.
       );
 
 ##------------------------------------------------------
-## ccsencodefulla() : encoding (approximate)
-pp_def('ccsencodefulla',
+## ccsencodefull_naz() : encoding (approximate)
+pp_def('ccsencodefull_naz',
        Pars => 'a(N,M); eps(); [o]ptr(N); [o]rowids(Nnz); [o]nzvals(Nnz)',
        Code =>
 q(
@@ -163,10 +199,53 @@ q(
 ),
        Doc =>
 q(Encode 2d PDL $a() in compressed column format (approximating).  This
-method is just like ccsencodefull(), above, but uses the tolerance parameter
+method is just like ccsencodefull_nz(), above, but uses the tolerance parameter
 $eps() to determine which elements are to be treated as zeroes.
 ),
       );
+
+
+
+##------------------------------------------------------
+## ccsencodefull_g() : encoding ($ISBAD() are bad)
+pp_def('ccsencodefull_g',
+       Pars => 'a(N,M); [o]ptr(N); [o]rowids(Ngood); [o]goodvals(Ngood)',
+       HandleBad=>1,
+       Code =>
+q(
+  $GENERIC(a) a_val;
+  long nnzi=0;
+  loop (N) %{
+    $ptr() = nnzi;
+    loop (M) %{
+      a_val = $a();
+      if ( $ISGOODVAR(a_val,a) ) {
+	$rowids(Ngood=>nnzi) = M;
+	$nzvals(Ngood=>nnzi) = a_val;
+	++nnzi;
+      }
+    %}
+  %}
+),
+       Doc =>
+q(Encode 2d PDL $a() into compressed column format vectors
+$ptr(), $rowids(), and $goodvals(), useful for storing large
+sparse matrices.  The user is responsible for
+allocating the output vectors $rowids() and $goodvals(),
+which should be of length $Ngood, where $Ngood is the total
+number of non-bad() elements in $a().
+
+The vector $goodvals() stores the actual good values
+of $a(), and the vector $rowids() stores the corresponding
+row indices: $a(i,j)==$goodvals(k) implies j==$rowids(k),
+for 0<=i<N, 0<=k<Ngood.  The vector $ptr() stores those
+indices of $goodvals() which begin a new column:
+$a(i,j)==$goodvals(k) implies $ptr(i)<=k<=$ptr(i+1).
+
+See L<EXAMPLES> below for an example.
+),
+      );
+
 
 
 ##------------------------------------------------------
@@ -196,6 +275,19 @@ $dense().
 
 ##======================================================================
 ## Convenience Methods
+
+##------------------------------------------------------
+## Aliases
+pp_add_exported('','ccsencodefull');
+pp_add_exported('','ccsencodefulla');
+pp_add_exported('','ccsencodefullb');
+pp_addpm(<<'EOPM');
+
+*ccsencodefull  = \&ccsencodefull_nz;
+*ccsencodefulla = \&ccsencodefull_naz;
+*ccsencodefullb = \&ccsencodefull_g;
+
+EOPM
 
 ##------------------------------------------------------
 ## ccsencode() : encoding (convenience)
