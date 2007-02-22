@@ -221,7 +221,7 @@ q(
       a_val = $a();
       if ( $ISGOODVAR(a_val,a) ) {
 	$rowids(Ngood=>nnzi) = M;
-	$nzvals(Ngood=>nnzi) = a_val;
+	$goodvals(Ngood=>nnzi) = a_val;
 	++nnzi;
       }
     %}
