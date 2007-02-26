@@ -548,7 +548,9 @@ sub ccsdecode_g {
   my ($ptr,$rowids,$nzvals,$dense)=@_;
   if (!defined($dense)) {
     my $M  = $rowids->max+1;
-    $dense = zeroes($nzvals->type,$ptr->dim(0),$M);
+    $dense = zeroes($nzvals->type,$ptr->dim(0),$M)->inplace->setvaltobad(0);
+  } else {
+    $dense .= $dense->setbadif(1);
   }
   ccsdecodefull_g($ptr,$rowids,$nzvals,$dense);
   return $dense;
@@ -797,10 +799,11 @@ qq(//
 ),
      Doc =>
 qq(Column vector ${longname} on CCS-encoded PDL.
-Should do something like:
+Should do something like the following (without decoding the CCS matrix):
 
  (\$row $op ccsdecode(\$ptr,\$rowids,\$nzvals))->ccsencode;
 
+Missing values in the CCS-encoded PDL are not effected by this operation.
 ),
     );
 }
@@ -839,10 +842,11 @@ qq(
 ),
      Doc =>
 'Row-vector '.${longname}.' on CCS-encoded PDL.
-Should do something like:
+Should do something like the following (without decoding the CCS matrix):
 
- ($column '.$op.' ccsdecode($ptr,$rowids,$nzvals)->xchg(0,1))->xchg(0,1)->ccsencode;
+ ($column->slice("*1,") '.$op.' ccsdecode($ptr,$rowids,$nzvals))->ccsencode;
 
+Missing values in the CCS-encoded PDL are not effected by this operation.
 ',
     );
 }
@@ -863,6 +867,12 @@ pp_addpm(<<'EOPM');
 =head2 $nzvals(Nnz) + $c();
 
 =head2 $nzvals(Nnz) - $c();
+
+=head2 log($nzvals(Nnz))
+
+=head2 exp($nzvals(Nnz))
+
+=head2 ...
 
 Scalar operations which do not cause any previously "missing" values to
 be instantiated can be called directly on $nzvals().
