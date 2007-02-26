@@ -73,11 +73,93 @@ sub tccsdc {
 }
 
 
+##---------------------------------------------------------------------
+## CCS: Ops: transpose
+
+sub tp_data {
+  $a = pdl([[1,0,0,2],
+	    [0,3,4,0],
+	    [5,0,0,6]]);
+  ($ptr,$rowids,$nzvals) = ccsencode($a);
+}
+
+use vars qw($ptrT $rowidsT $nzvalsT);
+sub tp_test1 {
+  tp_data();
+  ccstransposefull($ptr,$rowids,$nzvals, $ptrT=zeroes($a->dim(1)),$rowidsT=zeroes($rowids),$nzvalsT=zeroes($nzvals));
+
+  print
+    ("transposefull(): ",
+     (all(ccsdecode($ptr,$rowids,$nzvals)==ccsdecode($ptrT,$rowidsT,$nzvalsT)->xchg(0,1)) ? "ok" : "NOT ok"), "\n",
+     );
+}
+sub tp_test2 {
+  tp_data();
+  ($ptrT,$rowidsT,$nzvalsT) = ccstranspose($ptr,$rowids,$nzvals);
+
+  print
+    ("transpose(): ",
+     (all(ccsdecode($ptr,$rowids,$nzvals)==ccsdecode($ptrT,$rowidsT,$nzvalsT)->xchg(0,1)) ? "ok" : "NOT ok"), "\n",
+     );
+}
+
+
+##---------------------------------------------------------------------
+## CCS: access
+
+sub ta_data {
+  $a = pdl([[1,0,0,2],
+	    [0,3,4,0],
+	    [5,0,0,6]]);
+  ($ptr, $rowids, $nzvals)  = ccsencode($a);
+  ($ptrT,$rowidsT,$nzvalsT) = ccstranspose($ptr,$rowids,$nzvals);
+}
+
+sub ta_whichfull {
+  ta_data;
+  ccswhichfull($ptr,$rowids,$nzvals,    $wcols=zeroes(long,$nzvals->dim(0)),  $wrows=zeroes(long,$nzvals->dim(0)));
+  ccswhichfull($ptrT,$rowidsT,$nzvalsT, $wcolsT=zeroes(long,$nzvals->dim(0)), $wrowsT=zeroes(long,$nzvals->dim(0)));
+
+  print
+    ("test_whichfull(row-primary): ",
+     (all($wrowsT->cat($wcolsT)->xchg(0,1) == scalar($a->whichND)) ? "ok" : "NOT ok"), "\n",
+     ##--
+     "test_whichfull(col-primary): ",
+     (all($wrows ->cat($wcols) ->xchg(0,1) == scalar($a->xchg(0,1)->whichND)) ? "ok" : "NOT ok"), "\n",
+    );
+}
+#ta_whichfull();
+
+##---------------------------------------------------------------------
+## CCS: Ops
+
+sub top_data {
+  $a = pdl([[1,0,0,2],
+	    [0,3,4,0],
+	    [5,0,0,6]]);
+  ($ptr, $rowids, $nzvals)  = ccsencode($a);
+  ($ptrT,$rowidsT,$nzvalsT) = ccstranspose($ptr,$rowids,$nzvals);
+}
+
+use vars qw($cv $nzvals_cv $rv $nzvals_rv);
+sub top_mult {
+  top_data();
+  $nzvals_rv = ccsmult_rv($ptr,$rowids,$nzvals, $rv=10**(sequence($a->dim(0))+1));
+  $nzvals_cv = ccsmult_cv($ptr,$rowids,$nzvals, $cv=10**(sequence($a->dim(1))+1));
+  print
+    ("mult-by-row-vector]: ",
+     (all(ccsdecode($ptr,$rowids,$nzvals_rv) == ($a * $rv)) ? "ok" : "NOT ok"), "\n",
+     ##--
+     "mult-by-col-vector]: ",
+     (all(ccsdecode($ptr,$rowids,$nzvals_cv) == ($a * $cv->slice("*1,"))) ? "ok" : "NOT ok"), "\n",
+    );
+}
+
 
 ##---------------------------------------------------------------------
 ## DUMMY
 ##---------------------------------------------------------------------
-foreach $i (0..100) {
+foreach $i (0..3) {
   print "--dummy($i)--\n";
 }
 
