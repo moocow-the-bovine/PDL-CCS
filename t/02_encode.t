@@ -10,7 +10,7 @@ do "$TEST_DIR/common.plt";
 use PDL;
 use PDL::CCS;
 
-BEGIN { plan tests=>14, todo=>[]; }
+BEGIN { plan tests=>28, todo=>[]; }
 
 ##-- setup
 $p = pdl(double, [
@@ -37,7 +37,6 @@ ccsencodefull($p,
 isok("encodefull():ptr", all($ptr==$want_ptr));
 isok("encodefull():rowids", all($rowids==$want_rowids));
 isok("encodefull():nzvals", all($nzvals==$want_nzvals));
-
 
 ##-- 4--6: test ccsencode()
 ($ptr,$rowids,$nzvals) = ccsencode($p);
@@ -66,12 +65,65 @@ isok("encodefulla():ptr",    all($ptra==$want_ptr_a));
 isok("encodefulla():rowids", all($rowidsa==$want_rowids_a));
 isok("encodefulla():nzvals", all($nzvalsa==$want_nzvals_a));
 
-##-- 13 : test decodefull()
+##-- 13..15 : test ccsencodefull_i2d()
+($pwcols,$pwrows) = $p->whichND;
+$pwvals           = $p->index2d($pwcols,$pwrows);
+$nnz              = $pwvals->nelem;
+ccsencodefull_i2d($pwcols,$pwrows,$pwvals,
+		  $ptr=zeroes(long,$p->dim(0)),
+		  $rowids=zeroes(long,$nnz),
+		  $nzvals=zeroes($p->type, $nnz));
+
+isok("encodefull_i2d():ptr",    all($ptr==$want_ptr));
+isok("encodefull_i2d():rowids", all($rowids==$want_rowids));
+isok("encodefull_i2d():nzvals", all($nzvals==$want_nzvals));
+
+##-- 16..18 : test ccsencode_i2d()
+($ptr,$rowids,$nzvals) =  ccsencode_i2d($pwcols,$pwrows,$pwvals);
+isok("encode_i2d():ptr",    all($ptr==$want_ptr));
+isok("encode_i2d():rowids", all($rowids==$want_rowids));
+isok("encode_i2d():nzvals", all($nzvals==$want_nzvals));
+
+##-- 19..21 : test ccsencodefull_i()
+$pwhich = $p->which;
+$pwvals = $p->flat->index($pwhich);
+$nnz    = $pwvals->nelem;
+ccsencodefull_i($pwhich, $pwvals,
+		$ptr   =zeroes(long,$p->dim(0)),
+		$rowids=zeroes(long,$nnz),
+		$nzvals=zeroes($p->type, $nnz));
+
+isok("encodefull_i():ptr",    all($ptr==$want_ptr));
+isok("encodefull_i():rowids", all($rowids==$want_rowids));
+isok("encodefull_i():nzvals", all($nzvals==$want_nzvals));
+
+##-- 22..24 : test ccsencode_i()
+our $N = $p->dim(0);
+($ptr,$rowids,$nzvals) = ccsencode_i($pwhich, $pwvals, $N);
+
+isok("encode_i():ptr",    all($ptr==$want_ptr));
+isok("encode_i():rowids", all($rowids==$want_rowids));
+isok("encode_i():nzvals", all($nzvals==$want_nzvals));
+
+
+##-- 25 : test ccsdecodecols (single col)
+our $M = $p->dim(1);
+($ptr,$rowids,$nzvals) = ccsencode($p);
+
+$col0 = ccsdecodecols($ptr,$rowids,$nzvals, 0,0);
+isok("decodecols(0)", all($col0==$p->slice("0,")));
+
+##-- 26 : test ccsdecodecols (full)
+$dense = ccsdecodecols($ptr,$rowids,$nzvals, sequence($p->dim(0)),0);
+isok("decodecols(all)", all($dense==$p));
+
+
+##-- 27 : test decodefull()
 $p2 = zeroes($p->type,$p->dims);
 ccsdecodefull($ptr,$rowids,$nzvals, $p2);
 isok("decodefull()", all($p==$p2));
 
-##-- 14 : test decode()
+##-- 28 : test decode()
 $p2 = ccsdecode($ptr,$rowids,$nzvals);
 isok("decode()", all($p==$p2));
 

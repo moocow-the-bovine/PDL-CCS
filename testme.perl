@@ -57,6 +57,46 @@ sub tccs2a {
 sub tccs2c  { ($ptr,$rowids,$nzvals)=ccsencode($p);  $nrows=$p->dim(1); }
 sub tccs2ca { ($ptr,$rowids,$nzvals)=ccsencodea($p); $nrows=$p->dim(1); }
 
+##---------------------------------------------------------------------
+## CCS: encode: which
+
+sub tccs_enc_w2d {
+  if (!defined($a)) { tccs1(); $a=$p; }
+  ($awcols,$awrows) = $a->whichND;
+  $avals            = $a->index2d($awcols,$awrows);
+
+  ($ptr,$rowids,$nzvals) = ccsencode($a);
+
+  ccsencodefull_i2d($awcols,$awrows,$avals,
+		    $wptr   =zeroes(long,     $a->dim(0)),
+		    $wrowids=zeroes(long,     $avals->dim(0)),
+		    $wnzvals=zeroes($a->type, $avals->dim(0)));
+
+  print "encoding: full: indexND: ", (all(ccsdecode($wptr,$wrowids,$wnzvals)==$a) ? "ok" : "NOT ok"), "\n";
+
+  ($wptr,$wrowids,$wnzvals) = ccsencode_i2d($awcols,$awrows,$avals);
+  print "encoding: wrapped: indexND: ", (all(ccsdecode($wptr,$wrowids,$wnzvals)==$a) ? "ok" : "NOT ok"), "\n";
+}
+#tccs_enc_w2d();
+
+sub tccs_enc_wflat {
+  if (!defined($a)) { tccs1(); $a=$p; }
+  $awflat = $a->which;
+  $avals  = $a->flat->index($awflat);
+
+  ($ptr,$rowids,$nzvals) = ccsencode($a);
+
+  ccsencodefull_i($awflat, $avals,
+		  $wptr   =zeroes(long,     $a->dim(0)),
+		  $wrowids=zeroes(long,     $avals->dim(0)),
+		  $wnzvals=zeroes($a->type, $avals->dim(0)),
+		 );
+  print "encoding: full: flat: ", (all(ccsdecode($wptr,$wrowids,$wnzvals)==$a) ? "ok" : "NOT ok"), "\n";
+
+  ($wptr,$wrowids,$wnzvals) = ccsencode_i($awflat, $avals, $a->dim(0));
+  print "encoding: wrapped: flat: ", (all(ccsdecode($wptr,$wrowids,$wnzvals)==$a) ? "ok" : "NOT ok"), "\n";
+}
+#tccs_enc_wflat();
 
 
 ##---------------------------------------------------------------------
@@ -114,6 +154,61 @@ sub ta_data {
   ($ptr, $rowids, $nzvals)  = ccsencode($a);
   ($ptrT,$rowidsT,$nzvalsT) = ccstranspose($ptr,$rowids,$nzvals);
 }
+
+sub ta_index_flat {
+  ta_data();
+
+  ##-- all present
+  $awhich = $a->which;
+  $avals  = $a->flat->index($awhich);
+  $cvals  = ccsget($ptr,$rowids,$nzvals, $awhich,0);
+  print "index (all present): ", (all($cvals==$avals) ? "ok" : "NOT ok"), "\n";
+
+  ##-- some present (zero)
+  $allai    = sequence(long,$a->nelem);
+  $allavals = $a->flat->index($allai);
+  $allcvals = ccsget($ptr,$rowids,$nzvals, $allai,0);
+  print "index (some present / zero): ", (all($allavals==$allcvals) ? "ok" : "NOT ok"), "\n";
+
+  ##-- some present (bad)
+  $badval    = pdl(0)->setvaltobad(0);
+  $allbcvals = ccsget($ptr,$rowids,$nzvals, $allai,$badval);
+  print
+    "index (some present / bad): ", (all($allbcvals->where($allbcvals->isgood) == $allavals->where($allbcvals->isgood))
+					 &&
+					 all($allavals->where($allbcvals->isbad) == 0)
+					 ? "ok" : "NOT ok"), "\n";
+}
+ta_index_flat();
+
+
+sub ta_index_2d {
+  ta_data();
+
+  ##-- all present
+  ($acoli,$arowi) = $a->whichND;
+  $avals          = $a->index2d($acoli,$arowi);
+  $cvals          = ccsget2d($ptr,$rowids,$nzvals, $acoli,$arowi,0);
+  print "index2d (all present): ", (all($cvals==$avals) ? "ok" : "NOT ok"), "\n";
+
+  ##-- some present (zero)
+  ($allacoli,$allarowi) = ($a->xvals->flat,$a->yvals->flat);
+  $allavals = $a->index2d($allacoli,$allarowi);
+  $allcvals = ccsget2d($ptr,$rowids,$nzvals, $allacoli,$allarowi,0);
+  print "index2d (some present / zero): ", (all($allavals==$allcvals) ? "ok" : "NOT ok"), "\n";
+
+  ##-- some present (bad)
+  $badval    = pdl(0)->setvaltobad(0);
+  $allbcvals = ccsget2d($ptr,$rowids,$nzvals, $allacoli,$allarowi,$badval);
+  print
+    "index2d (some present / bad): ", (all($allbcvals->where($allbcvals->isgood) == $allavals->where($allbcvals->isgood))
+					 &&
+					 all($allavals->where($allbcvals->isbad) == 0)
+					 ? "ok" : "NOT ok"), "\n";
+}
+ta_index_2d();
+
+
 
 sub ta_whichfull {
   ta_data;

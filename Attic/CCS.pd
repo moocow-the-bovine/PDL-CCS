@@ -10,6 +10,9 @@ pp_setversion($VERSION);
 ##------------------------------------------------------
 ## pm additions
 pp_addpm({At=>'Top'},<<'EOPM');
+
+use strict;
+
 =pod
 
 =head1 NAME
@@ -181,7 +184,6 @@ pp_addpm(<<'EOPM');
 
 EOPM
 
-
 ##------------------------------------------------------
 ## ccsencodefull_nz() : encoding (zeros are "missing")
 pp_def('ccsencodefull_nz',
@@ -273,6 +275,105 @@ This method is just like ccsencodefull_nz(), above, but ignores PDL "bad"
 values rather than zeroes.
 ),
       );
+
+##------------------------------------------------------
+## ccsencodefull_i2d() : encoding given 2d indices
+pp_def('ccsencodefull_i2d',
+       Pars => 'int col_ix(Nnz); int row_ix(Nnz); nzvals_in(Nnz);  int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals_out(Nnz)',
+       Code =>
+q(
+ /*-- Local variables --*/
+ long coli, coli_prev, coli_next;
+ long ptr_final=0;
+ long nzi, nzj;
+ //
+ /*-- Count number of NZs in each column; store in ptr[N=coli] --*/
+ loop (N) %{ $ptr() = 0; %}
+ loop (Nnz) %{
+   coli = $col_ix();
+   ++$ptr(N=>coli);
+ %}
+ //
+ /*-- tweak ptr(): fill each cell with the starting point of the previous row --*/
+ coli = $SIZE(N)-1;
+ if (coli > 0) {
+   ptr_final = $SIZE(Nnz) - $ptr(N=>coli);
+   coli_prev  = coli-1;
+   $ptr(N=>coli) = ptr_final - $ptr(N=>coli_prev);
+ }
+ for (coli_next=coli, coli=coli-1; coli > 0; coli_next=coli--) {
+   coli_prev = coli-1;
+   $ptr(N=>coli) = $ptr(N=>coli_next) - $ptr(N=>coli_prev);
+ }
+ $ptr(N=>0) = 0;
+ //
+ /*-- Assign new rowids() and nzvals() --*/
+ for (nzi=0; nzi < $SIZE(Nnz); nzi++) {
+   coli      = $col_ix(Nnz=>nzi);
+   coli_next = coli+1;
+   if (coli != $SIZE(N)-1) { nzj = $ptr(N=>coli_next)++; }
+   else                    { nzj = ptr_final++; }
+   $rowids    (Nnz=>nzj) = $row_ix   (Nnz=>nzi);
+   $nzvals_out(Nnz=>nzj) = $nzvals_in(Nnz=>nzi);
+ }
+),
+       Doc =>
+q(Encode specified values $nzvals_in() for column- and row-indices $col_ix() and $row_ix()
+into a 2d PDL into compressed column format vectors $ptr(), $rowids(), and $nzvals_out().
+),
+      );
+
+##------------------------------------------------------
+## ccsencodefull_i() : base encoding (given flat indices)
+pp_def('ccsencodefull_i',
+       Pars => 'int ix(Nnz); nzvals_in(Nnz);  int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals_out(Nnz);',
+       #OtherPars => 'int M',
+       Code =>
+q(
+ /*-- Local variables --*/
+ long coli, coli_prev, coli_next;
+ long rowi;
+ long ptr_final=0;
+ long nzi, nzj;
+ //
+ /*-- Count number of NZs in each column; store in ptr[N=coli] --*/
+ loop (N) %{ $ptr() = 0; %}
+ loop (Nnz) %{
+   coli = $ix() % $SIZE(N);
+   ++$ptr(N=>coli);
+ %}
+ //
+ /*-- tweak ptr(): fill each cell with the starting point of the previous row --*/
+ coli = $SIZE(N)-1;
+ if (coli > 0) {
+   ptr_final = $SIZE(Nnz) - $ptr(N=>coli);
+   coli_prev  = coli-1;
+   $ptr(N=>coli) = ptr_final - $ptr(N=>coli_prev);
+ }
+ for (coli_next=coli, coli=coli-1; coli > 0; coli_next=coli--) {
+   coli_prev = coli-1;
+   $ptr(N=>coli) = $ptr(N=>coli_next) - $ptr(N=>coli_prev);
+ }
+ $ptr(N=>0) = 0;
+ //
+ /*-- Assign new rowids() and nzvals() --*/
+ for (nzi=0; nzi < $SIZE(Nnz); nzi++) {
+   rowi      = $ix(Nnz=>nzi) / $SIZE(N);
+   coli      = $ix(Nnz=>nzi) % $SIZE(N);
+   coli_next = coli+1;
+   if (coli != $SIZE(N)-1) { nzj = $ptr(N=>coli_next)++; }
+   else                    { nzj = ptr_final++; }
+   $rowids    (Nnz=>nzj) = rowi;
+   $nzvals_out(Nnz=>nzj) = $nzvals_in(Nnz=>nzi);
+ }
+),
+       Doc =>
+q(Encode specified values $nzvals_in() for flat index PDL $ix()
+into a 2d PDL into compressed column format vectors $ptr(), $rowids(), and $nzvals_out(),
+assuming a source matrix with dimensions (N,M).
+),
+      );
+
 
 ##======================================================================
 ## Encoding: Aliases
@@ -413,6 +514,78 @@ sub ccsencode_g {
 EOPM
 
 
+##------------------------------------------------------
+## ccsencode_i2d() : encoding from 2d-index
+pp_add_exported('','ccsencode_i2d');
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head2 ccsencode_i2d
+
+=for sig
+
+  Signature: (int col_ix(Nnz); int row_ix(Nnz); nzvals(Nnz); int $N; int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals_enc(Nnz))
+
+Convenience method.
+Encodes values $nzvals() from 2d-index locations ($col_ix(), $row_ix()) in an $N-by-(whatever) PDL
+into a CCS matrix $ptr(), $rowids(), $nzvals_enc()
+by calling ccsencodefull_i2d().
+Allocates output
+vectors if required.
+If $N is omitted, it defaults to the maximum column index given in $col_ix().
+
+=cut
+
+sub ccsencode_i2d {
+  my ($acoli,$arowi,$avals, $N, $ptr,$rowids,$nzvals)=@_;
+  my $nnz = $acoli->dim(0);
+  $N      = $acoli->max+1              if (!defined($N));    ##-- guess number of columns
+  $ptr    = zeroes(long,$N)            if (!defined($ptr));
+  $rowids = zeroes(long,$nnz)          if (!defined($rowids));
+  $nzvals = zeroes($avals->type, $nnz) if (!defined($nzvals));
+  ccsencodefull_i2d($acoli,$arowi,$avals, $ptr,$rowids,$nzvals);
+  return ($ptr,$rowids,$nzvals);
+}
+
+EOPM
+
+##------------------------------------------------------
+## ccsencode_i() : encoding from a flat index
+pp_add_exported('','ccsencode_i');
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head2 ccsencode_i
+
+=for sig
+
+  Signature: (int ix(Nnz); nzvals(Nnz); int $N; int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals_enc(Nnz))
+
+Convenience method.
+Encodes values $nzvals() from flat-index locations $ix() into a CCS matrix $ptr(), $rowids(), $nzvals_enc()
+by calling ccsencodefull_i().
+Allocates output
+vectors if required.
+$N must be specified.
+
+=cut
+
+sub ccsencode_i {
+  my ($awhich,$avals, $N, $ptr,$rowids,$nzvals)=@_;
+  croak("ccsencode_i(): N must be > 0!") if (!defined($N) || $N <= 0);
+  my $nnz = $awhich->nelem;
+  $ptr    = zeroes(long,$N)            if (!defined($ptr));
+  $rowids = zeroes(long,$nnz)          if (!defined($rowids));
+  $nzvals = zeroes($avals->type, $nnz) if (!defined($nzvals));
+  ccsencodefull_i($awhich,$avals, $ptr,$rowids,$nzvals);
+  return ($ptr,$rowids,$nzvals);
+}
+
+EOPM
+
+
 ##======================================================================
 ## Decoding
 ##======================================================================
@@ -427,67 +600,83 @@ pp_addpm(<<'EOPM');
 
 EOPM
 
-
 ##------------------------------------------------------
-## ccsdecodefull() : decoding
-pp_def('ccsdecodefull',
-       Pars => 'int ptr(N); int rowids(Nnz); nzvals(Nnz); [o]dense(N,M)',
-       Code =>
-q(
-  long ni, nnzimax, nnzi=$ptr(N=>0);
-  for (ni=1; ni <= $SIZE(N); ni++) {
-    long colid = ni-1;
-    if (ni != $SIZE(N)) nnzimax = $ptr(N=>ni);
-    else                nnzimax = $SIZE(Nnz);
-    for (; nnzi < nnzimax; nnzi++) {
-      long rowid = $rowids(Nnz=>nnzi);
-      $dense(N=>colid, M=>rowid) = $nzvals(Nnz=>nnzi);
-    }
-  }
-),
-       Doc =>
-q(Decode compressed column vectors $ptr(), $rowids(), and $nzvals() into
-dense 2d matrix $dense().  The user is responsible for allocating
-$dense().
-),
-      );
-
-
-##------------------------------------------------------
-## ccsdecodefull_g() : decoding (good)
-pp_def('ccsdecodefull_g',
-       Pars => 'int ptr(N); int rowids(Nnz); nzvals(Nnz); [o]dense(N,M)',
+## _ccsdecodecols() : column extraction: low-level
+pp_def('_ccsdecodecols',
+       Pars => 'int ptr(N); int rowids(Nnz); nzvals(Nnz); int col_ix(I); missing(); [o]cols(I,M);',
        HandleBad => 1,
        Code =>
 q(
-  long ni, nnzimax, nnzi=$ptr(N=>0);
-  loop (N) %{
-    loop (M) %{
-      $SETBAD($dense());
-    %}
-  %}
-  for (ni=1; ni <= $SIZE(N); ni++) {
-    long colid = ni-1;
-    if (ni != $SIZE(N)) nnzimax = $ptr(N=>ni);
-    else                nnzimax = $SIZE(Nnz);
-    for (; nnzi < nnzimax; nnzi++) {
-      long rowid = $rowids(Nnz=>nnzi);
-      $dense(N=>colid, M=>rowid) = $nzvals(Nnz=>nnzi);
+  loop (I) %{
+    long coli      = $col_ix();
+    long coli_next = coli+1;
+    long nzi, nzi_max, rowi;
+    loop (M) %{ $cols() = $missing(); %}
+    if (coli_next < $SIZE(N))  { nzi_max = $ptr(N=>coli_next); }
+    else                       { nzi_max = $SIZE(Nnz); }
+    for (nzi = $ptr(N=>coli); nzi < nzi_max; nzi++) {
+      rowi           = $rowids(Nnz=>nzi);
+      $cols(M=>rowi) = $nzvals(Nnz=>nzi);
     }
-  }
+  %}
 ),
        Doc =>
-q(Like ccsdecodefull above, but sets bad value flag for missing values.
-),
-      );
-
+q(Low-level method.
+Extract dense columns from a CCS-encoded matrix (no dataflow).
+  ),
+       );
 
 ##======================================================================
 ## Decoding: Aliases
 
 ##------------------------------------------------------
+## ccsdecodecols() : column extraction (convenience)
+pp_add_exported('','ccsdecodecols');
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head2 ccsdecodecols
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int col_ix(I); [missing()=0; [$M=max(rowids); [o]cols(I,M)]])
+
+Convenience method.
+Extract dense columns from a CCS-encoded matrix (no dataflow).
+Allocates output matrix if required.
+If $a(N,M) was the dense source matrix for the CCS-encoding, and
+if missing values are zeros, then the
+following two calls are equivalent (modulo data flow):
+
+  $cols = $a->dice_axis(1,$col_ix);
+  $cols = ccsdecodecols($ptr,$rowids,$nzvals, $col_ix,0);
+
+You can use this method to do a full decode too:
+
+  $dense = ccsdecodecols($ptr,$rowids,$nzvals, sequence($N),0,$M);
+
+=cut
+
+sub ccsdecodecols {
+  my ($ptr,$rowids,$nzvals, $coli,$missing,$M, $cols) = @_;
+  $coli    = sequence(long,$ptr->dim(0)) if (!defined($coli));
+  $coli    = pdl(long,$coli) if (!ref($coli));
+  $missing = 0 if (!defined($missing));
+  if (!defined($cols)) {
+    $M    = $rowids->max+1 if (!defined($M));
+    $cols = zeroes($nzvals->type, $coli->dim(0), $M);
+  }
+  _ccsdecodecols($ptr,$rowids,$nzvals, $coli,$missing, $cols);
+  return $cols;
+}
+
+EOPM
+
+##------------------------------------------------------
 ## ccdecode() : decoding (convenience)
 pp_add_exported('','ccsdecode');
+pp_add_exported('','ccsdecodefull'); ##-- compatibility alias
 pp_addpm(<<'EOPM');
 
 =pod
@@ -496,25 +685,34 @@ pp_addpm(<<'EOPM');
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); [o]dense(N,M))
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); $M; [o]dense(N,M))
 
 Convenience method.
 Decodes compressed column format vectors $ptr(), $rowids(), and $nzvals()
-into dense output matrix $a() by calling ccsdecodefull(),
-allocating output matrix if required.  Note that if the original
+into dense output matrix $a() by calling _ccsdecodecols(),
+allocating the output matrix if required.  Note that if the original
 matrix (pre-encoding) contained trailing rows with no nonzero elements,
-such rows will not be allocated by this method -- in this case,
-you should prefer ccsdecodefull().
+such rows will not be allocated by this method (unless you specify either $M or $dense).
+In such cases, you might prefer to call ccscols() or _ccsdecodecols() directly.
 
 =cut
 
+sub ccsdecodefull {
+  return _ccsdecodecols(@_[0..2], PDL->sequence(long,$_[0]->dim(0)),0, @_[3..$#_]);
+}
+
 sub ccsdecode {
-  my ($ptr,$rowids,$nzvals,$dense)=@_;
+  my ($ptr,$rowids,$nzvals, $M, $dense)=@_;
   if (!defined($dense)) {
-    my $M = $rowids->max+1;
-    $dense = zeroes($nzvals->type,$ptr->dim(0),$M);
+    ##-- check for old calling convention (is $M a multi-dim PDL?)
+    if (ref($M) && UNIVERSAL::isa($M, 'PDL') && $M->dim(0)==$ptr->dim(0)) {
+      $dense = $M;
+    } else {
+      $M = $rowids->max+1 if (!defined($M));
+      $dense = zeroes($nzvals->type,$ptr->dim(0),$M);
+    }
   }
-  ccsdecodefull($ptr,$rowids,$nzvals,$dense);
+  _ccsdecodecols($ptr,$rowids,$nzvals, PDL->sequence(long,$ptr->dim(0)),0, $dense);
   return $dense;
 }
 
@@ -527,6 +725,7 @@ EOPM
 ## ccsdecode_g() : decoding: good-vales (convenience)
 pp_add_exported('','ccsdecode_g');
 pp_add_exported('','ccsdecodeg');
+pp_add_exported('','ccsdecodefull_g'); ##-- compatibility alias
 pp_addpm(<<'EOPM');
 
 =pod
@@ -535,24 +734,32 @@ pp_addpm(<<'EOPM');
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); [o]dense(N,M))
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); $M; [o]dense(N,M))
 
 Convenience method.
-Like ccsdecode() but calls ccsdecodefull_g(), setting "missing" values
-to BAD.
+Like ccsdecode() but sets "missing" values to BAD.
 
 =cut
 
+sub ccsdecodefull_g {
+  my $badval = pdl($_[2]->type,0)->setvaltobad(0);
+  return _ccsdecodecols(@_[0..2], PDL->sequence(long,$_[0]->dim(0)),$badval, @_[3..$#_]);
+}
+
 *ccsdecodeg = \&ccsdecode_g;
 sub ccsdecode_g {
-  my ($ptr,$rowids,$nzvals,$dense)=@_;
+  my ($ptr,$rowids,$nzvals, $M, $dense)=@_;
   if (!defined($dense)) {
-    my $M  = $rowids->max+1;
-    $dense = zeroes($nzvals->type,$ptr->dim(0),$M)->inplace->setvaltobad(0);
-  } else {
-    $dense .= $dense->setbadif(1);
+    ##-- check for old calling convention (is $M a multi-dim PDL?)
+    if (ref($M) && UNIVERSAL::isa($M, 'PDL') && $M->dim(0)==$ptr->dim(0)) {
+      $dense = $M;
+    } else {
+      $M = $rowids->max+1 if (!defined($M));
+      $dense = zeroes($nzvals->type,$ptr->dim(0),$M);
+    }
   }
-  ccsdecodefull_g($ptr,$rowids,$nzvals,$dense);
+  my $badval = pdl($nzvals->type,0)->setvaltobad(0);
+  _ccsdecodecols($ptr,$rowids,$nzvals, PDL->sequence(long,$ptr->dim(0)),$badval, $dense);
   return $dense;
 }
 
@@ -561,18 +768,188 @@ sub ccsdecode_g {
 EOPM
 
 ##======================================================================
-## Access: which
+## Index Conversion
 ##======================================================================
 
 pp_addpm(<<'EOPM');
 
 =pod
 
-=head1 Index Access
+=head1 Index Conversion
 
 =cut
 
 EOPM
+
+##------------------------------------------------------
+## ccsitonzi() : index conversion: flat
+pp_def('ccsitonzi',
+       Pars => 'int ptr(N); int rowids(Nnz); int ix(I); int missing(); int [o]nzix(I)',
+       HandleBad => 1,
+       Code =>
+q(
+  long coli, coli_next;
+  long nzi, nzi_max, nzival = $missing();
+  long rowi;
+  loop (I) %{
+    coli       = $ix();
+    rowi       = coli / $SIZE(N);
+    coli       %= $SIZE(N);
+    coli_next  = coli+1;
+    if (coli_next < $SIZE(N))  { nzi_max = $ptr(N=>coli_next); }
+    else                       { nzi_max = $SIZE(Nnz); }
+    for (nzi = $ptr(N=>coli); nzi < nzi_max; nzi++) {
+      if ( rowi == $rowids(Nnz=>nzi) ) {  /* we might be able to optimize this by assuming rowids are sorted... */
+	nzival = nzi;
+	break;
+      }
+    }
+    $nzix() = nzival;
+  %}
+),
+       Doc =>
+q(
+Convert flat index values $ix() appropriate for a dense matrix (N,M)
+into indices $nzix() appropriate for the $rowids() and/or $nzvals() components
+of the CCS-encoded matrix ($ptr(),$rowids(),$nzvals()).
+Missing values are returned in $nzix() as $missing().
+),
+       );
+
+
+##------------------------------------------------------
+## ccsi2dtonzi() : index conversion: 2d
+pp_def('ccsi2dtonzi',
+       Pars => 'int ptr(N); int rowids(Nnz); int col_ix(I); int row_ix(I); int missing(); int [o]nzix(I)',
+       HandleBad => 1,
+       Code =>
+q(
+  loop (I) %{
+    long coli      = $col_ix();
+    long rowi      = $row_ix();
+    long coli_next = coli+1;
+    long nzi, nzi_max, nzival = $missing();
+    if (coli_next < $SIZE(N))  { nzi_max = $ptr(N=>coli_next); }
+    else                       { nzi_max = $SIZE(Nnz); }
+    for (nzi = $ptr(N=>coli); nzi < nzi_max; nzi++) {
+      if ( rowi == $rowids(Nnz=>nzi) ) {  /* we might be able to optimize this by assuming rowids are sorted... */
+	nzival = nzi;
+	break;
+      }
+    }
+    $nzix() = nzival;
+  %}
+),
+       Doc =>
+q(
+Convert 2d index values $col_ix() and $row_ix() appropriate for a dense matrix (N,M)
+into indices $nzix() appropriate for the $rowids() and/or $nzvals() components
+of the CCS-encoded matrix ($ptr(),$rowids(),$nzvals()).
+Missing values are returned in $nzix() as $missing().
+),
+       );
+
+
+##======================================================================
+## Lookup
+##======================================================================
+
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head1 Lookup
+
+=cut
+
+EOPM
+
+##------------------------------------------------------
+## ccsget() : lookup: flat
+pp_def('ccsget',
+       Pars => 'int ptr(N); int rowids(Nnz); nzvals(Nnz); int ix(I); missing(); [o]ixvals(I)',
+       HandleBad => 1,
+       Code =>
+q(
+  long coli, coli_next;
+  long nzi, nzi_max;
+  long rowi;
+  loop (I) %{
+    $GENERIC(ixvals) ixval = $missing();
+    coli      = $ix();
+    rowi      = coli / $SIZE(N);
+    coli     %= $SIZE(N);
+    coli_next = coli+1;
+    if (coli_next < $SIZE(N))  { nzi_max = $ptr(N=>coli_next); }
+    else                       { nzi_max = $SIZE(Nnz); }
+    for (nzi = $ptr(N=>coli); nzi < nzi_max; nzi++) {
+      if ( rowi == $rowids(Nnz=>nzi) ) {  /* we might be able to optimize this by assuming rowids are sorted... */
+	ixval = $nzvals(Nnz=>nzi);
+	break;
+      }
+    }
+    $ixvals() = ixval;
+  %}
+),
+       Doc =>
+q(Lookup values in a CCS-encoded PDL by flat source index (no dataflow).
+Pretty much like ccsitonzi(), but returns values instead of indices.
+If you know that your index PDL $ix() does not refer to any missing
+values in the CCS-encoded matrix,
+then the following two calls are equivalent (modulo dataflow):
+
+  $ixvals =                ccsget   ($ptr,$rowids,$nzvals, $ix,0);
+  $ixvals = index($nzvals, ccsitonzi($ptr,$rowids,         $ix,0))
+
+The difference is that only the second incantation will cause subsequent changes to $ixvals
+to be propagated back into $nzvals.
+
+),
+       );
+
+
+##------------------------------------------------------
+## ccsget2d() : lookup: 2d
+pp_def('ccsget2d',
+       Pars => 'int ptr(N); int rowids(Nnz); nzvals(Nnz); int col_ix(I); int row_ix(I); missing(); [o]ixvals(I)',
+       HandleBad => 1,
+       Code =>
+q(
+  loop (I) %{
+    long coli      = $col_ix();
+    long rowi      = $row_ix();
+    long coli_next = coli+1;
+    long nzi, nzi_max;
+    $GENERIC(ixvals) ixval = $missing();
+    if (coli_next < $SIZE(N))  { nzi_max = $ptr(N=>coli_next); }
+    else                       { nzi_max = $SIZE(Nnz); }
+    for (nzi = $ptr(N=>coli); nzi < nzi_max; nzi++) {
+      if ( rowi == $rowids(Nnz=>nzi) ) {  /* we might be able to optimize this by assuming rowids are sorted... */
+	ixval = $nzvals(Nnz=>nzi);
+	break;
+      }
+    }
+    $ixvals() = ixval;
+  %}
+),
+       Doc =>
+q(Lookup values in a CCS-encoded PDL by 2d source index (no dataflow).
+Pretty much like ccsi2dtonzi(), but returns values instead of indices.
+If you know that your index PDLs $col_ix() and $row_ix() do not refer to any missing
+values in the CCS-encoded matrix,
+then the following two calls are equivalent (modulo dataflow):
+
+  $ixvals =                ccsget2d   ($ptr,$rowids,$nzvals, $col_ix,$row_ix,0);
+  $ixvals = index($nzvals, ccsi2dtonzi($ptr,$rowids,         $col_ix,$row_ix,0));
+
+The difference is that only the second incantation will cause subsequent changes to $ixvals
+to be propagated back into $nzvals.
+
+),
+       );
+
+
+
 
 ##------------------------------------------------------
 ## ccswhichfull() : which(): low-level
@@ -602,6 +979,7 @@ Note: $nzvals() is currently not used by this method.
 ##------------------------------------------------------
 ## ccswhich() : get indices (convenience)
 pp_add_exported('','ccswhichND');
+pp_add_exported('','ccswhich2d');
 pp_add_exported('','ccswhich');
 pp_addpm(<<'EOPM');
 
@@ -620,8 +998,11 @@ similar to the builtin whichND().  Note however that ccswhichND() may return
 its index PDLs sorted in a different order than the builtin whichND() method
 for dense matrices.  Use the qsort() or qsorti() methods if you need sorted index PDLs.
 
+Alias: ccswhich2d().
+
 =cut
 
+*cswhich2d = \&ccswhichND;
 sub ccswhichND {
   my ($ptr,$rowids,$nzvals, $wcols,$wrows) = @_;
   my $nnz = $rowids->dim(0);
@@ -705,9 +1086,8 @@ q(//
  else {
    ptrt_final = 0;
  }
- for (rowi=rowi-1; rowi > 0; rowi--) {
+ for (rowi_next=rowi, rowi=rowi-1; rowi > 0; rowi_next=rowi--) {
    rowi_prev = rowi-1;
-   rowi_next = rowi+1;
    $ptrT(M=>rowi) = $ptrT(M=>rowi_next) - $ptrT(M=>rowi_prev);
  }
  $ptrT(M=>0) = 0;
@@ -775,7 +1155,6 @@ EOPM
 
 ##------------------------------------------------------
 ## vector operations, by row
-
 
 sub _vectorop_colvec {
   my ($name, $op, $longname) = @_;
@@ -852,6 +1231,46 @@ Missing values in the CCS-encoded PDL are not effected by this operation.
 }
 
 foreach $vop (@vectorops) { _vectorop_colvec(@$vop); }
+
+
+##------------------------------------------------------
+## Ufuncs (accumulators)
+
+sub _ccs_ufunc_op {
+  my ($name, $op, $initval, $longname) = @_;
+
+  pp_def
+    ("ccs${name}over",
+     Pars    => 'int ptr(N); int rowids(Nnz); nzvals(Nnz);  [o]colvals(N)',
+     Code    =>
+qq(//
+ long coli, coli_next;
+ long nzi, nzi_max;
+ \$GENERIC(colvals) colval;
+ for (coli=0, nzi=0; coli < \$SIZE(N); coli++) {
+   colval    = $initval;
+   coli_next = coli+1;
+   if (coli_next < \$SIZE(N)) { nzi_max = \$ptr(N=>coli_next); }
+   else                       { nzi_max = \$SIZE(Nnz);       }
+   for (; nzi < nzi_max; nzi++) {
+     colval ${op}= \$nzvals(Nnz=>nzi);
+   }
+   \$colvals(N=>coli) = colval;
+ }
+),
+     Doc =>
+qq(Column-wise accumulated ${longname} on a CCS encoded matrix.),
+    );
+}
+
+my @ufuncs =
+  (
+   ["sum" , "+", "0", "sum"],
+   #["prod", "*", "1", "product"], ##-- no: doesn't account for missing values (bashed to zero)
+  );
+
+foreach $uop (@ufuncs) { _ccs_ufunc_op(@$uop); }
+
 
 ##------------------------------------------------------
 ## scalar operations
