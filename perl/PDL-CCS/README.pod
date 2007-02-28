@@ -1,0 +1,49 @@
+=pod
+
+README for PDL::CCS
+
+=head1 ABSTRACT
+
+PDL::CCS - Compressed column storage encoding for sparse PDLs.
+
+=head1 REQUIREMENTS
+
+=over 4
+
+=item * PDL
+
+Tested version 2.4.2.
+
+=back
+
+=head1 DESCRIPTION
+
+PDL::CCS provides an efficient encoding for sparse 2d PDLs.
+
+=head1 BUILDING
+
+Build this module as you would any perl module, by doing something
+akin to the following:
+
+ gzip -dc distname-XX.YY.tar.gz | tar -xof -
+ cd distname-XX.YY/
+ perl Makefile.PL
+ make
+ make test                                     # optional
+ make install
+
+See L<perlmodinstall>(1) for details.
+
+=head1 AUTHOR
+
+Bryan Jurish E<lt>jurish@ling.uni-potsdam.deE<gt>
+
+=head1 COPYRIGHT
+
+Copyright (c) 2005, Bryan Jurish.  All rights reserved.
+
+This package is free software, and entirely without warranty.
+You may redistribute it and/or modify it under the same terms
+as Perl itself.
+
+=cut
