@@ -8,4 +8,4 @@ t/common.plt
 t/00_basic.t
 t/01_nnz.t
 t/02_encode.t
-META.yml                                 Module meta-data (added by MakeMaker)
+t/03_ops.t

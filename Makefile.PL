@@ -24,7 +24,11 @@ sub MY::depend {
 		 "\n\n"
 		 ."dist: README.txt\n"
 		 ."\n"
+		 ."create_distdir: README.txt\n"
+		 ."\n"
 		 ."distcheck: README.txt\n"
+		 ."\n"
+		 ."manicheck: README.txt\n"
 		 ."\n"
 		);
 }
@@ -46,7 +50,7 @@ sub MY::special_targets {
 .pod.html:
 \tpod2html --outfile \$@ \$<
 
-.pod.txt: README.pod
+.pod.txt:
 \tpod2text \$< \$@
 
 #README.html: README.pod
