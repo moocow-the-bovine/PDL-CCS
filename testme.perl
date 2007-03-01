@@ -179,7 +179,7 @@ sub ta_index_flat {
 					 all($allavals->where($allbcvals->isbad) == 0)
 					 ? "ok" : "NOT ok"), "\n";
 }
-ta_index_flat();
+#ta_index_flat();
 
 
 sub ta_index_2d {
@@ -206,7 +206,7 @@ sub ta_index_2d {
 					 all($allavals->where($allbcvals->isbad) == 0)
 					 ? "ok" : "NOT ok"), "\n";
 }
-ta_index_2d();
+#ta_index_2d();
 
 
 
@@ -249,6 +249,19 @@ sub top_mult {
      (all(ccsdecode($ptr,$rowids,$nzvals_cv) == ($a * $cv->slice("*1,"))) ? "ok" : "NOT ok"), "\n",
     );
 }
+
+sub top_sumover {
+  top_data;
+
+  $a_sum  = $a->sumover;
+  $c_sum  = ccssumover($ptr,$rowids,$nzvals);
+  print "sumover: ", (all($a_sum==$c_sum) ? "ok" : "NOT ok"), "\n";
+
+  $at_sum = $a->xchg(0,1)->sumover;
+  $ct_sum = ccssumovert($ptr,$rowids,$nzvals);
+  print "sumoverT: ", (all($at_sum==$ct_sum) ? "ok" : "NOT ok"), "\n";
+}
+top_sumover;
 
 
 ##---------------------------------------------------------------------

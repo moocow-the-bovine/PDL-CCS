@@ -1443,7 +1443,7 @@ sub _ccs_ufunc_op {
 
   ##-------------------------
   ## Ufunc: by row: wrapper
-  pp_add_exported('',"_ccs${name}over");
+  pp_add_exported('',"ccs${name}over");
   pp_addpm(<<"EOPM");
 
 =pod
