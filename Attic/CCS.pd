@@ -86,7 +86,8 @@ PDL::CCS - Compressed Column- or Row-Storage for 2d PDLs
 
  ##---------------------------------------------------------------------
  ## Accumulators
- $colsumover = ccssumover($ptr,$rowids,$nzvals);
+ $rowsumover  = ccssumover ($ptr,$rowids,$nzvals); ##-- like $a->sumover()
+ $colsumovert = ccssumovert($ptr,$rowids,$nzvals); ##-- like $a->xchg(0,1)->sumover
 
 =head1 NOTATION
 
@@ -1440,8 +1441,59 @@ foreach $vop (@vectorops) { _vectorop_colvec(@$vop); }
 sub _ccs_ufunc_op {
   my ($name, $op, $initval, $longname) = @_;
 
+  ##-------------------------
+  ## Ufunc: by row: wrapper
+  pp_add_exported('',"_ccs${name}over");
+  pp_addpm(<<"EOPM");
+
+=pod
+
+=head2 ccs${name}over
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); \$M; [o]rowvals(M))
+
+Row-wise accumulated ${longname} on a CCS encoded matrix.
+You can specify either \$M or rowvals() or neither, in which case
+the number of rows will be guessed from \$rowids().
+
+=cut
+
+sub ccs${name}over {
+  my (\$M,\$vals) = \@_[3,4];
+  \$M    = \$_[1]->max+1 if (!defined(\$M));
+  \$vals = \$M if (!defined(\$vals) && UNIVERSAL::isa(\$M,'PDL'));
+  \$vals = zeroes(\$_[2]->type, \$M) if (!defined(\$vals));
+  _ccs${name}over(\@_[0..2],\$vals);
+  return \$vals;
+}
+
+EOPM
+;
+
+  ##-------------------------
+  ## Ufunc: by row: low-level
   pp_def
-    ("ccs${name}over",
+    ("_ccs${name}over",
+     Pars    => 'int ptr(N); int rowids(Nnz); nzvals(Nnz);  [o]rowvals(M)',
+     Code    =>
+qq(//
+ long nzi;
+ loop (M) %{ \$rowvals() = $initval; %}
+ loop (Nnz) %{
+   long rowid = \$rowids();
+   \$rowvals(M=>rowid) ${op}= \$nzvals();
+ %}
+),
+     Doc =>
+qq(Low-level row-wise accumulated ${longname} on a CCS encoded matrix.),
+    );
+
+  ##-------------------------
+  ## Ufunc: by column
+  pp_def
+    ("ccs${name}overt",
      Pars    => 'int ptr(N); int rowids(Nnz); nzvals(Nnz);  [o]colvals(N)',
      Code    =>
 qq(//
