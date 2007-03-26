@@ -1080,7 +1080,7 @@ Alias: ccswhich2d().
 
 =cut
 
-*cswhich2d = \&ccswhichND;
+*ccswhich2d = \&ccswhichND;
 sub ccswhichND {
   my ($ptr,$rowids,$nzvals, $wcols,$wrows) = @_;
   my $nnz = $rowids->dim(0);
