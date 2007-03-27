@@ -138,13 +138,14 @@ For zeroes as "missing" values, equivalent to $a-E<gt>which()-E<gt>nelem().
 A CCS-encoding component for $a(N,M).
 Constructed such that $ptr(0)==0, and
 for all $i with 0 < $i < $N,
-$ptr($i) contains the number of missing values in
-in the source columns 0..($i-1):
+$ptr($i) contains the number of non-missing values in
+the source columns 0..($i-1):
 
- $pt->at($i) == $a->slice("0:($i-1),")->flat->nnz
+ $pt->at($i) == $a->slice("0:($i-1),")->flat->nnz  ##-- this holds
 
-NOTE: This should be fixed.  It should really be the case that:
-$xptr($i) == $a-E<gt>slice("0:$i,")-E<gt>flat-E<gt>nnz
+B<NOTE:> This should be fixed.  It should probably really be the case that:
+
+ $xptr($i) == $a->slice("0:$i,")->flat->nnz        ##-- ... but this doesn't
 
 $ptr(N) values can also be interpreted as indices into
 the associated CCS-encoded component vectors $rowids(Nnz) and $nzvals(Nnz).
@@ -167,11 +168,11 @@ Logically adresses a non-"missing" value in $a(N,M).
 Non-missing values encoded from $a(N,M).
 The vector $nzvals() stores the actual nonzero values
 extracted from $a(), and the vector $rowids() stores the corresponding
-row indices: $a(i,j)==$nzvals(k) implies j==$rowids(k),
-for 0<=i<N, 0<=k<Nnz.  The vector $ptr() stores those
+row indices: j==$rowids(k) implies $nzvals(k)==$a(i,j),
+for 0E<lt>=iE<lt>N, 0E<lt>=kE<lt>Nnz.
+The vector $ptr() stores those
 indices of $nzvals() which begin a new column:
-$a(i,j)==$nzvals(k) implies $ptr(i)<=k<=$ptr(i+1).
-
+$ptr(i)E<lt>=kE<lt>$ptr(i+1) implies $nzvals(k)==$a(i,j), for some j.
 
 
 =item CCS matrix
