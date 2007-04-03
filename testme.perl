@@ -29,6 +29,7 @@ sub tccs1 {
 		    [0,4,0,0,2,-1],
 		   ]);
 }
+
 ##---------------------------------------------------------------------
 ## CCS: encode: big
 sub tccs1b {
@@ -232,8 +233,8 @@ sub top_data {
   $a = pdl([[1,0,0,2],
 	    [0,3,4,0],
 	    [5,0,0,6]]);
-  ($ptr, $rowids, $nzvals)  = ccsencode($a);
-  ($ptrT,$rowidsT,$nzvalsT) = ccstranspose($ptr,$rowids,$nzvals);
+  our @ccs  = ($ptr, $rowids, $nzvals)  = ccsencode($a);
+  our @ccst = ($ptrT,$rowidsT,$nzvalsT) = ccstranspose($ptr,$rowids,$nzvals);
 }
 
 use vars qw($cv $nzvals_cv $rv $nzvals_rv);
@@ -248,7 +249,12 @@ sub top_mult {
      "mult-by-col-vector]: ",
      (all(ccsdecode($ptr,$rowids,$nzvals_cv) == ($a * $cv->slice("*1,"))) ? "ok" : "NOT ok"), "\n",
     );
+
+  our $matv           = sequence($a->dims);
+  our $nzvals_matv_rv = ccsmult_rv($ptr,$rowids,$nzvals, $matv)->xchg(0,1)->sumover;
+  our $nzvals_matv_cv = ccsmult_cv($ptr,$rowids,$nzvals, $matv->xchg(0,1))->xchg(0,1)->sumover;
 }
+#top_mult();
 
 sub top_sumover {
   top_data;
@@ -261,8 +267,338 @@ sub top_sumover {
   $ct_sum = ccssumovert($ptr,$rowids,$nzvals);
   print "sumoverT: ", (all($at_sum==$ct_sum) ? "ok" : "NOT ok"), "\n";
 }
-top_sumover;
+#top_sumover;
 
+##---------------------------------------------------------------------
+## Test: CCS package
+##---------------------------------------------------------------------
+package PDL::CCS::Obj;
+use PDL::Lite;
+use UNIVERSAL 'isa';
+
+BEGIN {
+  our @ISA = qw(PDL);
+  our $DIMS   = 0;
+  our $MISSING = 1;
+  our $PTR    = 2;
+  our $ROWIDS = 3;
+  our $NZVALS = 4;
+  our @CCS    = ($PTR,$ROWIDS,$NZVALS);
+}
+
+##--------------------------------------------------------------
+## Constructors etc.
+
+## $obj = $class_or_obj->newFromDense($dense2d);
+## $obj = $class_or_obj->newFromDense($dense2d,$missing);
+sub newFromDense {
+  my ($that,$p,$missing) = @_;
+  $missing     = (defined($missing)
+		  ? PDL->pdl($p->type,$missing)
+		  : ($p->badflag
+		     ? PDL->pdl($p->type,0)->setvaltobad(0)
+		     : PDL->pdl($p->type,0)));
+  my $pwhichND = ($missing->isbad->any
+		  ? $p->isgood()
+		  : ($p != $missing)
+		 )->whichND;
+  my $pnz      = PDL->pdl($p->indexND($pwhichND));
+  return bless([
+		[$p->dims],
+		$missing,
+		PDL::CCS::ccsencode_i2d($pwhichND->xchg(0,1)->dog, $pnz, $p->getdim(0)),
+	       ], ref($that)||$that);
+}
+
+## DESTROY : avoid PDL inheritance?
+sub DESTROY { ; }
+
+## $ccs = $pdl->toccs()
+## $ccs = $pdl->toccs($missing)
+BEGIN { *PDL::toccs = \&toccs; }
+sub toccs {
+  return $_[0] if (isa($_[0],'PDL::CCS::Obj'));
+  return PDL::CCS::Obj->newFromDense(@_)
+}
+
+## $obj = $obj->clone()
+BEGIN { *clone = \&copy; }
+sub copy { bless [ [@{$_[0][$DIMS]}], map {PDL->pdl($_)} @{$_[0]}[$MISSING,@CCS] ], ref($_[0]); }
+
+## $obj = $obj->clonei($nzvals)
+##  + like clone(), but only clones dimensions & indices
+sub clonei {
+  bless [
+	 [@{$_[0][$DIMS]}],
+	 PDL->pdl($_[0][$MISSING]),
+	 PDL->pdl($_[0][$PTR]),
+	 PDL->pdl($_[0][$ROWIDS]),
+	 PDL->topdl($_[1]),
+	], ref($_[0]);
+}
+
+##--------------------------------------------------------------
+## Encoding & Decoding
+
+## $dense = $obj->decode()
+sub decode {
+  PDL::CCS::ccsdecodecols(@{$_[0]}[@CCS],
+			  PDL->sequence(PDL::long(), $_[0][$DIMS][0]),
+			  $_[0][$MISSING],
+			  $_[0][$DIMS][1]);
+}
+
+##--------------------------------------------------------------
+## Basic Properties
+
+## $type = $obj->type()
+sub type { $_[0][$NZVALS]->type; }
+
+## $ndims = $obj->ndims()
+sub ndims { scalar(@{$_[0][$DIMS]}); }
+
+## $dim = $obj->getdim($dimnum)
+sub getdim { $_[0][$DIMS][$_[1]]; }
+
+## @dims = $obj->dims()
+## @dims = $obj->dims(@dims)
+sub dims { @{$_[0][$DIMS]}; }
+
+## $nelem = $obj->nelem
+sub nelem { PDL->pdl(PDL::long(),@{$_[0][$DIMS]})->dprod; }
+
+##--------------------------------------------------------------
+## Low-level CCS access
+
+## $missing = $obj->missing()
+## $missing = $obj->missing($missing)
+sub missing { $_[0][$MISSING]=$_[1] if (@_>1);  $_[0][$MISSING]; }
+
+## $ptr = $obj->ptr()
+## $ptr = $obj->ptr($ptr)
+sub ptr { $_[0][$PTR]=$_[1] if (@_ > 1); $_[0][$PTR]; }
+
+## $rowids = $obj->rowids()
+## $rowids = $obj->rowids($rowids)
+sub rowids { $_[0][$ROWIDS]=$_[1] if (@_ > 1); $_[0][$ROWIDS]; }
+
+## $nzvals = $obj->nzvals();
+## $nzvals = $obj->nzvals($nzvals)
+sub nzvals { $_[0][$NZVALS]=$_[1] if (@_ > 1); $_[0][$NZVALS]; }
+
+## ($ptr,$rowids,$nzvals) = $obj->ccs()
+## ($ptr,$rowids,$nzvals) = $obj->ccs($ptr,$rowids,$nzvals)
+sub ccs { @{$_[0]}[@CCS]=@_[1,2,3] if (@_ > 3); @{$_[0]}[@CCS]; }
+
+##--------------------------------------------------------------
+## Index Access: which(), whichND(), & friends
+
+## $obj2 = $obj->convert($TYPE)
+##  + always copies everything, like PDL method
+sub convert { $_[0]->clonei($_[0][$NZVALS]->convert($_[1])); }
+
+## $obj = $obj->_convert($TYPE)
+##  + in-place conversion
+sub _convert {
+  $_[0][$NZVALS] = $_[0][$NZVALS]->convert($_[1])->inplace;
+  return $_[0];
+}
+
+
+## $which = $obj->which()
+sub which { PDL::CCS::ccswhich(@{$_[0]}[@CCS]); }
+
+## $which2d = $obj->which2d()
+sub which2d { PDL::CCS::ccswhich2d(@{$_[0]}[@CCS]); }
+
+## $whichND = $obj->whichND()
+sub whichND { PDL::CCS::ccswhichND(@{$_[0]}[@CCS]); }
+
+## $colids = $obj->nzxvals()
+sub nzxvals { $_[0]->which2d->slice("(0),"); }
+
+## $rowids = $obj->nzyvals()
+sub nzyvals { $_[0][$ROWIDS]; }
+
+## $nzix = $obj->itonzi($ix, [o]$nzix)
+##  + BROKEN: missing values aren't recognized:
+##        print $ccs->itonzi(sequence($ccs->nelem));
+##     - prints:           [  0   0   0   4   4   2   3   3   1   1   1   5  ]
+##     - but SHOULD print: [  0  BAD BAD  4  BAD  2   3  BAD  1  BAD BAD  1  ]
+sub itonzi { PDL::CCS::ccsitonzi(@{$_[0]}[$PTR,$ROWIDS], $_[1], $_[0][$MISSING], @_[2..$#_]); }
+
+## $nzix = $obj->i2dtonzi($xvals, $yvals, [o]$nzix)
+sub i2dtonzi { PDL::CCS::ccsi2dtonzi(@{$_[0]}[$PTR,$ROWIDS], @_[1,2], $_[0][$MISSING], @_[3..$#_]); }
+
+## $nzix = $obj->iNDtonzi($xyvals, [o]$nzix)
+##  + currently 2d-only
+sub iNDtonzi { $_[0]->i2dtonzi($_[1]->xchg(0,1)->dog, @_[2..$#_]); }
+
+##--------------------------------------------------------------
+## Perl Access
+
+## $val = $ccs->at($x,$y)
+sub at { PDL::CCS::ccsget2d(@{$_[0]}[@CCS], @_[1,2], $_[0][$MISSING])->sclr; }
+
+## $ccs = $ccs->set($x,$y,$val)
+sub set {
+  $_[0][$NZVALS]->index($_[0]->i2dtonzi(@_[1,2])) .= $_[3];
+  return $_[0];
+}
+
+##--------------------------------------------------------------
+## Slicing & Dicing
+
+## $objT = $obj->transpose()
+sub transpose {
+  bless [
+	 [@{$_[0][$DIMS]}[1,0,2..$#{$_[0][$DIMS]}]],
+	 @{$_[0]}[$MISSING],
+	 PDL::CCS::ccstranspose(@{$_[0]}[@CCS]),
+	], ref($_[0]);
+}
+
+##--------------------------------------------------------------
+## inplace stuff (pass to nzvals)
+
+## $inplace = $ccs->inplace()
+sub inplace { $_[0][$NZVALS]->inplace(@_[1..$#_]); }
+
+## $bool = $ccs->is_inplace()
+sub is_inplace { $_[0][$NZVALS]->is_inplace; }
+
+##--------------------------------------------------------------
+## Operations: Accumulators
+
+## $sumover = $ccs->sumover([o]$sumover)
+sub sumover { PDL::CCS::ccssumover(@{$_[0]}[@CCS], $_[0][$DIMS][1], @_[1..$#_]); }
+
+## $sumoverT = $ccs->sumovert([o]$sumovert)
+sub sumovert { PDL::CCS::ccssumovert(@{$_[0]}[@CCS], @_[1..$#_]); }
+
+##--------------------------------------------------------------
+## Operations: Binary
+
+## $ccs3 = $ccs1->add($ccs2)
+## $ccs3 = $ccs1->add($pdl)
+##  + TODO: write a "real" ccs_add() routine: @ccs3 = ccs_add(@ccs1, @ccs2)
+##    - may require FAST INDEX ACCESS (e.g. assume sorted & do a binary search on indices)
+##    - if it works, maybe we can use the same trick for matmult() & friends
+sub ccs_add {
+}
+
+
+##--------------------------------------------------------------
+## Stringification & Viewing
+
+## $str = $obj->string()
+sub string {
+  return
+    (
+     ''
+     ."PDL::CCS("     .join(',', @{$_[0][$DIMS]}).")\n"
+     .$,." ptr:("    .join(',', $_[0][$PTR]->type,     $_[0][$PTR]->dims)    .")=$_[0][$PTR]\n"
+     .$,." rowids:(" .join(',', $_[0][$ROWIDS]->type,  $_[0][$ROWIDS]->dims) .")=$_[0][$ROWIDS]\n"
+     .$,." nzvals:(" .join(',', $_[0][$NZVALS]->type,  $_[0][$NZVALS]->dims) .")=$_[0][$NZVALS]\n"
+     .$,." missing:(".join(',', $_[0][$MISSING]->type, $_[0][$MISSING]->dims).")=$_[0][$MISSING]\n"
+    );
+}
+
+## $xpdl = $obj->xpdl()
+##  + expanded pdl:
+##    [
+##     [xi yi BAD nzval BAD missing]
+##     ...
+##    ]
+sub xpdl {
+  my $w   = $_[0]->whichND;
+  my $z   = PDL->topdl($_[0][$MISSING]);
+  my $nz  = $_[0][$NZVALS];
+  my $bad = PDL->pdl($nz->type,0)->setvaltobad(0);
+  $w->append($bad)->append($nz->slice("*1,"))->append($bad)->append($z->slice("*1,"));
+}
+
+## $xstr = $obj->xstring()
+##  + string for expanded pdl
+sub xstring { $_[0]->xpdl->string(); }
+
+##--------------------------------------------------------------
+## Operator overloading
+BEGIN {
+  package PDL::CCS::Obj;
+  use overload (
+		"\"\"" => \&string,
+	       );
+}
+
+
+
+package main;
+
+sub ccsobj_data {
+  our $al = pdl(long,
+		[[1,0,0,2],
+		 [0,3,4,0],
+		 [5,0,0,6]]);
+  our $ad = $al->convert(double);
+  our $b  = $al->setvaltobad(0);
+  our $a  = $al;
+}
+
+sub isok {
+  my ($label,$bool) = @_;
+  print "test($label): ", ($bool ? "ok" : "NOT ok"), "\n";
+}
+
+sub test_ccsobj {
+  ccsobj_data();
+  $ccs = PDL::CCS::Obj->newFromDense($a);
+
+  ##-- pdl() [--> PDL::new()]
+  $ccs2 = pdl($ccs);
+  isok("pdl(\$ccs)", "$ccs2" eq "$ccs");
+
+  ##-- toccs(): ok
+  print "a->toccs/my=", (my $tmp=$a->toccs()); ##--ok
+  ##--error:
+  ## + (in cleanup) Error - argument is not a recognised data structure at <<HERE>>
+  ## + solution: override DESTROY()
+  print "a->toccs/lit=", $a->toccs();
+  ##--/error
+  #print "newFromDense(a)=", @{[PDL::CCS::Obj->newFromDense($a)]}; ##-- also error
+  isok("toccs", $a->toccs->string eq $ccs->string);
+
+  ##-- decode()
+  our $ccsd = $ccs->decode();
+  isok("decode", all($ccsd==$a));
+
+  ##-- encode/decode: bad
+  our $bad   = pdl(0)->setvaltobad(0);
+  our $ccsb  = $b->toccs();
+  our $ccsbd = $ccsb->decode();
+  isok("enc/dec:bad:isgood", all($ccsbd->isgood==$b->isgood));
+  isok("enc/dec:bad:values", all($ccsbd->where($b->isgood) == $b->where($b->isgood)));
+
+  ##-- transpose
+  isok("transpose", all($a->transpose == $ccs->transpose->decode));
+
+  ##-- basic properties: ndims, dims, nelem, type
+  isok("ndims", $a->ndims==$ccs->ndims);
+  isok("dims", all(pdl($a->dims)==pdl($ccs->dims)));
+  isok("nelem", $a->nelem==$ccs->nelem);
+  isok("type", $a->type==$ccs->type);
+
+  ##-- which (requires working qsortvec)
+  isok("which", all($a->which->qsort == $ccs->which->qsort));
+  isok("whichND", all($a->whichND->qsortvec == $ccs->whichND->qsortvec));
+
+  ##-- sumover, sumovert
+  isok("sumover",  all($a->sumover == $ccs->sumover));
+  isok("sumovert", all($a->xchg(0,1)->sumover == $ccs->sumovert));
+
+  print "done.\n";
+}
+test_ccsobj();
 
 ##---------------------------------------------------------------------
 ## DUMMY
