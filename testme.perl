@@ -354,15 +354,15 @@ sub decode {
 ## $type = $obj->type()
 sub type { $_[0][$NZVALS]->type; }
 
+## @dims = $obj->dims()
+## ##@dims = $obj->dims(@dims)
+sub dims { @{$_[0][$DIMS]}; }
+
 ## $ndims = $obj->ndims()
 sub ndims { scalar(@{$_[0][$DIMS]}); }
 
 ## $dim = $obj->getdim($dimnum)
 sub getdim { $_[0][$DIMS][$_[1]]; }
-
-## @dims = $obj->dims()
-## @dims = $obj->dims(@dims)
-sub dims { @{$_[0][$DIMS]}; }
 
 ## $nelem = $obj->nelem
 sub nelem { PDL->pdl(PDL::long(),@{$_[0][$DIMS]})->dprod; }

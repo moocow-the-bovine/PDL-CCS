@@ -1,0 +1,342 @@
+##-*- Mode: CPerl -*-
+
+##======================================================================
+## Header Administrivia
+##======================================================================
+
+require "../Version.pm";
+our $VERSION = $PDL::CCS::VERSION;
+pp_setversion($VERSION);
+
+##------------------------------------------------------
+## pm headers
+pp_addpm({At=>'Top'},<<'EOPM');
+
+#use PDL::CCS::Version;
+use strict;
+
+=pod
+
+=head1 NAME
+
+PDL::CCS::Utils - Low-level utilities for compressed storage sparse PDLs
+
+=head1 SYNOPSIS
+
+ use PDL;
+ use PDL::CCS::Utils;
+
+ ##---------------------------------------------------------------------
+ ## ... stuff happens
+
+=cut
+
+EOPM
+## /pm additions
+##------------------------------------------------------
+
+##------------------------------------------------------
+## Exports: None
+#pp_export_nothing();
+
+##------------------------------------------------------
+## Includes / defines
+pp_addhdr(<<'EOH');
+EOH
+
+
+##======================================================================
+## C Utilities
+##======================================================================
+# (none)
+
+##======================================================================
+## PDL::PP Wrappers
+##======================================================================
+
+
+##======================================================================
+## Non-missing Value Counts
+##======================================================================
+
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head1 Non-missing Value Counts
+
+=cut
+
+EOPM
+
+##------------------------------------------------------
+## nnz() : get number of nonzero values
+pp_def('nnz',
+       Pars => 'a(N); int+ [o]nnz()',
+       Code =>
+('
+  $nnz()=0;
+  loop (N) %{
+    if ($a()!=0) ++$nnz();
+  %}
+'),
+       Doc =>
+q(Get number of non-zero values in a PDL $a();
+For 1d PDLs, should be equivalent to:
+
+ $nnz = nelem(which($a!=0));
+
+For k>1 dimensional PDLs, projects via number of nonzero elements
+to N-1 dimensions by computing the number of nonzero elements
+along the the 1st dimension.
+),
+      );
+
+##------------------------------------------------------
+## nnza() : get number of non-approximate zero values
+pp_def('nnza',
+       Pars => 'a(N); eps(); int+ [o]nnz()',
+       Code => ('$nnz()=0; loop (N) %{ if (abs($a()) > $eps()) ++$nnz(); %}'),
+       Doc =>
+q(Like nnz() using tolerance constant $eps().
+For 1d PDLs, should be equivalent to:
+
+ $nnz = nelem(which(!$a->approx(0,$eps)));
+),
+      );
+
+
+##------------------------------------------------------
+## ngoodover() : get number of good values: BUILTIN in PDL::Bad
+#pp_def('ngoodover',
+#       Pars => 'a(N); int+ [o]ngood()',
+#       Code => '$ngood() = $SIZE(N);',
+#       HandleBad=>1,
+#       BadCode=>
+#('
+#  $GENERIC(a) a_val;
+#  threadloop %{
+#   $GENERIC(ngood) ngoodi = 0;
+#   loop(N) %{
+#    a_val = $a();
+#    if ( $ISGOODVAR(a_val,a) ) { ++ngoodi; }
+#   %}
+#   $ngood() = ngoodi;
+#  %}
+#'),
+#       CopyBadStatusCode => '$SETPDLSTATEGOOD(ngood); /* always make sure the output is "good" */',
+#       BadDoc=>'The output PDL $ngood() always has its bad flag cleared.',
+#       Doc =>
+#q(Get number of good elements in a PDL $a();
+#For 1d PDLs, should be equivalent to:
+#
+# $ngood = nelem(which($a->isgood()));
+#
+#For k>1 dimensional PDLs, projects via number of good elements
+#to N-1 dimensions by computing the number of good elements
+#along the the 1st dimension.
+#),
+#      );
+
+
+
+##======================================================================
+## Encoding
+##======================================================================
+
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head1 Encoding Utilities
+
+=cut
+
+EOPM
+
+##------------------------------------------------------
+## ccs_encode_pointers() : get LENGTH-encoded pointer & index translation PDL
+pp_def
+  ('ccs_encode_pointers',
+   Pars => 'int ix(Nnz); int N(); int [o]ptr(Nplus1); int [o]ixix(Nnz);',
+   PMCode=>
+(q{
+ sub PDL::ccs_encode_pointers {
+   my ($ix,$N,$ptr,$ixix) = @_;
+   barf("Usage: ccs_encode_pointers(ix(Nnz), N(), [o]ptr(N), [o]ixix(Nnz)") if (!defined($ix));
+   $N    = $ix->max()+1                               if (!defined($N));
+   $ptr = PDL->zeroes(PDL::long(), $N+1)              if (!defined($ptr));
+   $ixix = PDL->zeroes(PDL::long(), $ix->dim(0))      if (!defined($ixix));
+   &PDL::_ccs_encode_pointers_int($ix,$N,$ptr,$ixix);
+   return ($ptr,$ixix);
+ }
+}),
+   Code =>
+(q(
+ /*-- Local variables --*/
+ long ixval, ixval_next, ixval_prev, nzi, nzj, sizeN=$SIZE(Nplus1)-1, sizeNnz=$SIZE(Nnz);
+ //
+ /*-- Count number of NZs in each column; store in ptr[N=>ixval] --*/
+ loop (Nplus1) %{ $ptr()=0; %}
+ loop (Nnz)    %{ ixval=$ix(); ++$ptr(Nplus1=>ixval); %}
+ //
+ /*-- tweak ptr(): fill each cell with the starting point of the previous row --*/
+ ixval_prev = sizeN-1;
+ $ptr(Nplus1=>sizeN) = sizeNnz - $ptr(Nplus1=>ixval_prev);
+ for (ixval_next=sizeN, ixval=ixval_prev; ixval > 0; ixval_next=ixval--) {
+   ixval_prev = ixval-1;
+   $ptr(Nplus1=>ixval) = $ptr(Nplus1=>ixval_next) - $ptr(Nplus1=>ixval_prev);
+ }
+ $ptr(Nplus1=>0) = 0;
+ //
+ /*-- Assign columns and values --*/
+ for (nzi=0; nzi < sizeNnz; nzi++) {
+   ixval      = $ix(Nnz=>nzi);
+   ixval_next = ixval+1;
+   nzj        = $ptr(Nplus1=>ixval_next)++;
+   $ixix(Nnz=>nzj) = nzi;
+ }
+)),
+  Doc=><<'EOD'
+General CCS encoding utility.
+
+Get a compressed storage "pointer" vector $ptr
+for a dimension of size $N with non-missing values at indices $ix.  Also returns a vector
+$ixix() which may be used as an index for $ix() to align its elements with $ptr()
+along the compressed dimension.
+
+The induced vector $ix-E<gt>index($ixix) is
+guaranteed to be stably sorted along dimension $N():
+
+ \forall $i,$j with 1 <= $i < $j <= $Nnz :
+
+  $ix->index($ixix)->at($i) < $ix->index($ixix)->at($j)   ##-- primary sort on $ix()
+ or
+  $ixix->at($i)             < $ixix->at($j)               ##-- ... stable
+
+EOD
+  );
+
+
+##======================================================================
+## Decoding
+##======================================================================
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head1 Decoding Utilities
+
+=cut
+
+EOPM
+
+##------------------------------------------------------
+## ccs_decode_pointer() : decode a CCS-encoded pointer
+pp_def
+  ('ccs_decode_pointer',
+   Pars => 'int ptr(Nplus1); int proj(Nproj); int [o]projix(NnzProj); int [o]nzix(NnzProj)',
+   PMCode=>
+(q{
+ sub PDL::ccs_decode_pointer {
+   my ($ptr,$proj,$projix,$nzix) = @_;
+   barf("Usage: ccs_decode_pointer(ptr(N+1), proj(Nproj), [o]projix(NnzProj), [o]nzix(NnzProj)")
+     if (!defined($ptr));
+   my ($nnzproj);
+   if (!defined($proj)) {
+     $proj    = PDL->sequence(PDL::long(), $ptr->dim(0)-1);
+     $nnzproj = $ptr->at(-1);
+   }
+   if (!defined($projix) || !defined($nzix)) {
+     $nnzproj = ($ptr->index($proj+1)-$ptr->index($proj))->sum if (!defined($nnzproj));
+     $projix  = PDL->zeroes(PDL::long(), $nnzproj) if (!defined($projix));
+     $nzix    = PDL->zeroes(PDL::long(), $nnzproj) if (!defined($nzix));
+   }
+   &PDL::_ccs_decode_pointer_int($ptr,$proj,$projix,$nzix);
+   return ($projix,$nzix);
+ }
+}),
+   Code =>
+(q(
+ /*-- Local variables --*/
+ long ni,ni_next, nzi,nzi_next, ixi=0, sizeNproj=$SIZE(Nproj), sizeNnzProj=$SIZE(NnzProj);
+ loop (Nproj) %{
+   ni         = $proj();
+   ni_next    = ni+1;
+   nzi        = $ptr(Nplus1=>ni);
+   nzi_next   = $ptr(Nplus1=>ni_next);
+   for ( ; nzi < nzi_next && ixi < sizeNnzProj; nzi++, ixi++) {
+     $projix(NnzProj=>ixi) = Nproj;
+     $nzix(NnzProj=>ixi)   = nzi;
+   }
+ %}
+)),
+  Doc=><<'EOD'
+General CCS decoding utility.
+
+Project indices $proj() from a compressed storage "pointer" vecotr $proj().
+If unspecified, $proj() defaults to:
+
+ sequence($ptr->dim(0))
+
+EOD
+  );
+
+
+##======================================================================
+## Footer Administrivia
+##======================================================================
+
+##------------------------------------------------------
+## pm additions: footer
+pp_addpm(<<'EOPM');
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 ACKNOWLEDGEMENTS
+
+Perl by Larry Wall.
+
+PDL by Karl Glazebrook, Tuomas J. Lukka, Christian Soeller, and others.
+
+=cut
+
+##----------------------------------------------------------------------
+=pod
+
+=head1 KNOWN BUGS
+
+Probably many.
+
+=cut
+
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 AUTHOR
+
+Bryan Jurish E<lt>moocow@ling.uni-potsdam.deE<gt>
+
+=head2 Copyright Policy
+
+Copyright (C) 2007, Bryan Jurish. All rights reserved.
+
+This package is free software, and entirely without warranty.
+You may redistribute it and/or modify it under the same terms
+as Perl itself.
+
+=head1 SEE ALSO
+
+perl(1), PDL(3perl)
+
+=cut
+
+EOPM
+
+
+# Always make sure that you finish your PP declarations with
+# pp_done
+pp_done();
+##----------------------------------------------------------------------
