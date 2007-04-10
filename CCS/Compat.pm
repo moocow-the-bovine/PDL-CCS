@@ -3,14 +3,19 @@
 ## Description: backwards-compatibility hacks for PDL::CCS
 
 package PDL::CCS::Compat;
+use PDL;
+use PDL::VectorValued;
 use PDL::CCS::Version;
 use PDL::CCS::Functions;
 use PDL::CCS::Utils;
-use PDL;
 use strict;
 
 our $VERSION = $PDL::CCS::VERSION;
 our @ISA = ('PDL::Exporter');
+our @ccs_binops = (qw(plus minus mult divide modulo power),
+		   qw(gt ge lt le eq ne spaceship),
+		   qw(and2 or2 xor shiftleft shiftright),
+		  );
 our @EXPORT_OK =
   (
    ##
@@ -26,6 +31,17 @@ our @EXPORT_OK =
    qw(_ccsdecodecols ccsdecodecols),
    qw(ccsdecode ccsdecodefull),
    qw(ccsdecode_g ccsdecodeg ccsdecodefull_g ccsdecodefullg),
+   ##
+   ##-- Indexing
+   qw(ccsiNDtonzi ccsi2dtonzi ccsitonzi),
+   qw(ccswhichND ccswhich2d ccswhichfull ccswhich),
+   qw(ccstranspose ccstransposefull),
+   ##
+   ##-- Lookup
+   qw(ccsget ccsget2d),
+   ##
+   ##-- Operations
+   (map {("ccs${_}_cv","ccs${_}_rv")} (@ccs_binops,qw(add diff))),
   );
 our %EXPORT_TAGS =
   (
@@ -66,7 +82,7 @@ PDL::CCS::Compat - Backwards-compatibility module for PDL::CCS
 
 =for sig
 
-  Signature: (int awhich(Nnz,2); avals(Nnz);
+  Signature: (int awhich(2,Nnz); avals(Nnz);
               int $N; int $M;
               int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz))
 
@@ -301,7 +317,7 @@ following two calls are equivalent (modulo data flow):
 
 =cut
 
-*_ccsdecodecols =
+*_ccsdecodecols
   = *PDL::_ccsencodecols = *PDL::_ccsdecodecols
   = \&ccsdecodecols;
 sub ccsdecodecols {
@@ -405,7 +421,7 @@ sub ccsdecode_g {
 
 
 ##======================================================================
-## Index Conversion: TODO
+## Index Conversion
 ##======================================================================
 =pod
 
@@ -414,21 +430,181 @@ sub ccsdecode_g {
 =cut
 
 ##------------------------------------------------------
-## ccsitonzi() : index conversion: flat
+## ccsiNDtonzi() : index conversion: N-dimensional
+
+=pod
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); int ind(2,I); int missing(); int [o]nzix(I))
+
+=head2 ccsiNDtonzi
+
+Convert N-dimensional index values $ind() appropriate for a dense matrix (N,M)
+into indices $nzix() appropriate for the $rowids() and/or $nzvals() components
+of the CCS-encoded matrix ($ptr(),$rowids(),$nzvals()).
+Missing values are returned in $nzix() as $missing().
+
+=cut
+
+*PDL::ccsiNDtonzi = \&ccsiNDtonzi;
+sub ccsiNDtonzi {
+  my ($ptr,$rowids,$ind, $missing, $nzix) = @_;
+  my ($ptri,$ptrnzi) = ccs_decode_pointer($ptr->append($rowids->nelem));
+  my $ccswnd         = $ptri->cat($rowids->index($ptrnzi))->xchg(0,1)->vv_qsortvec;
+  $nzix              = $ind->vsearchvec($ccswnd);
+  my $nzix_mask      = ($ind==$ccswnd->dice_axis(1,$nzix))->andover;
+  $nzix_mask->inplace->not;
+  $nzix->where($nzix_mask) .= $missing;
+  return $nzix;
+}
 
 ##------------------------------------------------------
 ## ccsi2dtonzi() : index conversion: 2d
 
-##------------------------------------------------------
-## ccswhich*() : get indices
+=pod
+
+=head2 ccsi2dtonzi
+
+=for sig
+
+  Signaure: (int ptr(N); int rowids(Nnz); int col_ix(I); int row_ix(I); int missing(); int [o]nzix(I))
+
+Convert 2d index values $col_ix() and $row_ix() appropriate for a dense matrix (N,M)
+into indices $nzix() appropriate for the $rowids() and/or $nzvals() components
+of the CCS-encoded matrix ($ptr(),$rowids(),$nzvals()).
+Missing values are returned in $nzix() as $missing().
+
+=cut
+
+*PDL::ccsi2dtonzi = \&ccsi2dtonzi;
+sub ccsi2dtonzi {
+  my ($ptr,$rowids,$xi,$yi, $missing, $nzix) = @_;
+  return ccsiNDtonzi($ptr,$rowids, $xi->cat($yi)->xchg(0,1), $missing,$nzix);
+}
 
 
 ##------------------------------------------------------
-## ccswhichfull() : which(): low-level
+## ccsitonzi() : index conversion: flat
+
+=pod
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); int ix(I); int missing(); int [o]nzix(I))
+
+=head2 ccsitonzi
+
+Convert flat index values $ix() appropriate for a dense matrix (N,M)
+into indices $nzix() appropriate for the $rowids() and/or $nzvals() components
+of the CCS-encoded matrix ($ptr(),$rowids(),$nzvals()).
+Missing values are returned in $nzix() as $missing().
+
+=cut
+
+*PDL::ccsitonzi = \&ccsitonzi;
+sub ccsitonzi {
+  my ($ptr,$rowids,$ix, $missing, $nzix) = @_;
+  my $dummy    = pdl(byte,0)->slice("*".($ptr->dim(0)).",*".($rowids->max+1));
+  my ($xi,$yi) = $dummy->one2nd($ix);
+  return ccsiNDtonzi($ptr,$rowids, $xi->cat($yi)->xchg(0,1), $missing,$nzix);
+}
+
+
+
+##------------------------------------------------------
+## ccswhichND: get indices (N-dimensional)
+
+=pod
+
+=head2 ccswhichND
+
+=head2 ccswhich2d
+
+=head2 ccswhichfull
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int [o]which_cols(Nnz); int [o]which_rows(Nnz)',
+
+In scalar context, returns concatenation of $which_cols() and $which_rows(),
+similar to the builtin whichND().  Note however that ccswhichND() may return
+its index PDLs sorted in a different order than the builtin whichND() method
+for dense matrices.  Use the qsort() or qsorti() methods if you need sorted index PDLs.
+
+=cut
+
+*ccswhich2d = *PDL::which2d = *PDL::ccswhichND
+  = *ccswhichfull = *PDL::ccswhichfull
+  = \&ccswhichND;
+sub ccswhichND {
+  my ($ptr,$rowids,$nzvals, $which_cols,$which_rows) = @_;
+  my ($ptrnzi);
+  ($which_cols,$ptrnzi) = ccs_decode_pointer($ptr->append($rowids->nelem),
+					     sequence(long, $ptr->nelem),
+					     $which_cols
+					    );
+  $which_rows  = zeroes(long, $rowids->nelem) if (!defined($which_rows));
+  $which_rows .= $rowids->index($ptrnzi);
+  return wantarray ? ($which_cols,$which_rows) : $which_cols->cat($which_rows)->xchg(0,1);
+}
+
+
+##------------------------------------------------------
+## ccswhich(): get indices (flat)
+
+=head2 ccswhich
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int [o]which(Nnz); int [t]wcols(Nnz)',
+
+Convenience method.
+Calls ccswhichfull(), and scales the output PDLs to correspond to a flat enumeration.
+The output PDL $which() is B<not> guaranteed to be sorted in any meaningful order.
+Use the qsort() method if you need sorted output.
+
+=cut
+
+*PDL::ccswhich = \&ccswhich;
+sub ccswhich {
+  my ($ptr,$rowids,$nzvals, $which, $wcols) = @_;
+  my $nnz = $rowids->dim(0);
+  $which = zeroes(long,$nnz) if (!defined($which));
+  $wcols = zeroes(long,$nnz) if (!defined($wcols));
+  ccswhichfull($ptr,$rowids,$nzvals, $wcols,$which);
+  $which *= $ptr->dim(0);
+  $which += $wcols;
+  return $which;
+}
+
+##------------------------------------------------------
+## ccstranspose() : transposition (convenience)
+
+=pod
+
+=head2 ccstranspose
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int [o]ptrT(M); int [o]rowidsT(Nnz); [o]nzvalsT(Nnz)',
+
+Transpose a compressed matrix.
+
+=cut
+
+*ccstransposefull = *PDL::ccstransposefull = *PDL::ccstranspose = \&ccstranspose;
+sub ccstranspose {
+  my ($ptr,$rowids,$nzvals, $ptrT,$rowidsT,$nzvalsT)=@_;
+  my $N   = $ptr->dim(0);
+  my $M   = defined($ptrT) ? $ptrT->dim(0) : $rowids->max+1;
+  my $wnd = ccswhichND($ptr,$rowids,$nzvals)->slice("1:0,");
+  return ccs_encode_compat($wnd,$nzvals,$M,$N, $ptrT,$rowidsT,$nzvalsT);
+}
 
 
 ##======================================================================
-## Lookup: TODO
+## Lookup
 ##======================================================================
 
 =pod
@@ -438,36 +614,186 @@ sub ccsdecode_g {
 =cut
 
 ##------------------------------------------------------
-## ccsget() : lookup: flat
-
-##------------------------------------------------------
 ## ccsget2d() : lookup: 2d
 
-##======================================================================
-## Operations: TODO
-##======================================================================
 =pod
 
-=head1 Native Operations
+=head2 ccsget2d
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int xvals(I); int yvals(I); missing(); [o]ixvals(I))
+
+Lookup values in a CCS-encoded PDL by 2d source index (no dataflow).
+Pretty much like ccsi2dtonzi(), but returns values instead of indices.
+If you know that your index PDLs $xvals() and $yvals() do not refer to any missing
+values in the CCS-encoded matrix,
+then the following two calls are equivalent (modulo dataflow):
+
+  $ixvals =                ccsget2d   ($ptr,$rowids,$nzvals, $xvals,$yvals,0);
+  $ixvals = index($nzvals, ccsi2dtonzi($ptr,$rowids,         $xvals,$yvals,0));
+
+The difference is that only the second incantation will cause subsequent changes to $ixvals
+to be propagated back into $nzvals.
 
 =cut
 
-##------------------------------------------------------
-## ccstranspose() : transposition (convenience)
+*PDL::ccsget2d = \&ccsget2d;
+sub ccsget2d {
+  my ($ptr,$rowids,$nzvals, $xi,$yi, $missing, $ixnzvals) = @_;
+  my $nzi        = ccsi2dtonzi($ptr,$rowids, $xi,$yi, -1);
+  my $nzi_isgood = ($nzi != -1);
+  $ixnzvals      = zeroes($nzvals->type, $xi->nelem) if (!defined($ixnzvals));
+  $ixnzvals->where( $nzi_isgood) .= $nzvals->index($nzi->where($nzi_isgood));
+  $ixnzvals->where(!$nzi_isgood) .= $missing;
+  return $ixnzvals;
+}
+
 
 ##------------------------------------------------------
-## vector operations, column-vectors
+## ccsget() : lookup: flat
 
-#ccs${opname}_cv()
+=pod
+
+=head2 ccsget
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int ix(I); missing(); [o]ixvals(I))
+
+Lookup values in a CCS-encoded PDL by flat source index (no dataflow).
+Pretty much like ccsitonzi(), but returns values instead of indices.
+If you know that your index PDL $ix() does not refer to any missing
+values in the CCS-encoded matrix,
+then the following two calls are equivalent (modulo dataflow):
+
+  $ixvals =                ccsget   ($ptr,$rowids,$nzvals, $ix,0);
+  $ixvals = index($nzvals, ccsitonzi($ptr,$rowids,         $ix,0))
+
+The difference is that only the second incantation will cause subsequent changes to $ixvals
+to be propagated back into $nzvals.
+
+=cut
+
+*PDL::ccsget = \&ccsget;
+sub ccsget {
+  my ($ptr,$rowids,$nzvals, $ix, $missing, $ixnzvals) = @_;
+  my $nzi        = ccsitonzi($ptr,$rowids, $ix,-1);
+  my $nzi_isgood = ($nzi != -1);
+  $ixnzvals      = zeroes($nzvals->type, $ix->nelem) if (!defined($ixnzvals));
+  $ixnzvals->where( $nzi_isgood) .= $nzvals->index($nzi->where($nzi_isgood));
+  $ixnzvals->where(!$nzi_isgood) .= $missing;
+  return $ixnzvals;
+}
 
 
-##------------------------------------------------------
-## vector operations: row-vectors
+##======================================================================
+## Vector Operations
+##======================================================================
+=pod
 
-#ccs${opname}_rv()
+=head1 Vector Operations
+
+=cut
+
+##======================================================================
+## Vector Operations: Columns
+##======================================================================
+=pod
+
+=head2 ccs${OP}_cv
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals_in(Nnz);  colvec(M);  [o]nzvals_out(Nnz))
+
+Column-vector operation ${OP} on CCS-encoded PDL.
+
+Should do something like the following
+(without decoding the CCS matrix):
+
+ ($colvec ${OP} ccsdecode(\$ptr,\$rowids,\$nzvals))->ccsencode;
+
+Missing values in the CCS-encoded PDL are not affected by this operation.
+
+${OP} is one of the following:
+
+ plus       ##-- addition    (alias: 'add')
+ minus      ##-- subtraction (alias: 'diff')
+ mult       ##-- multiplication (NOT matrix-multiplication)
+ divide     ##-- division    (alias: 'div')
+ modulo     ##-- modulo
+ power      ##-- potentiation
+
+ gt         ##-- greater-than
+ ge         ##-- greater-than-or-equal
+ lt         ##-- less-than
+ le         ##-- less-than-or-equal
+ eq         ##-- equality
+ ne         ##-- inequality
+ spaceship  ##-- 3-way comparison
+
+ and2       ##-- binary AND
+ or2        ##-- binary OR
+ xor        ##-- binary XOR
+ shiftleft  ##-- left-shift
+ shiftright ##-- right-shift
+
+=cut
+
+sub ccs_binop_compat_cv {
+  my $ccsop = shift;
+  return sub { $ccsop->(@_[1,2,3,4]) };
+}
+foreach my $op (@ccs_binops) {
+  eval "*ccs${op}_cv = *PDL::ccs${op}_cv = ccs_binop_compat_cv(\\&PDL::ccs_${op}_vector_ma);";
+}
+*ccsadd_cv = *PDL::ccsadd_cv = \&ccsplus_cv;
+*ccsdiff_cv = *PDL::ccsdiff_cv = \&ccsminus_cv;
+*ccsdiv_cv = *PDL::ccsdiv_cv = \&ccsdivide_cv;
+
+##======================================================================
+## Vector Operations: Rows
+##======================================================================
+=pod
+
+=head2 ccs${OP}_rv
+
+=for sig
+
+  Signature: (int ptr(N); int rowids(Nnz); nzvals_in(Nnz);  rowvec(N);  [o]nzvals_out(Nnz))
+
+Row-vector operation ${OP} on CCS-encoded PDL.
+Should do something like the following (without decoding the CCS matrix):
+
+ ($column->slice("*1,") ${OP} ccsdecode($ptr,$rowids,$nzvals))->ccsencode;
+
+Missing values in the CCS-encoded PDL are not effected by this operation.
+
+See ccs${OP}_cv() above for supported operations.
+
+=cut
+
+sub ccs_binop_compat_rv {
+  my $ccsop = shift;
+  return sub {
+    my $ptr = shift;
+    my ($ptri,$ptrnzi) = ccs_decode_pointer($ptr->append($_[1]->nelem));
+    $ccsop->($ptri, $_[1]->index($ptrnzi), @_[2,3]);
+  };
+}
+foreach my $op (@ccs_binops) {
+  eval "*ccs${op}_rv = *PDL::ccs${op}_rv = ccs_binop_compat_rv(\\&PDL::ccs_${op}_vector_ma);";
+}
+*ccsadd_rv = *PDL::ccsadd_rv = \&ccsplus_rv;
+*ccsdiff_rv = *PDL::ccsdiff_rv = \&ccsminus_rv;
+*ccsdiv_rv = *PDL::ccsdiv_rv = \&ccsdivide_rv;
+
 
 ##------------------------------------------------------
 ## Ufuncs (accumulators)
 
 #ccs${name}over()
 
+
+1; ##-- make perl happy

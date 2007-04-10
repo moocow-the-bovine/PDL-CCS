@@ -34,9 +34,9 @@ use overload (
 ## Globals
 
 our $DIMS    = 0;
-our $XDIMS   = 1; ##-- dimension translation pdl: $whichND_logical = $WHICH->dice_axis(0,$XDIM)
+our $XDIMS   = 1; ##-- dimension translation pdl: $whichND_logical = $WHICH->dice_axis(0,$XDIMS)
 our $WHICH   = 2;
-our $VALS  = 3;
+our $VALS    = 3;
 our $PTRS    = 4;
 
 our $P_BYTE = PDL::byte();
@@ -49,7 +49,8 @@ our $P_LONG = PDL::long();
 ## $obj = $class_or_obj->newFromDense($denseND,$missing);
 ##  + object structure: ARRAY
 ##     $DIMS    => \@dims,     ##-- $dimi => $dim,
-##     $XDIMS   => $xdims,     ##-- pdl(long,$Ndims) s.t. $whichND_logical = $whichND->dice_axis(0,$xdims)
+##     $XDIMS   => $xdims,     ##-- pdl(long,$Ndims) : $LOGICAL_DIM => $PHYSICAL_DIM
+##                             ##   + s.t. $whichND_logical = $whichND->dice_axis(0,$xdims)
 ##     $WHICH   => $whichND,   ##-- pdl(long,$Ndims,$Nnz) ~ $dense_orig->whichND
 ##                             ##   #+ NOT guaranteed to be sorted in any meaningful way
 ##                             ##   + guaranteed to be sorted as for qsortvec() specs
@@ -82,8 +83,38 @@ sub newFromDense {
   return $self;
 }
 
+## $obj = $class_or_obj->newFromWhich($whichND,$nzvals,%options);
+## $obj = $class_or_obj->newFromWhich($whichND,$nzvals);
+##  + %options:
+##     dims    => \@dims,   ##-- dimension list; default guessed from $whichND
+##     missing => $missing, ##-- default: BAD if $nzvals->badflag, 0 otherwise
+##     xdims   => $xdims,   ##-- dimension translation PDL (default: sequence($ndims)) : $LOGICAL_DIM => $PHYSICAL_DIM
+##  + no dataflow!
+sub newFromWhich {
+  my ($that,$wnd,$nzvals,%opts) = @_;
+  my $missing = (defined($opts{missing})
+		 ? PDL->pdl($nzvals->type,$opts{missing})
+		 : ($nzvals->badflag
+		    ? PDL->pdl($nzvals->type,0)->setvaltobad(0)
+		    : PDL->pdl($nzvals->type,0)));
+  my $dims  = ( defined($opts{dims})  ? $opts{dims}  : [($wnd->xchg(0,1)->maximum+1)->list]  );
+  my $xdims = ( defined($opts{xdims}) ? $opts{xdims} : PDL->sequence($P_LONG,scalar(@$dims)) );
+  $wnd     = $wnd->dice_axis(0,$xdims);
+  my $wi   = $wnd->qsortveci;
+  $wnd     = $wnd->dice_axis(1,$wi)->pdl();         ##-- copy!
+  $nzvals  = $nzvals->index($wi)->append($missing); ##-- copy (b/c append)
+  my $self = bless [], ref($that)||$that;
+  $self->[$DIMS]    = $dims;
+  $self->[$XDIMS]   = PDL->sequence($P_LONG,scalar(@$dims));
+  $self->[$WHICH]   = $wnd;
+  $self->[$VALS]    = $nzvals;
+  $self->[$PTRS]    = [];
+  return $self;
+}
+
 ## DESTROY : avoid PDL inheritanc
 sub DESTROY { ; }
+
 
 ## $ccs = $pdl->toccs()
 ## $ccs = $pdl->toccs($missing)
@@ -107,11 +138,11 @@ sub copy {
   return $ccs2;
 }
 
-## $ccs2 = $ccs->shadow()
+## $ccs2 = $ccs->copyShallow()
 ##  + a very shallow version of copy()
 ##  + Copied    : @$DIMS, @$PTRS, @{$PTRS->[*]}
 ##  + Referenced: $XDIMS, $WHICH, $VALS,  $PTRS->[*][*]
-sub shadow {
+sub copyShallow {
   my $ccs = bless [@{$_[0]}], ref($_[0]);
   ##
   ##-- do copy some of it
@@ -119,6 +150,24 @@ sub shadow {
   #$ccs->[$XDIMS] = $ccs->[$XDIMS]->pdl;
   $ccs->[$PTRS]  = [ map {defined($_) ? [@$_] : undef} @{$ccs->[$PTRS]} ];
   $ccs;
+}
+
+## $ccs2 = $ccs->shadow(%args)
+##  + args:
+##     dims  => \@dims,   ##-- defaul: [@$dims1]
+##     xdims => $xdims2,  ##-- default: $xdims1->pdl
+##     ptrs  => \@ptrs2,  ##-- default: []
+##     which => $which2,  ##-- default: undef
+##     vals  => $vals2,   ##-- default: undef
+sub shadow {
+  my ($ccs,%args) = @_;
+  my $ccs2        = bless [], ref($ccs)||$ccs;
+  $ccs2->[$DIMS]  = defined($args{dims})  ? $args{dims}  : [@{$ccs->[$DIMS]}];
+  $ccs2->[$XDIMS] = defined($args{xdims}) ? $args{xdims} : $ccs->[$XDIMS]->pdl;
+  $ccs2->[$PTRS]  = $args{ptrs}  ? $args{ptrs} : [];
+  $ccs2->[$WHICH] = $args{which};
+  $ccs2->[$VALS]  = $args{vals};
+  return $ccs2;
 }
 
 ##--------------------------------------------------------------
@@ -129,9 +178,9 @@ sub shadow {
 ##  + may be DANGEROUS to indexing methods, b/c it alters $VALS
 ##  + clears pointers
 sub sortwhich {
-  my $sorti      = $_[0][$WHICH]->qsortveci;
-  $_[0][$WHICH]  = $_[0][$WHICH]->dice_axis(1,$sorti);
-  $_[0][$VALS] = $_[0][$VALS]->index($sorti->append($_[0][$WHICH]->dim(1)));
+  my $sorti     = $_[0][$WHICH]->qsortveci;
+  $_[0][$WHICH] = $_[0][$WHICH]->dice_axis(1,$sorti);
+  $_[0][$VALS]  = $_[0][$VALS]->index($sorti->append($_[0][$WHICH]->dim(1)));
 #  foreach (grep {defined($_)} @{$_[0][$PTRS]}) {
 #    $_->[1]->index($sorti) .= $_->[1]; ##-- dangerous
 #  }
@@ -268,7 +317,7 @@ sub getptr { ccs_encode_pointers($_[0][$WHICH]->slice("($_[1]),"), $_[0][$DIMS][
 
 ## $ccs2 = $ccs->reorder_pdl($dimpdl)
 sub reorder_pdl {
-  my $ccs2 = $_[0]->shadow;
+  my $ccs2 = $_[0]->copyShallow;
   $ccs2->[$XDIMS] = $ccs2->[$XDIMS]->index($_[1]);
   $ccs2->[$XDIMS]->sever;
   $ccs2;
@@ -309,7 +358,8 @@ sub transpose { return $_[0]->xchg(0,1)->copy; }
 sub indexNDi {
   my $foundi       = $_[1]->vsearchvec($_[0][$WHICH]);
   my $foundi_mask  = ($_[1]==$_[0][$WHICH]->dice_axis(1,$foundi))->andover;
-  $foundi->where(!$foundi_mask) .= $_[0][$WHICH]->dim(1);
+  $foundi_mask->inplace->not;
+  $foundi->where($foundi_mask) .= $_[0][$WHICH]->dim(1);
   return $foundi;
 }
 
@@ -398,7 +448,7 @@ sub compressionRate {
 		 + PDL->pdl($ccs->[$VALS]->nelem)  * PDL::howbig($ccs->[$VALS]->type)
 		 + PDL->pdl($ccs->[$XDIMS]->nelem) * PDL::howbig($ccs->[$XDIMS]->type)
 		);
-  return sclr(($dsize - $ccssize) / $dsize);
+  return (($dsize - $ccssize) / $dsize)->sclr;
 }
 
 ##--------------------------------------------------------------
@@ -407,15 +457,15 @@ sub compressionRate {
 ## $str = $obj->string()
 sub string {
   my $whichstr = ''.$_[0][$WHICH]->dice_axis(0,$_[0][$XDIMS])->xchg(0,1);
-  $whichstr =~ s/^/$,  /mg;
+  $whichstr =~ s/^([^A-Z])/$,  $1/mg;
   #$whichstr =~ s/^\s*?\n\s*//mg;
   chomp($whichstr);
   return
     (
      ''
      ."PDL::CCS(".join(',', @{$_[0][$DIMS]}[$_[0][$XDIMS]->list]).")\n"
-     .$,." which:(".join(',', $_[0][$WHICH]->type,  $_[0][$WHICH]->dims).")^T=$whichstr\n"
-     .$,." nzvals:(" .join(',', $_[0][$VALS]->type,   $_[0][$VALS]->dims).")=$_[0][$VALS]\n"
+     .$,." which:(".join(',', $_[0][$WHICH]->type, $_[0][$WHICH]->dims).")^T=$whichstr\n"
+     .$,." nzvals:(" .join(',', $_[0][$VALS]->type,  $_[0][$VALS]->dims).")=$_[0][$VALS]\n"
     );
 }
 

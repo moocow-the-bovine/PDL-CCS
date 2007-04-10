@@ -8,11 +8,22 @@ use PDL::CCS::Utils;
 use PDL::CCS::Functions;
 use PDL::CCS::Compat;
 use PDL::CCS::Nd;
+use Storable qw(store retrieve);
+use PDL::IO::Storable;
 use Data::Dumper;
 
 BEGIN {
   $, = ' ';
   our $eps=1e-6;
+
+  our $DIMS  = $PDL::CCS::Nd::DIMS;
+  our $XDIMS = $PDL::CCS::Nd::XDIMS;
+  our $WHICH = $PDL::CCS::Nd::WHICH;
+  our $VALS  = $PDL::CCS::Nd::VALS;
+  our $PTRS  = $PDL::CCS::Nd::PTRS;
+
+  our $P_BYTE = PDL::byte();
+  our $P_LONG = PDL::long();
 }
 
 ##---------------------------------------------------------------------
@@ -48,12 +59,131 @@ sub test_data_1 {
 		       ]);
   our $a = $p;
 }
-
 sub test_data_2 {
   our $a = pdl([[1,0,0,2],
 		[0,3,4,0],
 		[5,0,0,6]]);
 }
+sub test_data_bg {
+  our $bgdata      = Storable::retrieve("bgdata.bin");
+  our ($bgw,$bgnz) = @$bgdata{qw(which nzvals)};
+  our $bgccs       = PDL::CCS::Nd->newFromWhich($bgw,$bgnz);
+}
+#test_data_bg();
+
+##---------------------------------------------------------------------
+## CCS: operatopns
+
+sub test_ops_1 {
+  test_data_1;
+  our $ccs = $a->toccs;
+  our $xv = 1+sequence($a->type,  $a->dim(0));
+  our $yv = 1+sequence($a->type,1,$a->dim(1));
+  our @ccs = ccsencode($a);
+
+  ##-- test: add: column vector (missing values are ignored : MISSING~annihilator)
+  our ($ccs_xi,$ccs_yi,$newvals,$ccs2);
+
+  ##-- plus: compat
+  isok("compat:add_rv",  all( ccsdecode(@ccs[0,1],ccsadd_rv(@ccs,$xv)) == ($a+$xv)*($a!=0) ));
+  isok("compat:add_cv",  all( ccsdecode(@ccs[0,1],ccsadd_cv(@ccs,$yv->flat))==($a+$yv)*($a!=0) ));
+  isok("compat:mult_rv", all( ccsdecode(@ccs[0,1],ccsmult_rv(@ccs,$xv)) == ($a*$xv)*($a!=0) ));
+  isok("compat:mult_cv", all( ccsdecode(@ccs[0,1],ccsmult_cv(@ccs,$yv->flat))==($a*$yv)*($a!=0) ));
+
+  ##-- test: using wrappers in PDL::CCS::Functions
+  ##
+  ##-- plus
+  $newvals = ccs_plus_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:plus::xv:missing~annihilator", all(($ccs2->decode==($a+$xv))->or2($a==0,0)));
+  $newvals = ccs_plus_vector_ma($ccs->[$WHICH]->slice("(1)"), $ccs->nzvals, $yv->flat);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:plus:yv:missing~annihilator", all(($ccs2->decode==($a+$yv))->or2($a==0,0)));
+
+  ##-- minus
+  $newvals = ccs_minus_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:minus::xv:missing~annihilator", all(($ccs2->decode==($a-$xv))->or2($a==0,0)));
+
+  ##-- mult
+  $newvals = ccs_mult_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:mult::xv:missing~annihilator", all($ccs2->decode==($a*$xv)));
+  $newvals = ccs_mult_vector_ma($ccs->[$WHICH]->slice("(1),"), $ccs->nzvals, $yv->flat);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:mult::xv:missing~annihilator", all($ccs2->decode==($a*$yv)));
+
+  ##-- divide
+  $newvals = ccs_divide_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:divide::xv:missing~annihilator", all( $ccs2->decode==($a/$xv) ));
+
+  ##-- modulo
+  $newvals = ccs_modulo_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:modulo::xv:missing~annihilator", all( $ccs2->decode==($a%$xv) ));
+
+  ##-- power
+  $newvals = ccs_power_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:power::xv:missing~annihilator", all( $ccs2->decode==($a**$xv) ));
+
+  ##---------------------------
+  ## Comparisons
+  $newvals = ccs_le_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:le::xv:missing~annihilator", all( ($ccs2->decode==($a <= $xv))->or2($a==0,0) ));
+
+  $newvals = ccs_lt_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:lt::xv:missing~annihilator", all( ($ccs2->decode==($a < $xv))->or2($a==0,0) ));
+
+  $newvals = ccs_ge_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:ge::xv:missing~annihilator", all( ($ccs2->decode==($a >= $xv))->or2($a==0,0) ));
+
+  $newvals = ccs_gt_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:gt::xv:missing~annihilator", all( ($ccs2->decode==($a > $xv))->or2($a==0,0) ));
+
+  $newvals = ccs_eq_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:eq::xv:missing~annihilator", all( ($ccs2->decode==($a == $xv))->or2($a==0,0) ));
+
+  $newvals = ccs_ne_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:ne::xv:missing~annihilator", all( ($ccs2->decode==($a != $xv))->or2($a==0,0) ));
+
+  $newvals = ccs_spaceship_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:spaceship::xv:missing~annihilator", all( ($ccs2->decode==($a <=> $xv))->or2($a==0,0) ));
+
+  ##---------------------------
+  ## Logic / Bitwise
+  our $xbv = $xv % 2;
+
+  $newvals = ccs_and2_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xbv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:and2::xv:missing~annihilator", all( $ccs2->decode==$a->and2($xbv,0) ));
+
+  $newvals = ccs_or2_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xbv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:or2::xv:missing~annihilator", all( ($ccs2->decode==($a->or2($xbv,0)))->or2($a==0,0) ));
+
+  $newvals = ccs_xor_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xbv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:xor:xv:missing~annihilator", all( ($ccs2->decode==($a->xor($xbv,0)))->or2($a==0,0) ));
+
+  $newvals = ccs_shiftleft_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:shiftleft:xv:missing~annihilator", all(  $ccs2->decode==($a << $xv) ));
+
+  $newvals = ccs_shiftright_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
+  isok("ccs:shiftright:xv:missing~annihilator", all( $ccs2->decode==($a >> $xv) ));
+}
+test_ops_1();
+
 
 ##---------------------------------------------------------------------
 ## test: non-zero
@@ -125,6 +255,9 @@ sub test_ccs_encode_pointers {
 }
 #test_ccs_encode_pointers;
 
+##---------------------------------------------------------------------
+## CCS: Compat (& lots of other stuff)
+
 sub test_ccs_compat {
   test_data_1();
 
@@ -148,8 +281,8 @@ sub test_ccs_compat {
 
   ##-- object: re-sort : BROKEN
   if (0) {
-    ($pix,$pnzix)   = $ccs->ptr(0),
-      our ($pix0,$pnzix0) = map {$_->pdl} ($pix,$pnzix);
+    ($pix,$pnzix)   = $ccs->ptr(0);
+    our ($pix0,$pnzix0) = map {$_->pdl} ($pix,$pnzix);
     $cwhich  = $ccs->whichND;
     our $cwhich0 = $ccs->whichND->pdl;
     isok("resort:pre:pointer", all($cwhich->dice_axis(1,$pnzix)==$cwhich->vv_qsortvec));
@@ -305,6 +438,18 @@ sub test_ccs_compat {
   isok("ccs_encode/compat:i2d:ptr",    all($ptr==$ptr_want));
   isok("ccs_encode/compat:i2d:rowids", all($rowids==$rowids_want));
   isok("ccs_encode/compat:i2d:nzvals", all($nzvals==$nzvals_want));
+
+  ##-- lookup: compat
+  @ccs = ($ptr,$rowids,$nzvals) = ccsencode($a);
+  isok("compat:which",    all(ccswhich(@ccs)->qsort == $a->which->qsort));
+  isok("compat:whichND",  all(ccswhichND(@ccs)->vv_qsortvec == $a->whichND->vv_qsortvec));
+  isok("compat:get:good", all(ccsget(@ccs,$a->which,0) == $a->flat->index($a->which)));
+  isok("compat:get:bad",  all(ccsget(@ccs,(($a->which+1)%$a->nelem),0) == $a->flat->index(($a->which+1)%$a->nelem)));
+  our ($xi,$yi) = $a->whichND->xchg(0,1)->dog;
+  isok("compat:get2d:good", all(ccsget2d(@ccs,$xi,$yi) == $a->index2d($xi,$yi)));
+  isok("compat:get2d:bad",  all(ccsget2d(@ccs,$xi,$yi->rotate(1)) == $a->index2d($xi,$yi->rotate(1))));
+  our @ccsT = our ($ptrT,$rowidsT,$nzvalsT) = ccstranspose(@ccs);
+  isok("compat:transpose", all(ccsdecode(@ccsT)==$a->xchg(0,1)));
 }
 test_ccs_compat();
 
