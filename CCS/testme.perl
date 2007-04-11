@@ -72,7 +72,92 @@ sub test_data_bg {
 #test_data_bg();
 
 ##---------------------------------------------------------------------
-## CCS: operatopns
+## CCS: Ufuncs
+
+sub test_ufuncs_1 {
+  test_data_1;
+  our $ccs = $a->toccs;
+
+  our ($ix_out,$nzvals_out,$nnz_out);
+
+  ##-- test: ccs_accum_*: sum
+  our $which   = $ccs->whichND;
+  our $which0  = $which->slice("(0),");
+  our $which1  = $which->slice("1:-1");
+  our $whichi1 = $which1->qsortveci;
+  $which1      = $which1->dice_axis(1,$whichi1);
+  our $nzvals1 = $ccs->nzvals->index($whichi1);
+
+  ($ix_out,$nzvals_out,$nnz_out) = ccs_accum_sum($which1,$nzvals1, 0,$a->dim(0));
+  isok("ccs_accum_sum:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$a->sumover));
+
+  ##-- test: ccs_accum_*: sum (+missing)
+  our $missing2 = 42;
+  $a2 = $a->pdl;
+  $a2->where($a==0) .= $missing2;
+  ($ix_out2,$nzvals_out2) = ccs_accum_sum($which1,$nzvals1, $missing2,$a->dim(0));
+  isok("ccs_accum_sum:missing=$missing2", all(ccs_decode($ix_out2,$nzvals_out2)==$a2->sumover));
+
+  ##-- test: ccs_accum: prod
+  ($ix_out,$nzvals_out,$nnz_out) = ccs_accum_prod($which1,$nzvals1, 0,$a->dim(0));
+  isok("ccs_accum_prod:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$a->prodover));
+  ($ix_out2,$nzvals_out2) = ccs_accum_prod($which1,$nzvals1, $missing2,$a->dim(0));
+  isok("ccs_accum_prod:missing=$missing2", all(ccs_decode($ix_out2,$nzvals_out2)==$a2->prodover));
+
+  ##-- test: ccs_accum: dprod
+  our ($la,$la2);
+  $la  = $a->long;
+  $la2 = $a2->long;
+  $lnzvals1 = $nzvals1->long;
+  ($ix_out2,$nzvals_out2) = ccs_accum_prod($which1,$lnzvals1, $missing2,$a->dim(0));
+  isok("ccs_accum_prod:type", $nzvals_out2->type==$lnzvals1->type);
+  ($ix_out2,$nzvals_out2) = ccs_accum_dprod($which1,$lnzvals1, $missing2,$a->dim(0));
+  isok("ccs_accum_dprod:type", $lnzvals1->type==long && $nzvals_out2->type==double);
+  isok("ccs_accum_dprod:data", all(ccs_decode($ix_out2,$nzvals_out2)==$a2->dprodover));
+
+  ##-- test: ccs_accum: andover
+  our ($ba,$ba2,$bwhich,$bwhich0,$bwhich1,$bnzvals1);
+  $ba = $a->long;
+  $ba->where(($a==0) & ($a->xvals%2==0)) .= 255;
+  $ba2 = $ba->pdl;
+  $ba2->where($ba==0) .= $missing2;
+  $bwhich  = $ba->whichND;
+  our $bwhichi1 = $bwhich->slice("-1:0,")->qsortveci;
+  $bwhich   = $bwhich->dice_axis(1,$bwhichi1);
+  $bwhich0  = $bwhich->slice("0,");
+  $bwhich1  = $bwhich->slice("1:-1,");
+  $bnzvals1 = $ba->indexND($bwhich);
+
+  ($ix_out,$nzvals_out) = ccs_accum_and($bwhich1,$bnzvals1, 0,$ba->dim(0));
+  isok("ccs_accum_and:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$ba->andover));
+  ($ix_out,$nzvals_out) = ccs_accum_and($bwhich1,$bnzvals1, $missing2,$ba->dim(0));
+  isok("ccs_accum_and:missing=$missing2", all(ccs_decode($ix_out,$nzvals_out)==$ba2->andover));
+
+  ($ix_out,$nzvals_out) = ccs_accum_or($bwhich1,$bnzvals1, 0,$ba->dim(0));
+  isok("ccs_accum_or:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$ba->orover));
+  ($ix_out,$nzvals_out) = ccs_accum_or($bwhich1,$bnzvals1, $missing2,$ba->dim(0));
+  isok("ccs_accum_or:missing=$missing2", all(ccs_decode($ix_out,$nzvals_out)==$ba2->orover));
+
+  ($ix_out,$nzvals_out) = ccs_accum_band($bwhich1,$bnzvals1, 0,$ba->dim(0));
+  isok("ccs_accum_band:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$ba->bandover));
+  ($ix_out,$nzvals_out) = ccs_accum_band($bwhich1,$bnzvals1, $missing2,$ba->dim(0));
+  isok("ccs_accum_band:missing=$missing2", all(ccs_decode($ix_out,$nzvals_out)==$ba2->bandover));
+
+  ($ix_out,$nzvals_out) = ccs_accum_bor($bwhich1,$bnzvals1, 0,$ba->dim(0));
+  isok("ccs_accum_bor:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$ba->borover));
+  ($ix_out,$nzvals_out) = ccs_accum_bor($bwhich1,$bnzvals1, $missing2,$ba->dim(0));
+  isok("ccs_accum_bor:missing=$missing2", all(ccs_decode($ix_out,$nzvals_out)==$ba2->borover));
+
+  ##-- TODO:
+  ##  + extrema    : minimum, maximum, *_ind
+  ##  + stats      : average, daverage, medover, oddmedover, pctover, median
+  ##  + cumulative": ccs_accum_cumusum, ccs_accum_cumuprod, ..
+  print "ufuncs: all done.\n";
+}
+test_ufuncs_1();
+
+##---------------------------------------------------------------------
+## CCS: operations
 
 sub test_ops_1 {
   test_data_1;

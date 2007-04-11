@@ -1,0 +1,224 @@
+#$::PP_VERBOSE=1;
+vvpp_def('ccs_accum_plus',
+	 Pars => (join(";\n    ",
+		       '',
+		       'int ixIn(Ndims,NnzIn)',       ##-- sorted nz-indices of projected dimensions (1..Ndims), with repeats
+		       'nzvalsIn(NnzIn)',             ##-- all nz-values
+		       'missing()',                   ##-- missing value         (default: $PDL::undefval (0))
+		       'int N()',                     ##-- size of 0th dimension (<=0 to ignore missing values)
+		       'int [o]ixOut(Ndims,NnzOut)',  ##-- unique indices of projected dimensions
+		       '    [o]nzvalsOut(NnzOut)',    ##-- unique nz-values of projected dimensions containing at least 1 input nz
+                       'int [o]nUniqueOut()',         ##-- number of unique output index-vectors
+		       '')),
+	 PMCode =>
+(q(
+ sub PDL::ccs_accum_plus {
+   my ($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nUniqueOut) = @_;
+   my ($ndims,@nnzIn) = $ixIn->dims;
+   my (@nnzOut);
+   if (defined($ixOut)) {
+     @nnzOut = $ixOut->dims;
+     shift(@nnzOut);
+   }
+   @nnzOut = $nzvalsOut->dims if (!@nnzOut && defined($nzvalsOut) && !$nzvalsOut->isempty);
+   @nnzOut = @nnzIn           if (!@nnzOut);
+   $ixOut      = PDL->zeroes(PDL::long(), $ndims,@nnzOut) if (!defined($ixOut)      || $ixOut->isempty);
+   $nzvalsOut  = PDL->zeroes($nzvalsIn->type, @nnzOut)    if (!defined($nzvalsOut)  || $nzvalsOut->isempty);
+   $nUniqueOut = PDL->pdl(PDL::long(),0)                  if (!defined($nUniqueOut) || $nUniqueOut->isempty);
+   ##
+   ##-- guts
+   &PDL::_ccs_accum_plus_int($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nUniqueOut);
+   ##
+   ##-- auto-trim
+   $ixOut      = $ixOut->slice(",0:".($nUniqueOut-1));
+   $nzvalsOut  = $nzvalsOut->slice("0:".($nUniqueOut-1));
+   ##
+   ##-- return
+   return wantarray ? ($ixOut,$nzvalsOut,$nUniqueOut) : $nzvalsOut;
+ }
+)),
+	 Code =>
+(q(
+ long nnzii_prev, nnzii, nnzoi=0;
+ long sizeNnzIn=$SIZE(NnzIn), sizeNnzOut=$SIZE(NnzOut), nMissing, nMissingInit;
+ int ival1,ival2,cmpval, carp_unsorted=0;
+ $GENERIC() tmp, missingOut;
+ //
+ //-- init
+ if ($N() > 0) { missingOut = $N() * $missing(); }
+ else          { missingOut = $missing(); }
+ nMissingInit = $N()-1;
+ nMissing     = nMissingInit;
+ tmp          = $nzvalsIn(NnzIn=>0);
+ //
+ //-- loop
+ for (nnzii_prev=0,nnzii=1; nnzii<sizeNnzIn && nnzoi<sizeNnzOut; nnzii_prev=nnzii++) {
+   $CMPVEC('$ixIn(NnzIn=>nnzii)','$ixIn(NnzIn=>nnzii_prev)','Ndims','cmpval',var1=>'ival1',var2=>'ival2');
+   if (cmpval > 0) {
+     //-- CASE: ix > ix_prev : insert accumulated value
+     if (nMissing>0) { tmp += nMissing * $missing(); }
+     if (tmp != missingOut) {
+       //-- don't insert "missing" output values
+       loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = $ixIn(NnzIn=>nnzii_prev); %}
+       $nzvalsOut(NnzOut=>nnzoi) = tmp;
+       nnzoi++;
+     }
+     //
+     // ... and reset temps
+     tmp      = $nzvalsIn(NnzIn=>nnzii);
+     nMissing = nMissingInit;
+   }
+   else if (cmpval <= 0) {
+     // CASE: ix >= ix_prev : accumulate to temps
+     tmp += $nzvalsIn(NnzIn=>nnzii);
+     nMissing--;
+     if (cmpval < 0) { carp_unsorted=1; } /*-- CASE: ix < ix_prev : GARBAGE (treat as equal) --*/
+   }
+ }
+ //
+ //-- sanity check
+ if (nnzii<sizeNnzIn) {
+   warn("PDL::ccs_accum_plus(): too few output values provided: some input values were ignored");
+ }
+ //
+ //-- set final computed output values
+ if (nMissing>0) { tmp += nMissing * $missing(); }
+ if (tmp != missingOut) {
+   loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = $ixIn(NnzIn=>nnzii_prev); %}
+   $nzvalsOut(NnzOut=>nnzoi) = tmp;
+   nnzoi++;
+ }
+ $nUniqueOut() = nnzoi;
+ //
+ //-- set any remaining output values to 0 (indices) or "N*missing" (values)
+ for ( ; nnzoi<sizeNnzOut; nnzoi++) {
+   loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = 0; %}
+   $nzvalsOut(NnzOut=>nnzoi) = missingOut;
+ }
+ //
+ //-- carp?
+ if (carp_unsorted) {
+   warn("PDL::ccs_accum_plus(): unsorted input vector list detected: output will be incorrect");
+ }
+)),
+  Doc => <<EOD,
+
+Accumulated sum over values $nzvalsIn() associated with vector-valued keys $ixIn().
+On return,
+$ixOut() holds the unique non-"missing" values of $ixIn(),
+$nzvalsOut() holds the associated values,
+and
+$nUniqueOut() stores the number of unique non-missing values computed.
+
+If $N() is specified and greater than zero, then the quantity
+
+ ($N - (rlevec($ixIn))[0]) * $missing
+
+is added to $nzvalsOut: this makes sense if you are summing over a virtual
+dimension in a sparse index-encoded PDL (see PDL::CCS::Nd for a wrapper class).
+
+Returned PDLs are implicitly sliced such that NnzOut==$nUniqueOut().
+
+In scalar context, returns only $nzvalsOut().
+
+EOD
+  ); ##--/ccs_accum_plus
+
+
+
+#$::PP_VERBOSE=1;
+vvpp_def('ccs_accum_plus',
+	 Pars => (join(";\n    ",
+		       '',
+		       'int ixIn(Ndims,NnzIn)',
+		       'nzvalsIn(NnzIn)',
+		       'int [o]ixOut(Ndims,NnzOut)',
+		       '    [o]nzvalsOut(NnzOut)',
+		       'int [o]ixrunlenOut(NnzOut)',
+		       '')),
+	 PMCode =>
+(q(
+ sub PDL::ccs_accum_plus {
+   my ($ixIn,$nzvalsIn, $ixOut,$nzvalsOut,$runlenOut) = @_;
+   my ($ndims,@nnzIn) = $ixIn->dims;
+   my (@nnzOut);
+   if (defined($ixOut)) {
+     @nnzOut = $ixOut->dims;
+     shift(@nnzOut);
+   }
+   @nnzOut = $nzvalsOut->dims if (!@nnzOut && defined($nzvalsOut) && !$nzvalsOut->isempty);
+   @nnzOut = $runlenOut->dims if (!@nnzOut && defined($runlenOut) && !$runlenOut->isempty);
+   my ($autotrim);
+   if (!@nnzOut) {
+     @nnzOut   = @nnzIn;
+     $autotrim = 1;
+   }
+   $ixOut      = PDL->zeroes(PDL::long(), $ndims,@nnzOut) if (!defined($ixOut) || $ixOut->isempty);
+   $nzvalsOut  = PDL->zeroes($nzvalsIn->type, @nnzOut)    if (!defined($nzvalsOut) || $nzvalsOut->isempty);
+   $runlenOut  = PDL->zeroes(PDL::long(), @nnzOut)        if (!defined($runlenOut) || $runlenOut->isempty);
+   &PDL::_ccs_accum_plus_int($ixIn,$nzvalsIn,$ixOut,$nzvalsOut,$runlenOut);
+   if ($autotrim) {
+     my $ntrimmed = $runlenOut->nnz->max-1;
+     $ixOut       = $ixOut->slice(",0:$ntrimmed");
+     $nzvalsOut   = $nzvalsOut->slice("0:$ntrimmed");
+     $runlenOut   = $runlenOut->slice("0:$ntrimmed");
+   }
+   return wantarray ? ($ixOut,$nzvalsOut,$runlenOut) : $nzvalsOut;
+ }
+)),
+	 Code =>
+(q(
+ long nnzii_prev, nnzii, nnzoi=0, ixrunlen=1;
+ long sizeNnzIn=$SIZE(NnzIn), sizeNnzOut=$SIZE(NnzOut);
+ int ival1,ival2,cmpval, carp_unsorted=0;
+ $GENERIC() tmp;
+ //
+ //-- init
+ tmp = $nzvalsIn(NnzIn=>0);
+ //
+ //-- loop
+ for (nnzii_prev=0,nnzii=1; nnzii<sizeNnzIn && nnzoi<sizeNnzOut; nnzii_prev=nnzii++) {
+   $CMPVEC('$ixIn(NnzIn=>nnzii)','$ixIn(NnzIn=>nnzii_prev)','Ndims','cmpval',var1=>'ival1',var2=>'ival2');
+   if (cmpval > 0) {
+     //-- CASE: ix > ix_prev : insert accumulated value
+     loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = $ixIn(NnzIn=>nnzii_prev); %}
+     $nzvalsOut(NnzOut=>nnzoi)   = tmp;
+     $ixrunlenOut(NnzOut=>nnzoi) = ixrunlen;
+     //
+     // ... and reset temps
+     tmp      = $nzvalsIn(NnzIn=>nnzii);
+     ixrunlen = 1;
+     nnzoi++;
+   }
+   else if (cmpval <= 0) {
+     // CASE: ix >= ix_prev : accumulate to temps
+     tmp += $nzvalsIn(NnzIn=>nnzii);
+     ixrunlen++;
+     if (cmpval < 0) { carp_unsorted=1; } /*-- CASE: ix < ix_prev : GARBAGE (treat as equal) --*/
+   }
+ }
+ //
+ //-- sanity check
+ if (nnzii<sizeNnzIn) {
+   warn("PDL::ccs_accum_plus(): too few output values provided: some input values were ignored");
+ }
+ //
+ //-- set final computed output values
+ loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = $ixIn(NnzIn=>nnzii_prev); %}
+ $nzvalsOut(NnzOut=>nnzoi)   = tmp;
+ $ixrunlenOut(NnzOut=>nnzoi) = ixrunlen;
+ //
+ //-- set any remaining output values to zero
+ for (nnzoi++; nnzoi<sizeNnzOut; nnzoi++) {
+   loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = 0; %}
+   $nzvalsOut(NnzOut=>nnzoi)   = 0;
+   $ixrunlenOut(NnzOut=>nnzoi) = 0;
+ }
+ //
+ //-- carp?
+ if (carp_unsorted) {
+   warn("PDL::ccs_accum_plus(): unsorted input vector list detected: output will be incorrect");
+ }
+)),
+  Doc => 'undocumented',
+  ); ##--/ccs_accum_plus
