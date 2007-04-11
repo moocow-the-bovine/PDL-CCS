@@ -148,8 +148,20 @@ sub test_ufuncs_1 {
   ($ix_out,$nzvals_out) = ccs_accum_bor($bwhich1,$bnzvals1, $missing2,$ba->dim(0));
   isok("ccs_accum_bor:missing=$missing2", all(ccs_decode($ix_out,$nzvals_out)==$ba2->borover));
 
+  ##-- test: ccs_accum: maximum
+  ($ix_out,$nzvals_out,$nnz_out) = ccs_accum_maximum($which1,$nzvals1, 0,$a->dim(0));
+  isok("ccs_accum_maximum:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$a->maximum));
+  ($ix_out2,$nzvals_out2) = ccs_accum_maximum($which1,$nzvals1, $missing2,$a->dim(0));
+  isok("ccs_accum_maximum:missing=$missing2", all(ccs_decode($ix_out2,$nzvals_out2)==$a2->maximum));
+
+  ##-- test: ccs_accum: minimum
+  ($ix_out,$nzvals_out,$nnz_out) = ccs_accum_minimum($which1,$nzvals1, 0,$a->dim(0));
+  isok("ccs_accum_minimum:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$a->minimum));
+  ($ix_out2,$nzvals_out2) = ccs_accum_minimum($which1,$nzvals1, $missing2,$a->dim(0));
+  isok("ccs_accum_minimum:missing=$missing2", all(ccs_decode($ix_out2,$nzvals_out2)==$a2->minimum));
+
+
   ##-- TODO:
-  ##  + extrema    : minimum, maximum, *_ind
   ##  + stats      : average, daverage, medover, oddmedover, pctover, median
   ##  + cumulative": ccs_accum_cumusum, ccs_accum_cumuprod, ..
   print "ufuncs: all done.\n";

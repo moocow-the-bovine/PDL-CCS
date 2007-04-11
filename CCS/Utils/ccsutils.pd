@@ -305,9 +305,10 @@ EOPM
 ##    out_type        => $pptype_or_undef,   ##-- set type of output $nzvals (default: match input $nzvals)
 ##    out_type_perl   => $perlcode_or_undef, ##-- set output perl type
 ##    init_missingOut => $ppcode_or_undef,   ##-- sets value missingOut: default: 'missingOut=$missing();'
+##    init_code       => $ppcode_or_undef,   ##-- misc initialization
 ##    tmp_type        => $ppcode_or_undef,   ##-- default: $GENERIC(nzvalsOut)
 ##    tmp_addmissing  => $ppcode_or_undef,   ##-- updates C var 'tmp' before insertion (may reference nMissing)
-##    #tmp_isgood      => $ppcode_or_undef,  ##-- if defined, checks whether C var (tmp) should be considered "good"
+##    #tmp_isgood     => $ppcode_or_undef,  ##-- if defined, checks whether C var (tmp) should be considered "good"
 ##    tmp_addval      => $ppcode_or_undef,   ##-- add PP value $nzvalsIn(NnzIn=>nnzii) to tmp
 ##    tmp_reset       => $ppcode_or_undef,   ##-- reset tmp on index change (default: tmp=$nzvalsIn(NnzIn=>nnzii)) --> QUITE USELESS
 ##    doc_addmissing  => $addmissing_doc,    ##-- doc for 'addmissing'
@@ -365,10 +366,14 @@ sub ccs_accum_hash {
  long sizeNnzIn=$SIZE(NnzIn), sizeNnzOut=$SIZE(NnzOut), nMissing, nMissingInit;
  int ival1,ival2,cmpval, carp_unsorted=0;
  $GENERIC(nzvalsOut) missingOut;
+ $GENERIC(missing)   missingVal;
+ ).($args{decls}    ? $args{decls}    : '').q(
  ).($args{tmp_type} ? $args{tmp_type} : '$GENERIC(nzvalsOut)').q( tmp;
  //
  //-- init
+ ).($args{init_code}||'').q(
  ).($args{init_missingOut} || 'missingOut = $missing();').q(
+ missingVal   = $missing();
  nMissingInit = $N()-1;
  nMissing     = nMissingInit;
  tmp          = $nzvalsIn(NnzIn=>0);
@@ -448,8 +453,8 @@ sub ccs_accum_def {
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): prod
 ccs_accum_def('prod', 'product',
-	      init_missingOut=>'if ($N() > 0) { missingOut = pow($missing(), $N()); } else { missingOut = $missing(); }',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp *= pow($missing(), nMissing); }',
+	      init_missingOut=>'if ($N() > 0) { missingOut = pow(missingVal, $N()); } else { missingOut = missingVal; }',
+	      tmp_addmissing =>'if (nMissing > 0) { tmp *= pow(missingVal, nMissing); }',
 	      #tmp_isgood     =>'tmp != missingOut',
 	      tmp_addval     =>'tmp *= $nzvalsIn(NnzIn=>nnzii);',
 	      doc_addmissing => <<'EOMD',
@@ -469,8 +474,8 @@ EOMD
 ccs_accum_def('dprod', 'double-precision product',
 	      out_type       =>'double',
 	      out_type_perl  =>'PDL::double()',
-	      init_missingOut=>'if ($N() > 0) { missingOut = pow($missing(), $N()); } else { missingOut = $missing(); }',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp *= pow($missing(), nMissing); }',
+	      init_missingOut=>'if ($N() > 0) { missingOut = pow(missingVal, $N()); } else { missingOut = missingVal; }',
+	      tmp_addmissing =>'if (nMissing > 0) { tmp *= pow(missingVal, nMissing); }',
 	      #tmp_isgood     =>'tmp != missingOut',
 	      tmp_addval     =>'tmp *= $nzvalsIn(NnzIn=>nnzii);',
 	      doc_addmissing => <<'EOMD',
@@ -489,8 +494,8 @@ EOMD
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): sum
 ccs_accum_def('sum', 'sum',
-	      init_missingOut=>'if ($N() > 0) { missingOut = $N() * $missing(); } else { missingOut = $missing(); }',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp += nMissing * $missing(); }',
+	      init_missingOut=>'if ($N() > 0) { missingOut = $N() * missingVal; } else { missingOut = missingVal; }',
+	      tmp_addmissing =>'if (nMissing > 0) { tmp += nMissing * missingVal; }',
 	      #tmp_isgood     =>'tmp != missingOut',
 	      tmp_addval     =>'tmp += $nzvalsIn(NnzIn=>nnzii);',
 	      doc_addmissing => <<'EOMD',
@@ -510,8 +515,8 @@ EOMD
 ccs_accum_def('dsum', 'double-precision sum',
 	      out_type       =>'double',
 	      out_type_perl  =>'PDL::double()',
-	      init_missingOut=>'if ($N() > 0) { missingOut = $N() * $missing(); } else { missingOut = $missing(); }',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp += nMissing * $missing(); }',
+	      init_missingOut=>'if ($N() > 0) { missingOut = $N() * missingVal; } else { missingOut = missingVal; }',
+	      tmp_addmissing =>'if (nMissing > 0) { tmp += nMissing * missingVal; }',
 	      #tmp_isgood     =>'tmp != missingOut',
 	      tmp_addval     =>'tmp += $nzvalsIn(NnzIn=>nnzii);',
 	      doc_addmissing => <<'EOMD',
@@ -532,8 +537,8 @@ EOMD
 ccs_accum_def('or', 'logical "or"',
 	      extra          => {GenericTypes => ['B','S','U','L'] },
 	      tmp_type       => 'char',
-	      init_missingOut=>'missingOut = $missing();',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp = tmp || $missing(); }   if (tmp) tmp=1; /* canonicalize */',
+	      init_missingOut=>'missingOut = missingVal;',
+	      tmp_addmissing =>'if (nMissing > 0) { tmp = tmp || missingVal; }   if (tmp) tmp=1; /* canonicalize */',
 	      tmp_addval     =>'tmp = tmp || $nzvalsIn(NnzIn=>nnzii);',
 	      doc_addmissing => <<'EOMD',
 
@@ -550,8 +555,8 @@ EOMD
 ccs_accum_def('and', 'logical "and"',
 	      extra          => {GenericTypes => ['B','S','U','L'] },
 	      tmp_type       => 'char',
-	      init_missingOut=>'missingOut = $missing();',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp = tmp && $missing(); }   if (tmp) tmp=1; /* canonicalize */',
+	      init_missingOut=>'missingOut = missingVal;',
+	      tmp_addmissing =>'if (nMissing > 0) { tmp = tmp && missingVal; }   if (tmp) tmp=1; /* canonicalize */',
 	      tmp_addval     =>'tmp = tmp && $nzvalsIn(NnzIn=>nnzii);',
 	      doc_addmissing => <<'EOMD',
 
@@ -566,8 +571,8 @@ EOMD
 ## Operations: Accumulators (Ufuncs): bor
 ccs_accum_def('bor', 'bitwise "or"',
 	      extra          => {GenericTypes => ['B','S','U','L'] },
-	      init_missingOut=>'missingOut = $missing();',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp = tmp | $missing(); }',
+	      init_missingOut=>'missingOut = missingVal;',
+	      tmp_addmissing =>'if (nMissing > 0) { tmp = tmp | missingVal; }',
 	      tmp_addval     =>'tmp |= $nzvalsIn(NnzIn=>nnzii);',
 	      doc_addmissing => <<'EOMD',
 
@@ -583,8 +588,8 @@ EOMD
 ## Operations: Accumulators (Ufuncs): band
 ccs_accum_def('band', 'bitwise "and"',
 	      extra          => {GenericTypes => ['B','S','U','L'] },
-	      init_missingOut=>'missingOut = $missing();',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp &= $missing(); }',
+	      init_missingOut=>'missingOut = missingVal;',
+	      tmp_addmissing =>'if (nMissing > 0) { tmp &= missingVal; }',
 	      tmp_addval     =>'tmp &= $nzvalsIn(NnzIn=>nnzii);',
 	      doc_addmissing => <<'EOMD',
 
@@ -595,26 +600,122 @@ This is probably What You Want.
 EOMD
 	     );
 
-##-- NYI: zcover, intover
+##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): maximum
+ccs_accum_def('maximum', 'maximum',
+	      decls          =>'$GENERIC(nzvalsIn) curval;',
+	      init_missingOut=>'missingOut = missingVal;',
+	      tmp_addmissing =>'if (nMissing > 0 && missingVal > tmp) { tmp = missingVal; }',
+	      tmp_addval     =>'curval=$nzvalsIn(NnzIn=>nnzii); if (curval>tmp) tmp=curval;',
+	      doc_addmissing => <<'EOMD',
 
-##======================================================================
-## Operations: Cumulative
-##======================================================================
+If $N() is specified and greater than zero,
+and if $missing() is greater than any listed value for a vector key with a run-length
+of less than $N(), then $missing() is used as the output value for that key.
+This is probably What You Want.
+
+EOMD
+	     );
+
+##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): minimum
+ccs_accum_def('minimum', 'minimum',
+	      decls          =>'$GENERIC(nzvalsIn) curval;',
+	      init_missingOut=>'missingOut = missingVal;',
+	      tmp_addmissing =>'if (nMissing > 0 && missingVal < tmp) { tmp = missingVal; }',
+	      tmp_addval     =>'curval=$nzvalsIn(NnzIn=>nnzii); if (curval<tmp) tmp=curval;',
+	      doc_addmissing => <<'EOMD',
+
+If $N() is specified and greater than zero,
+and if $missing() is less than any listed value for a vector key with a run-length
+of less than $N(), then $missing() is used as the output value for that key.
+This is probably What You Want.
+
+EOMD
+	     );
+
+##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): NYI
 pp_addpm(<<'EOPM');
 
 =pod
 
-=head1 TODO: Cumulative Operations
+=head2 Ufuncs not yet implemented
 
-cumprodover, cumusumover, etc.: not yet implemented.
+=over 4
+
+=item extrema indices
+
+maximum_ind, minimum_ind, ...
+
+=item statistical aggregates
+
+average, daverage, medover, oddmedover, pctover, ...
+
+=item cumulative functions
+
+cumusumover, cumuprodover, ...
+
+=item other stuff
+
+zcover, intover, minmaximum
+
+=back
 
 =cut
 
 EOPM
 
-##--------------------------------------------------------------
-## Operations: Cumulative: NYI
+##======================================================================
+## Operations: Binary
+##======================================================================
+pp_addpm(<<'EOPM');
 
+=pod
+
+=head1 Binary Operations
+
+=cut
+
+EOPM
+
+## IDEA:
+##  ccs_binop_${OP}(int    ixa(NdimsA,NnzA),    nza(NnzA),    missinga(),
+##                  int    ixb(NdimsB,NnzB),    nzb(NnzB),    missingb(),
+##                  int [o]ixc(NdimsC,NnzC), [o]nzc(NnzC), [o]missingc())
+##  + where:
+##    - NdimsA==NdimsB==NdimsC  ##-- simple case: no (pseudo-)threading
+##    - NnzC <= NnzA+NnzB       ##-- add auto-trimming in PMCode
+##    - ixa() and ixb() are both sorted
+##
+##  + idea: basic algorithm
+##    - traverse ixa(),ixb() in parallel (as for vv_union() & friends)
+##    - dispatch at each position:
+##      ~ CASE ixa(,ai) == ixb(,bi) : INSERT ( ixa(,ai) => ixa(,ai)   ${OP} ixb(,bi)   ); ai++; bi++;
+##      ~ CASE ixa(,ai) <  ixb(,bi) : INSERT ( ixa(,ai) => ixa(,ai)   ${OP} missingb() ); ai++;
+##      ~ CASE ixa(,ai) >  ixb(,bi) : INSERT ( ixb(,bi) => missinga() ${OP} ixb(,bi)   );       bi++;
+##    - DO auto-detect "missingOut" values, e.g. add 'tmp_isgood' check
+##
+##  + extension: pseudo-threading
+##    - idea: allow (NdimsA != NdimsB)
+##      ~ generalize to highest order: set NdimsC = max(NdimsA,NdimsB)
+##      ~ also allow PMCode to dispatch s.t. (NdimsB <= NdimsA)
+##      ~ then, vector comparison is: ixa(0..(NdimsB-1),ai) <=> ixb(,bi)
+##        * requires home-grown CMPVEC or extension of PDL::VectorValued $CMPVEC() macro
+##        * this allows ixb() to thread over INITIAL dimensions (a la PDL threading)
+##        * still doesn't generalize to VECTORS ~ dimension-mismatches where e.g. NdimsB(dimi)==1
+##      ~ also wreaks havoc with the case-based increment strategy above:
+##        * if (NdimsB < NdimsA), we might well have multiple matches on a single ixb(,bi)
+##        * third insertion case may induce a dense matrix, b/c requires implicit iteration:
+##             { insert( ixb(,bi) => missinga() ${OP} ixb(,bi) ); bi++ }
+##          + this won't cut the sparse butter though, since ixb(,bi) ~= $ixb(,bi).cat_{di=1}^{NdimsA-NdimsB)(seq(di))
+##      ~ maybe abstract "alignment" code (ixa(,ai)<=>ixb(,bi)) to its own function
+##        and do the rest in perl?
+##        * ccs_binop_align( ixa(), ixb(), int [o]ai(NnzC), int [o]bi(NnC) )
+##          - here, we can use a constant (say, -1 or BAD) to indicate "no-match", e.g.
+##              ai->isbad()   iff.   ixa(,ai) <  ixb(,bi)
+##              bi->isbad()   iff.   ixa(,ai) >  ixb(,bi)
+##          - maybe 'annihilator assumption' from compat vector-ops can save us ...
 
 ##======================================================================
 ## Footer Administrivia
