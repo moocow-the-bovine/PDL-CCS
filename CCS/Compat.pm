@@ -8,6 +8,8 @@ use PDL::VectorValued;
 use PDL::CCS::Version;
 use PDL::CCS::Functions;
 use PDL::CCS::Utils;
+use PDL::CCS::Ufunc;
+use PDL::CCS::Ops;
 use strict;
 
 our $VERSION = $PDL::CCS::VERSION;

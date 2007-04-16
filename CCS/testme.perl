@@ -5,6 +5,8 @@ use PDL;
 use PDL::VectorValued;
 #use PDL::CCS::Old;
 use PDL::CCS::Utils;
+use PDL::CCS::Ufunc;
+use PDL::CCS::Ops;
 use PDL::CCS::Functions;
 use PDL::CCS::Compat;
 use PDL::CCS::Nd;
@@ -31,6 +33,11 @@ BEGIN {
 sub isok {
   my ($label,$bool) = @_;
   print "test($label): ", ($bool ? "ok" : "NOT ok"), "\n";
+}
+
+sub matchpdl {
+  my ($a,$b) = map {$_->setnantobad} @_[0,1];
+  return ($a==$b)->setbadtoval(0) | ($a->isbad & $b->isbad);
 }
 
 sub make { system('make'); }
@@ -70,6 +77,282 @@ sub test_data_bg {
   our $bgccs       = PDL::CCS::Nd->newFromWhich($bgw,$bgnz);
 }
 #test_data_bg();
+
+##---------------------------------------------------------------------
+## CCS: binops (block-wise alignment)
+sub test_ccs_binops_2 {
+  test_data_1;
+
+  our $adims = [$a->dims];
+  our $b = $a->rotate(1);
+  $b->sever;
+  $b->slice("0,0") .= -($a->at(0,0));
+
+  our $ccsa = $a->toccs;
+  our @a = our ($ixa,$nza,$za) = ($ccsa->whichND,$ccsa->nzvals,$ccsa->missing);
+
+  our $ccsb = $b->toccs;
+  our @b = our ($ixb,$nzb,$zb) = ($ccsb->whichND,$ccsb->nzvals,$ccsb->missing);
+  our (@align,$nzai,$nzbi);
+
+  ##-- set operation sub
+  our $OPNAME = shift || 'plus';
+  our $OP = PDL->can($OPNAME);
+  if (!defined($OP)) {
+    warn("$0: no operation '$OPNAME' for PDL!");
+    return undef;
+  }
+
+  ##-- test: plus: batch
+  our $nnzc   = $a->flat->nnz + $b->flat->nnz;
+  our $istate = zeroes(long,7); ##-- [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
+  our $ostate = $istate->pdl;
+
+  ##-- guts: alignment
+  ccs_binop_align_block($ixa,$ixb,$istate, $nzai=zeroes(long,$nnzc),$nzbi=zeroes(long,$nnzc),$ostate);
+
+  ##-- parse output state
+  our ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval) = $ostate->list;
+
+  ##-- trim input pdls
+  our $nzci_max = $nzci_cur-1;
+  $nzai = $nzai->slice("0:$nzci_max");
+  $nzbi = $nzbi->slice("0:$nzci_max");
+
+  ##-- find mis-alignments
+  our $aimask   = ($nzai < 0);
+  our $bimask   = ($nzbi < 0);
+  our $aiwhich  = $aimask->which;
+  our $biwhich  = $bimask->which;
+
+  ##-- construct output pdl: nzvals
+  our $avals     = $ccsa->vals;
+  our $bvals     = $ccsb->vals;
+  our $amissingi = $avals->nelem-1;
+  our $bmissingi = $bvals->nelem-1;
+  $nzai->index($aiwhich) .= $amissingi;
+  $nzbi->index($biwhich) .= $bmissingi;
+  ##
+  our $nzc = zeroes(($avals->type > $bvals->type ? $avals->type : $bvals->type), $nzci_cur);
+  our $zc  = $OP->($avals->slice("-1"), $bvals->slice("-1"), 0);
+  $nzc    .= $OP->($avals->index($nzai), $bvals->index($nzbi), 0);
+  ##
+  ##-- get indices of "good" c() values
+  our $cimask  = ($nzc != $zc);
+  our $ciwhich = $cimask->which;
+  $nzc = $nzc->index($ciwhich); #->append($zc);
+
+  ##-- construct output pdl: which
+  $bimask->inplace->not;
+  $bimask &= $cimask;
+  $bimask &= $aimask;    ##-- bimask is now = ($nzai==$amissingi & $nzbi!=$bmissingi & $nzc!=$zc)
+  $aimask->inplace->not;
+  $aimask &= $cimask;    ##-- aimask is now = ($nzai!=$amissingi)
+  ##-- remap (a|b)i to "ciwhich" indices
+  $nzai    = $nzai->index($ciwhich);
+  $nzbi    = $nzbi->index($ciwhich);
+  $aimask  = $aimask->index($ciwhich);
+  $bimask  = $bimask->index($ciwhich);
+  $aiwhich = $aimask->which;
+  $biwhich = $bimask->which;
+
+  our $ndims   = $ixa->dim(0);
+  our $cwhich  = zeroes(long, $ndims,$ciwhich->nelem);
+  $cwhich->dice_axis(1,$aiwhich) .= $ixa->dice_axis(1,$nzai->index($aiwhich));
+  $cwhich->dice_axis(1,$biwhich) .= $ixb->dice_axis(1,$nzbi->index($biwhich));
+
+  isok("ccs_align_block:OP=$OPNAME", all matchpdl(ccs_decode($cwhich,$nzc,$zc,[$a->dims]), $OP->($a,$b,0)));
+
+  print "test_ccs_binops_2: done.\n";
+}
+#test_ccs_binops_2('plus');
+#test_ccs_binops_2('minus');
+#test_ccs_binops_2('mult');
+#test_ccs_binops_2('divide');
+#test_ccs_binops_2('gt');
+#test_ccs_binops_2('ge');
+#test_ccs_binops_2('lt');
+#test_ccs_binops_2('le');
+#test_ccs_binops_2('eq');
+#test_ccs_binops_2('ne');
+#test_ccs_binops_2('spaceship');
+#test_ccs_binops_2('and2');
+#test_ccs_binops_2('or2');
+#test_ccs_binops_2('xor');
+#test_ccs_binops_2('shiftleft');
+#test_ccs_binops_2('shiftright');
+
+
+##---------------------------------------------------------------------
+## CCS: binops (hard-coded)
+
+sub test_ccs_binop_plus_byblock_1 {
+  return ccs_binop_plus(@_[0..5]) if ($_[6] >= $_[1]->dim(0)+$_[4]->dim(0));
+
+  my ($ixa,$nza,$za, $ixb,$nzb,$zb, $blocksize,$nzctype) = @_;
+  $nzctype                   = $nza->type if (!defined($nzctype));
+  my $ndims                  = $ixa->dim(0);
+  my ($nnzai_max,$nnzbi_max) = ($nza->dim(0), $nzb->dim(0));
+  my ($nnzai_from,$nnzbi_from,$nnzci_from) = (0,0,0);
+  my ($nnzai_to,$nnzbi_to,$nnzci_to);
+  ##
+  ##-- initialize collectors
+  my ($nnzai_nxt,$nnzbi_nxt,$nnzci_nxt) = map {PDL->pdl($_)->long} ($nnzai_from,$nnzbi_from,$nnzci_from);
+  my $ixc = PDL->zeroes(PDL::long(), $ndims,$blocksize);
+  my $nzc = PDL->zeroes($nzctype,    $blocksize);
+  my $zc  = PDL->zeroes($nzctype,    1);
+  do {
+    $nnzai_to = $nnzai_from+$blocksize-1;
+    $nnzbi_to = $nnzbi_from+$blocksize-1;
+
+    $nnzai_to = $nnzai_max-1 if ($nnzai_to >= $nnzai_max);
+    $nnzbi_to = $nnzbi_max-1 if ($nnzbi_to >= $nnzbi_max);
+
+    last if ($nnzai_to < 0 || $nnzbi_to < 0);
+
+    $nnzci_to = $nnzci_from+$blocksize-1;
+    if ($ixc->dim(1) < $nnzci_to) {
+      $ixc->reshape($ixc->dim(0), $nnzci_to+1);
+      $nzc->reshape($nnzci_to+1);
+    }
+
+    &PDL::_ccs_binop_plus_int($ixa->slice(",${nnzai_from}:${nnzai_to}"), $nza->slice("${nnzai_from}:${nnzai_to}"), $za,
+			      $ixb->slice(",${nnzbi_from}:${nnzbi_to}"), $nzb->slice("${nnzbi_from}:${nnzbi_to}"), $zb,
+			      $ixc->slice(",${nnzci_from}:${nnzci_to}"), $nzc->slice("${nnzci_from}:${nnzci_to}"), $zc,
+			      $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
+
+    $nnzai_from += $nnzai_nxt->sclr;
+    $nnzbi_from += $nnzbi_nxt->sclr;
+    $nnzci_from += $nnzci_nxt->sclr;
+  } while ($nnzai_from < $nnzai_max && $nnzbi_from < $nnzbi_max);
+
+  if ($nnzai_from < $nnzai_max) {
+    ##-- gobble leftover data from $a()
+    my $ix_gobble = $ixa->slice(",${nnzai_from}:-1");
+    my $ngobbled  = $ix_gobble->dim(1);
+    $nnzci_to = $nnzci_from+$ngobbled;
+    if ($ixc->dim(1) < $nnzci_to) {
+      $ixc->reshape($ixc->dim(0), $nnzci_to+1);
+      $nzc->reshape($nnzci_to+1);
+    }
+    &PDL::_ccs_binop_plus_int($ix_gobble, $nza->slice("${nnzai_from}:-1"), $za,
+			      $ix_gobble, $zb->slice("*${ngobbled}")->flat, $zb,
+			      $ixc->slice(",${nnzci_from}:-1"), $nzc->slice("${nnzci_from}:-1"), $zc,
+			      $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
+  }
+  elsif ($nnzbi_from < $nnzbi_max) {
+    ##-- gobble leftover data from $b()
+    my $ix_gobble = $ixb->slice(",${nnzbi_from}:-1");
+    my $ngobbled  = $ix_gobble->dim(1);
+    $nnzci_to = $nnzci_from+$ngobbled;
+    if ($ixc->dim(1) < $nnzci_to) {
+      $ixc->reshape($ixc->dim(0), $nnzci_to+1);
+      $nzc->reshape($nnzci_to+1);
+    }
+    &PDL::_ccs_binop_plus_int($ix_gobble, $za->slice("*${ngobbled}")->flat, $za,
+			      $ix_gobble, $nzb->slice(",${nnzbi_from}:-1"), $zb,
+			      $ixc->slice(",${nnzci_from}:-1"), $nzc->slice("${nnzci_from}:-1"), $zc,
+			      $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
+  }
+
+  ##-- finally, trim the output pdls & return
+  my $trimto = $nnzci_from-1;
+  $ixc = $ixc->slice(",0:$trimto");
+  $nzc = $nzc->slice("0:$trimto");
+  return wantarray ? ($ixc,$nzc,$zc) : $nzc;
+}
+
+sub test_binops_1 {
+  test_data_1;
+
+  our $adims = [$a->dims];
+  our $b = $a->rotate(1);
+  $b->sever;
+
+  our $ccsa = $a->toccs;
+  our @a = our ($ixa,$nza,$za) = ($ccsa->whichND,$ccsa->nzvals,$ccsa->missing);
+
+  our $ccsb = $b->toccs;
+  our @b = our ($ixb,$nzb,$zb) = ($ccsb->whichND,$ccsb->nzvals,$ccsb->missing);
+
+  our @c = our ($ixc,$nzc,$zc);
+
+  ##--------------------------------------
+  ## Binary Operations: arithmetic
+
+  ##-- test: binop: plus (batch)
+  @c=($ixc,$nzc,$zc)= ccs_binop_plus(@a, @b);
+  isok("ccs_binop_plus", all(ccs_decode(@c,$adims) == $a+$b));
+  ##
+  ##-- test: binop: plus (block-wise: see prototype perl method, above)
+  our $blocksize = 7;
+  @c=($ixc,$nzc,$zc)= test_ccs_binop_plus_byblock_1(@a, @b, $blocksize);
+  isok("ccs_binop_plus_byblock_1", all(ccs_decode(@c,$adims) == $a+$b));
+  ##--/block-wise computation
+
+  ##-- test: binop: minus
+  @c=($ixc,$nzc,$zc)= ccs_binop_minus(@a,@b);
+  isok("ccs_binop_minus", all(ccs_decode(@c,$adims) == $a-$b));
+
+  ##-- test: binop: mult
+  @c=($ixc,$nzc,$zc)= ccs_binop_mult(@a,@b);
+  isok("ccs_binop_mult", all(ccs_decode(@c,$adims) == $a*$b));
+
+  ##-- test: binop: divide
+  @c=($ixc,$nzc,$zc)= ccs_binop_divide(@a,@b);
+  isok("ccs_binop_divide", all matchpdl(ccs_decode(@c,$adims), $a/$b));
+
+  ##-- test: binop: modulo
+  @c=($ixc,$nzc,$zc)= ccs_binop_modulo(@a,@b);
+  isok("ccs_binop_modulo", all(ccs_decode(@c,$adims) == $a%$b));
+
+  ##-- test: binop: power
+  @c=($ixc,$nzc,$zc)= ccs_binop_power(@a,@b);
+  isok("ccs_binop_power", all(ccs_decode(@c,$adims) == $a**$b));
+
+  ##--------------------------------------
+  ## Binary Operations: comparisons
+  @c=($ixc,$nzc,$zc)= ccs_binop_gt(@a,@b);
+  isok("ccs_binop_gt", all(ccs_decode(@c,$adims) == ($a>$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_ge(@a,@b);
+  isok("ccs_binop_ge", all(ccs_decode(@c,$adims) == ($a>=$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_lt(@a,@b);
+  isok("ccs_binop_lt", all(ccs_decode(@c,$adims) == ($a<$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_le(@a,@b);
+  isok("ccs_binop_le", all(ccs_decode(@c,$adims) == ($a<=$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_eq(@a,@b);
+  isok("ccs_binop_eq", all(ccs_decode(@c,$adims) == ($a==$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_ne(@a,@b);
+  isok("ccs_binop_ne", all(ccs_decode(@c,$adims) == ($a!=$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_spaceship(@a,@b);
+  isok("ccs_binop_spaceship", all(ccs_decode(@c,$adims) == ($a<=>$b)));
+
+  ##--------------------------------------
+  ## Binary Operations: bitwise & logical
+  @c=($ixc,$nzc,$zc)= ccs_binop_and2(@a,@b);
+  isok("ccs_binop_and2", all(ccs_decode(@c,$adims) == ($a&$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_or2(@a,@b);
+  isok("ccs_binop_or2", all(ccs_decode(@c,$adims) == ($a|$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_xor(@a,@b);
+  isok("ccs_binop_xor", all(ccs_decode(@c,$adims) == ($a^$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_shiftleft(@a,@b);
+  isok("ccs_binop_shiftleft", all(ccs_decode(@c,$adims) == ($a<<$b)));
+
+  @c=($ixc,$nzc,$zc)= ccs_binop_shiftright(@a,@b);
+  isok("ccs_binop_shiftright", all(ccs_decode(@c,$adims) == ($a>>$b)));
+
+  print "test_binops_1(): done.\n";
+}
+#test_binops_1();
 
 ##---------------------------------------------------------------------
 ## CCS: Ufuncs

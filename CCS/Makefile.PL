@@ -13,6 +13,8 @@ WriteMakefile(
 	      DIR =>[
 		     #'Old',
 		     'Utils',
+		     'Ufunc',
+		     'Ops',
 		    ], ##-- debug#2
 	      realclean=>{ FILES=>$realclean_files, },
 	      PREREQ_PM => {

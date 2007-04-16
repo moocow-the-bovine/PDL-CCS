@@ -8,6 +8,8 @@ use PDL::VectorValued;
 use PDL::CCS::Version;
 use PDL::CCS::Functions qw(ccs_decode ccs_pointerlen);
 use PDL::CCS::Utils     qw(ccs_encode_pointers ccs_decode_pointer);
+use PDL::CCS::Ufunc;
+use PDL::CCS::Ops;
 use UNIVERSAL 'isa';
 use Carp;
 use strict;
