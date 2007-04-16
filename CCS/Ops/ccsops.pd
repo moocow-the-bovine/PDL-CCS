@@ -57,11 +57,11 @@ EOH
 
 
 ##======================================================================
-## Operations: Binary: GENERIC
+## Operations: Binary: ALIGN: missing-is-annihilator
 ##======================================================================
 
 vvpp_def
-  ('ccs_binop_align_block',
+  ('ccs_binop_align_block_mia',
    Pars => ("\n    "
 	    .join("\n    ",
 		  'int ixa(Ndims,NnzA); int ixb(Ndims,NnzB); int    istate(State);',
@@ -90,24 +90,16 @@ vvpp_def
    //-- dispatch on cached cmpval for current index-runs (nnzai..nnzai_nxt),(nnzbi..nnzbi_nxt)
    if (cmpval < 0) {
      //-- CASE ixa(,ai) < ixb(,bi) : INSERT ( ixa(,ai) => (ixa(,ai) . -1) ); INCR(ai);
-     for ( ; nnzai<nnzai_nxt; nnzai++, nnzci++) {
-       $nzai(NnzC=>nnzci) = nnzai;
-       $nzbi(NnzC=>nnzci) = -1;
-     }
      //-- increment ai: detect next run-length
-     for (nnzai_nxt=nnzai+1; nnzai_nxt<sizeNnzA; nnzai_nxt++) {
+     for (nnzai=nnzai_nxt, nnzai_nxt=nnzai+1; nnzai_nxt<sizeNnzA; nnzai_nxt++) {
        $CMPVEC('$ixa(NnzA=>nnzai)','$ixa(NnzA=>nnzai_nxt)','Ndims','cmpval',var1=>'cmpme1',var2=>'cmpme2');
        if (cmpval != 0) break;
      }
    }
    else if (cmpval > 0) {
      //-- CASE ixa(,ai) > ixb(,bi) : INSERT ( ixb(,bi) => (-1 . ixb(,bi)) ); INCR(bi);
-     for ( ; nnzbi<nnzbi_nxt; nnzbi++, nnzci++) {
-       $nzai(NnzC=>nnzci) = -1;
-       $nzbi(NnzC=>nnzci) = nnzbi;
-     }
      //-- increment bi: detect next run-length
-     for (nnzbi_nxt=nnzbi+1; nnzbi_nxt<sizeNnzB; nnzbi_nxt++) {
+     for (nnzbi=nnzbi_nxt, nnzbi_nxt=nnzbi+1; nnzbi_nxt<sizeNnzB; nnzbi_nxt++) {
        $CMPVEC('$ixb(NnzB=>nnzbi)','$ixb(NnzB=>nnzbi_nxt)','Ndims','cmpval',var1=>'cmpme1',var2=>'cmpme2');
        if (cmpval != 0) break;
      }
@@ -140,22 +132,9 @@ vvpp_def
  //
  //-- gobble leftovers
  if (nnzci<sizeNnzC) {
-   if (nnzbi >= sizeNnzB) {
-     for ( ; nnzai<sizeNnzA && nnzci<sizeNnzC; nnzai++,nnzci++) {
-       $nzai(NnzC=>nnzci) = nnzai;
-       $nzbi(NnzC=>nnzci) = -1;
-     }
-     nnzci_nxt = nnzci;
-     cmpval    = -1;
-   }
-   if (nnzai >= sizeNnzA) {
-     for ( ; nnzbi<sizeNnzB && nnzci<sizeNnzC; nnzbi++,nnzci++) {
-       $nzai(NnzC=>nnzci) = -1;
-       $nzbi(NnzC=>nnzci) = nnzbi;
-     }
-     nnzci_nxt = nnzci;
-     cmpval    = 1;
-   }
+   nnzai = nnzai_nxt = sizeNnzA;
+   nnzbi = nnzbi_nxt = sizeNnzB;
+   nnzci_nxt = nnzci;
  }
  //
  //-- save state
@@ -170,71 +149,60 @@ vvpp_def
  }
 )),
   Doc =>
-(q(
-TODO: update docs
-
-Partially aligns a pair lexicographically sorted index-vector lists C<$ixa()> and C<$ixb()>,
-e.g. for block-wise incremental computation of binary operations over sparse index-encoded PDLs.
+(q{
+Partially aligns a pair of lexicographically sorted index-vector lists C<$ixa()> and C<$ixb()>,
+e.g. for block-wise incremental computation of binary operations over sparse index-encoded PDLs,
+assuming missing indices correspond to annihilators.
 
 On return, the vectors C<$nzai> and C<$nzbi> hold indices into C<NnzA> and C<NnzB>
 respectively, and are constructed such that:
 
- ($ixa(,$nzai) <= $ixb(,$nzbi)) whenever ($nzai >= 0 && $nzbi >= 0)
-
-Negative values in the output index vectors C<$nzai> and C<$nzbi> indicate
-unalignable key vectors in the alternative index list.
-
- ($nzai(i) < 0) implies there is no j such that ($ixa(,i) == $ixb(,j))
+ ($ixa(,$nzai->slice("0:$nzci_max")) == $ixb(,$nzbi->slice("0:$nzci_max"))
 
 At most C<NnzC> alignments are performed, and alignment ceases
 as soon as any of the PDLs C<$ixa()>, C<$ixb()>, C<$nzai()>, or C<$nzbi()>
 has been exhausted.
 
-The output parameters C<$nzai_nxt()>, C<$nzbi_nxt()>, and C<$nzci_nxt()>
-return the first unaligned index of the respective PDL.
-)),
+The parameters C<$istate()> and C<$ostate()> hold the state of the algorithm,
+for incremental block-wise computation at the perl level.  Each state PDL
+is a 7-element PDL containting the following values:
 
- ); ##--/ccs_binop_align_block
+ INDEX LABEL       DESCRIPTION
+ -----------------------------------------------------------------------
+   0   nnzai       minimum offset in NnzA of current $ixa() value
+   1   nnzai_nxt   minimum offset in NnzA of next $ixa() value
+   2   nnzbi       minimum offset in NnzB of current $ixb() value
+   3   nnzbi_nxt   minimum offset in NnzB of next $ixb() value
+   4   nnzci       minimum offset in NnzC of current ($ixa(),$ixb()) value pair
+   5   nnzci_nxt   minimum offset in NnzC of next ($ixa(),$ixb()) value pair
+   6   cmpval      3-way comparison value for current ($ixa(),$ixb()) value pair
+
+For computation of the first block, $istate() can be safely set to C<zeroes(long,7)>.
+
+Repetitions may occur in input index PDLs C<$ixa()> and C<$ixb()>.
+If an index-match occurs on such a "run", I<all pairs> of matching values are
+added to the output PDLs.
+
+All alignments have been performed if:
+
+ $ostate(0)==$NnzA && $ostate(1)==$NnzB
+
+B<WARNING:> this alignment method ignores index-vectors which are not present
+in I<both> C<$ixa()> and C<$ixb()>, which is a Good Thing if your are feeding
+the aligned values into an operation for which missing values are annihilators:
+
+ $missinga * $bval     == ($missinga * $missingb)  for each $bval \in $b, and
+ $aval     * $missingb == ($missinga * $missingb)  for each $aval \in $a
+
+This ought to be the case for all operations if missing values are C<BAD> (see L<PDL::Bad>),
+but might cause unexpected results if e.g. missing values are zero and the operation
+in question is addition.
+
+}),
+
+ ); ##--/ccs_binop_align_block_mia
 
 
-##======================================================================
-## IDEA:
-##  ccs_binop_${OP}(int    ixa(NdimsA,NnzA),    nza(NnzA),    missinga(),
-##                  int    ixb(NdimsB,NnzB),    nzb(NnzB),    missingb(),
-##                  int [o]ixc(NdimsC,NnzC), [o]nzc(NnzC), [o]missingc())
-##  + where:
-##    - NdimsA==NdimsB==NdimsC  ##-- simple case: no (pseudo-)threading
-##    - NnzC <= NnzA+NnzB       ##-- add auto-trimming in PMCode
-##    - ixa() and ixb() are both sorted
-##
-##  + idea: basic algorithm
-##    - traverse ixa(),ixb() in parallel (as for vv_union() & friends)
-##    - dispatch at each position:
-##      ~ CASE ixa(,ai) == ixb(,bi) : INSERT ( ixa(,ai) => ixa(,ai)   ${OP} ixb(,bi)   ); ai++; bi++;
-##      ~ CASE ixa(,ai) <  ixb(,bi) : INSERT ( ixa(,ai) => ixa(,ai)   ${OP} missingb() ); ai++;
-##      ~ CASE ixa(,ai) >  ixb(,bi) : INSERT ( ixb(,bi) => missinga() ${OP} ixb(,bi)   );       bi++;
-##    - DO auto-detect "missingOut" values, e.g. add 'tmp_isgood' check
-##
-##  + extension: pseudo-threading
-##    - idea: allow (NdimsA != NdimsB)
-##      ~ generalize to highest order: set NdimsC = max(NdimsA,NdimsB)
-##      ~ also allow PMCode to dispatch s.t. (NdimsB <= NdimsA)
-##      ~ then, vector comparison is: ixa(0..(NdimsB-1),ai) <=> ixb(,bi)
-##        * requires home-grown CMPVEC or extension of PDL::VectorValued $CMPVEC() macro
-##        * this allows ixb() to thread over INITIAL dimensions (a la PDL threading)
-##        * still doesn't generalize to VECTORS ~ dimension-mismatches where e.g. NdimsB(dimi)==1
-##      ~ also wreaks havoc with the case-based increment strategy above:
-##        * if (NdimsB < NdimsA), we might well have multiple matches on a single ixb(,bi)
-##        * third insertion case may induce a dense matrix, b/c requires implicit iteration:
-##             { insert( ixb(,bi) => missinga() ${OP} ixb(,bi) ); bi++ }
-##          + this won't cut the sparse butter though, since ixb(,bi) ~= $ixb(,bi).cat_{di=1}^{NdimsA-NdimsB)(seq(di))
-##      ~ maybe abstract "alignment" code (ixa(,ai)<=>ixb(,bi)) to its own function
-##        and do the rest in perl?
-##        * ccs_binop_align( ixa(), ixb(), int [o]ai(NnzC), int [o]bi(NnC) )
-##          - here, we can use a constant (say, -1 or BAD) to indicate "no-match", e.g.
-##              ai->isbad()   iff.   ixa(,ai) <  ixb(,bi)
-##              bi->isbad()   iff.   ixa(,ai) >  ixb(,bi)
-##          - maybe 'annihilator assumption' from compat vector-ops can save us ...
 
 ##======================================================================
 ## Footer Administrivia
