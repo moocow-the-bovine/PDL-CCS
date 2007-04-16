@@ -26,6 +26,8 @@ BEGIN {
 
   our $P_BYTE = PDL::byte();
   our $P_LONG = PDL::long();
+
+  our $BAD    = PDL->zeroes(1)->setvaltobad(0)->squeeze;
 }
 
 ##---------------------------------------------------------------------
@@ -79,7 +81,408 @@ sub test_data_bg {
 #test_data_bg();
 
 ##---------------------------------------------------------------------
-## CCS: binops (block-wise alignment)
+## CCS: Nd: binary ops: missing-annihilator: full dim-match
+
+sub test_nd_binop_cvrv_mia {
+  my ($op_name,$missing,$swap) = @_;
+  ##-- get params
+  $op_name = 'add' if (!defined($op_name));
+  our $pdl_op = PDL->can($op_name);
+  our $ccs_op = PDL::CCS::Nd->can($op_name);
+  die("test_nd_binop(): no PDL op named '$op_name'!") if (!defined($pdl_op));
+  die("test_nd_binop(): no CCS op named '$op_name'!") if (!defined($ccs_op) || $ccs_op eq $pdl_op);
+
+  $missing = 0 if (!defined($missing));
+  $missing = pdl($missing);
+
+  $swap = 0 if (!defined($swap));
+
+  ##-- get data
+  test_data_1;
+  $a = $a->setvaltobad(0);
+  $a = $a->setbadtoval($missing) if ($missing->isgood);
+
+  our $b0 = sequence(  $a->dim(0))+1;
+  our $b1 = sequence(1,$a->dim(1))+1;
+
+  our $as  = $a->toccs($missing);
+  our $bs0 = $b0->toccs($missing);
+  our $bs1 = $b1->toccs($missing);
+
+  ##-- guts
+  our $cs0 = $ccs_op->($as,$bs0, $swap);
+  our $c0  = $pdl_op->($a, $b0,  $swap);
+  isok("ccs:nd:arg2=rv,binop=${op_name},z=${missing},swap=$swap", $cs0->type==$c0->type && all(matchpdl($cs0->decode,$c0)));
+
+  our $cs1 = $ccs_op->($as,$bs1, $swap);
+  our $c1  = $pdl_op->($a, $b1,  $swap);
+  isok("ccs:nd:arg2=cv,binop=${op_name},z=${missing},swap=$swap", $cs1->type==$c1->type && all(matchpdl($cs1->decode,$c1)));
+}
+test_nd_binop_cvrv_mia('mult',$BAD,0);
+
+sub test_nd_binop_cvrv_all {
+  my ($binop,$missing,$swap);
+  foreach $missing ($BAD) {
+    foreach $swap (0,1) {
+      foreach $binop (
+		      qw(plus minus mult divide modulo power),
+		      qw(gt ge lt le eq ne spaceship),
+		      qw(and2 or2 xor),
+		      qw(shiftleft shiftright),
+		     )
+	{
+	  test_nd_binop_cvrv_mia($binop,$missing,$swap);
+	}
+    }
+  }
+}
+test_nd_binop_cvrv_all();
+
+
+##---------------------------------------------------------------------
+## CCS: Nd: binary ops: missing-annihilator: full dim-match
+
+sub test_nd_binop_mia {
+  my ($op_name,$missing,$swap) = @_;
+  ##-- get params
+  $op_name = 'add' if (!defined($op_name));
+  our $pdl_op = PDL->can($op_name);
+  our $ccs_op = PDL::CCS::Nd->can($op_name);
+  die("test_nd_binop(): no PDL op named '$op_name'!") if (!defined($pdl_op));
+  die("test_nd_binop(): no CCS op named '$op_name'!") if (!defined($ccs_op) || $ccs_op eq $pdl_op);
+
+  $missing = 0 if (!defined($missing));
+  $missing = pdl($missing);
+
+  $swap = 0 if (!defined($swap));
+
+  ##-- get data
+  test_data_1;
+  $a = $a->setvaltobad(0);
+  $a = $a->setbadtoval($missing) if ($missing->isgood);
+
+  our $b = $a->rotate(1);
+  $b->sever;
+
+  our $as = $a->toccs($missing);
+  our $bs = $b->toccs($missing);
+
+  ##-- guts
+  our $cs = $ccs_op->($as,$bs, $swap);
+  our $c  = $pdl_op->($a, $b,  $swap);
+
+  if (ref($c)) {
+    isok("ccs:nd:binop=${op_name},missing=${missing},swap=$swap", $cs->type==$c->type && all(matchpdl($cs->decode,$c)));
+  } else {
+    isok("ccs:nd:binop=${op_name},missing=${missing},swap=$swap", $cs eq $c);
+  }
+}
+#test_nd_binop_mia('mult',$BAD,0);
+#test_nd_binop_mia('and2',$BAD,0);
+#test_nd_binop_mia('or2',$BAD,0);
+#test_nd_binop_mia('xor',$BAD,0);
+test_nd_binop_mia('shiftleft',$BAD,0);
+
+sub test_nd_binop_all {
+  my ($binop,$missing,$swap);
+  foreach $missing ($BAD) {
+    foreach $swap (0,1) {
+      foreach $binop (
+		      qw(plus minus mult divide modulo power),
+		      qw(gt ge lt le eq ne spaceship),
+		      qw(and2 or2 xor),
+		      qw(shiftleft shiftright),
+		     )
+	{
+	  test_nd_binop_mia($binop,$missing,$swap);
+	}
+    }
+  }
+}
+test_nd_binop_all();
+
+
+##---------------------------------------------------------------------
+## CCS: Nd: unary ops
+
+sub test_nd_unop {
+  our ($op_name,$missing) = @_;
+
+  ##-- get params
+  $op_name = 'sumover' if (!defined($op_name));
+  our $ccs_op = PDL::CCS::Nd->can($op_name);
+  our $pdl_op = PDL->can($op_name);
+  die("test_nd_unop(): no PDL op named '$op_name'!") if (!defined($pdl_op));
+  die("test_nd_unop(): no CCS op named '$op_name'!") if (!defined($ccs_op));
+
+  $missing = 0 if (!defined($missing));
+  $missing = pdl($missing);
+
+  ##-- get data
+  test_data_1;
+  $a = $a->setvaltobad(0);
+  $a = $a->setbadtoval($missing) if ($missing->isgood);
+  our $ccs = $a->toccs($missing);
+
+  ##-- guts
+  our $ccs2 = $ccs_op->($ccs);
+  our $a2   = $pdl_op->($a);
+
+  if (ref($a2)) {
+    isok("ccs:nd:unop=${op_name},missing=${missing}", $ccs2->type==$a2->type && all(matchpdl($ccs2->decode,$a2)));
+  } else {
+    isok("ccs:nd:unop=${op_name},missing=${missing}", $ccs2 eq $a2);
+  }
+}
+#test_nd_unop('abs',0);
+#test_nd_unop('bitnot',$BAD);
+
+sub test_nd_unop_all {
+  my ($unop,$missing);
+  foreach $missing (0,65535,$BAD) {
+    foreach $unop (qw(bitnot sqrt abs sin cos not exp log log10)) {
+      test_nd_unop($unop,$missing);
+    }
+  }
+}
+#test_nd_unop_all();
+
+##---------------------------------------------------------------------
+## CCS: ufunc: Nd
+sub test_nd_ufunc_1 {
+  our ($ufunc_name,$missing) = @_;
+
+  ##-- get params
+  $ufunc_name = 'sumover' if (!defined($ufunc_name));
+  our $ccs_ufunc = PDL::CCS::Nd->can($ufunc_name);
+  our $pdl_ufunc = PDL->can($ufunc_name);
+  die("test_nd_ufunc(): no PDL ufunc named '$ufunc_name'!") if (!defined($pdl_ufunc));
+  die("test_nd_ufunc(): no CCS ufunc named '$ufunc_name'!") if (!defined($ccs_ufunc));
+
+  $missing = 0 if (!defined($missing));
+  $missing = pdl($missing);
+
+  ##-- get data
+  test_data_1;
+  $a = $a->setvaltobad(0);
+  $a = $a->setbadtoval($missing) if ($missing->isgood);
+  our $ccs = $a->toccs($missing);
+
+  our $ccs2 = $ccs_ufunc->($ccs);
+  our $a2   = $pdl_ufunc->($a);
+
+  if (ref($a2)) {
+    isok("ccs:nd:ufunc=${ufunc_name},missing=${missing}", $ccs2->type==$a2->type && all(matchpdl($ccs2->decode,$a2)));
+  } else {
+    isok("ccs:nd:ufunc=${ufunc_name},missing=${missing}", $ccs2 eq $a2);
+  }
+}
+#test_nd_ufunc_1('max',0);
+#test_nd_ufunc_1('dprod',1);
+#test_nd_ufunc_1('sumover',$BAD);
+
+sub test_nd_ufunc_all {
+  my ($ufunc,$missing);
+  foreach $missing (0,1,$BAD) {
+    foreach $ufunc (
+		    qw(sumover dsumover prodover dprodover),
+		    qw(andover orover bandover borover),
+		    qw(maximum minimum),
+		    ##
+		    ##-- scalars
+		    qw(sum dsum prod dprod max min),
+		   )
+      {
+	test_nd_ufunc_1($ufunc,$missing);
+      }
+  }
+}
+#test_nd_ufunc_all();
+
+##---------------------------------------------------------------------
+## CCS: binops (block-wise alignment / missing-is-annihiliator): with column-vector
+sub test_ccs_binops_mia_cv {
+  our ($OPNAME,$swap) = @_;
+
+  ##-- set operation sub
+  our $OP = PDL->can($OPNAME);
+  if (!defined($OP)) {
+    warn("$0: no operation '$OPNAME' for PDL!");
+    return undef;
+  }
+  $swap = 0 if (!defined($swap));
+
+  ##-- get data
+  test_data_1;
+  $a = $a->setvaltobad(0); ##-- use BAD as missing value: ensure annihilator
+
+  our $adims = [$a->dims];
+  our $b = sequence($a->type,$a->dim(1))->rotate(1)->setvaltobad(0)->slice("*1,");
+
+  our $ccsa = $a->toccs;
+  our @a = our ($ixa,$nza,$za) = ($ccsa->whichND,$ccsa->nzvals,$ccsa->missing);
+
+  our $ccsb = $b->flat->toccs;
+  our @b = our ($ixb,$nzb,$zb) = ($ccsb->whichND,$ccsb->nzvals,$ccsb->missing);
+  our (@align,$nzai,$nzbi);
+
+
+  ##-- test: missing-annihilator
+  our $nnzc   = ($nza->dim(0) > $nzb->dim(0) ? $nza->dim(0) : $nzb->dim(0));
+  our $istate = zeroes(long,7); ##-- [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
+  our $ostate = $istate->pdl;
+
+  ##-- guts: alignment
+  our $ixa1      = $ixa->slice("1,");
+  our $ixa1sorti = qsortveci($ixa1);
+  $ixa1          = $ixa1->dice_axis(1,$ixa1sorti);
+  ccs_binop_align_block_mia($ixa1,$ixb,$istate, $nzai=zeroes(long,$nnzc),$nzbi=zeroes(long,$nnzc),$ostate);
+
+  ##-- parse output state
+  our ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval) = $ostate->list;
+
+  ##-- trim input pdls
+  our $nzci_max = $nzci_cur-1;
+  $nzai = $nzai->slice("0:$nzci_max");
+  $nzbi = $nzbi->slice("0:$nzci_max");
+
+  ##-- construct output pdl: nzvals
+  our $avals = $ccsa->vals;
+  our $bvals = $ccsb->vals;
+  our $nzc   = zeroes(($avals->type > $bvals->type ? $avals->type : $bvals->type), $nzci_cur);
+  our $zc    = $OP->($avals->slice("-1"), $bvals->slice("-1"), $swap);
+  $nzc      .= $OP->($avals->index($ixa1sorti)->index($nzai), $bvals->index($nzbi), $swap);
+  ##
+  ##-- get indices of "good" c() values
+  our $cimask  = ($zc->isbad ? ($nzc->isgood) : ($nzc!=$zc));
+  our $ciwhich = $cimask->which;
+  $nzc = $nzc->index($ciwhich); #->append($zc);
+
+  ##-- construct output pdl: which
+  #our $ndims   = $ixa->dim(0);
+  #our $cwhich  = zeroes(long, $ndims,$ciwhich->nelem);
+  #$cwhich     .= $ixa->dice_axis(1,$nzai->index($ciwhich));
+  our $cwhich   = $ixa->dice_axis(1,$ixa1sorti)->dice_axis(1,$nzai->index($ciwhich));
+
+  ##-- re-sort output pdls
+  our $cwhichsorti = $cwhich->qsortveci;
+  $cwhich          = $cwhich->dice_axis(1,$cwhichsorti);
+  $nzc             = $nzc->index($cwhichsorti);
+
+  isok("ccs_align_block_mia:OP=$OPNAME,SWAP=$swap", all matchpdl(ccs_decode($cwhich,$nzc,$zc,[$a->dims]), $OP->($a,$b,$swap)));
+
+  my $foo='bar';
+}
+sub test_ccs_binops_mia_cv_all {
+  test_ccs_binops_mia_cv('plus');
+  test_ccs_binops_mia_cv('minus');
+  test_ccs_binops_mia_cv('mult');
+  test_ccs_binops_mia_cv('divide');
+  test_ccs_binops_mia_cv('gt');
+  test_ccs_binops_mia_cv('ge');
+  test_ccs_binops_mia_cv('lt');
+  test_ccs_binops_mia_cv('le');
+  test_ccs_binops_mia_cv('eq');
+  test_ccs_binops_mia_cv('ne');
+  test_ccs_binops_mia_cv('spaceship');
+  test_ccs_binops_mia_cv('and2');
+  test_ccs_binops_mia_cv('or2');
+  test_ccs_binops_mia_cv('xor');
+  test_ccs_binops_mia_cv('shiftleft');
+  test_ccs_binops_mia_cv('shiftright');
+}
+#test_ccs_binops_mia_cv_all();
+
+##---------------------------------------------------------------------
+## CCS: binops (block-wise alignment / missing-is-annihiliator): #1
+sub test_ccs_binops_mia_1 {
+  our ($OPNAME,$swap) = @_;
+
+  ##-- set operation sub
+  our $OP = PDL->can($OPNAME);
+  if (!defined($OP)) {
+    warn("$0: no operation '$OPNAME' for PDL!");
+    return undef;
+  }
+  $swap = 0 if (!defined($swap));
+
+  ##-- get data
+  test_data_1;
+  $a = $a->setvaltobad(0); ##-- use BAD as missing value: ensure annihilator
+
+  our $adims = [$a->dims];
+  our $b = $a->rotate(1);
+  $b->sever;
+  $b->slice("0,0") .= -($a->at(0,0));
+
+  our $ccsa = $a->toccs;
+  our @a = our ($ixa,$nza,$za) = ($ccsa->whichND,$ccsa->nzvals,$ccsa->missing);
+
+  our $ccsb = $b->toccs;
+  our @b = our ($ixb,$nzb,$zb) = ($ccsb->whichND,$ccsb->nzvals,$ccsb->missing);
+  our (@align,$nzai,$nzbi);
+
+
+  ##-- test: missing-annihilator
+  our $nnzc   = ($nza->dim(0) > $nzb->dim(0) ? $nza->dim(0) : $nzb->dim(0));
+  our $istate = zeroes(long,7); ##-- [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
+  our $ostate = $istate->pdl;
+
+  ##-- guts: alignment
+  ccs_binop_align_block_mia($ixa,$ixb,$istate, $nzai=zeroes(long,$nnzc),$nzbi=zeroes(long,$nnzc),$ostate);
+
+  ##-- parse output state
+  our ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval) = $ostate->list;
+
+  ##-- trim input pdls
+  our $nzci_max = $nzci_cur-1;
+  $nzai = $nzai->slice("0:$nzci_max");
+  $nzbi = $nzbi->slice("0:$nzci_max");
+
+  ##-- construct output pdl: nzvals
+  our $avals = $ccsa->vals;
+  our $bvals = $ccsb->vals;
+  our $nzc   = zeroes(($avals->type > $bvals->type ? $avals->type : $bvals->type), $nzci_cur);
+  our $zc    = $OP->($avals->slice("-1"), $bvals->slice("-1"), $swap);
+  $nzc      .= $OP->($avals->index($nzai), $bvals->index($nzbi), $swap);
+  ##
+  ##-- get indices of "good" c() values
+  our $cimask  = ($zc->isbad ? ($nzc->isgood) : ($nzc!=$zc));
+  our $ciwhich = $cimask->which;
+  $nzc = $nzc->index($ciwhich); #->append($zc);
+
+  ##-- construct output pdl: which
+  #our $ndims   = $ixa->dim(0);
+  #our $cwhich  = zeroes(long, $ndims,$ciwhich->nelem);
+  #$cwhich     .= $ixa->dice_axis(1,$nzai->index($ciwhich));
+  our $cwhich   = $ixa->dice_axis(1,$nzai->index($ciwhich));
+  $cwhich->sever;
+  isok("ccs_align_block_mia:OP=$OPNAME,SWAP=$swap", all matchpdl(ccs_decode($cwhich,$nzc,$zc,[$a->dims]), $OP->($a,$b,$swap)));
+
+  my $foo='bar';
+}
+sub test_ccs_binops_mia_1_all {
+  test_ccs_binops_mia_1('plus');
+  test_ccs_binops_mia_1('minus');
+  test_ccs_binops_mia_1('mult');
+  test_ccs_binops_mia_1('divide');
+  test_ccs_binops_mia_1('gt');
+  test_ccs_binops_mia_1('ge');
+  test_ccs_binops_mia_1('lt');
+  test_ccs_binops_mia_1('le');
+  test_ccs_binops_mia_1('eq');
+  test_ccs_binops_mia_1('ne');
+  test_ccs_binops_mia_1('spaceship');
+  test_ccs_binops_mia_1('and2');
+  test_ccs_binops_mia_1('or2');
+  test_ccs_binops_mia_1('xor');
+  test_ccs_binops_mia_1('shiftleft');
+  test_ccs_binops_mia_1('shiftright');
+}
+#test_ccs_binops_mia_1_all();
+
+##---------------------------------------------------------------------
+## CCS: binops (block-wise alignment): #2
 sub test_ccs_binops_2 {
   test_data_1;
 
@@ -109,7 +512,7 @@ sub test_ccs_binops_2 {
   our $ostate = $istate->pdl;
 
   ##-- guts: alignment
-  ccs_binop_align_block($ixa,$ixb,$istate, $nzai=zeroes(long,$nnzc),$nzbi=zeroes(long,$nnzc),$ostate);
+  ccs_binop_align_block_mia($ixa,$ixb,$istate, $nzai=zeroes(long,$nnzc),$nzbi=zeroes(long,$nnzc),$ostate);
 
   ##-- parse output state
   our ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval) = $ostate->list;
@@ -161,7 +564,7 @@ sub test_ccs_binops_2 {
   $cwhich->dice_axis(1,$aiwhich) .= $ixa->dice_axis(1,$nzai->index($aiwhich));
   $cwhich->dice_axis(1,$biwhich) .= $ixb->dice_axis(1,$nzbi->index($biwhich));
 
-  isok("ccs_align_block:OP=$OPNAME", all matchpdl(ccs_decode($cwhich,$nzc,$zc,[$a->dims]), $OP->($a,$b,0)));
+  isok("ccs_align_block_mia:OP=$OPNAME", all matchpdl(ccs_decode($cwhich,$nzc,$zc,[$a->dims]), $OP->($a,$b,0)));
 
   print "test_ccs_binops_2: done.\n";
 }

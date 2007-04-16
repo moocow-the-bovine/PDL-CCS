@@ -85,7 +85,7 @@ vvpp_def
  }
  //
  //-- main loop: start at current nnzai,nnzbi,nnzci
- for ( ; nnzai<sizeNnzA && nnzbi<sizeNnzB && nnzci_nxt<sizeNnzC; ) {
+ for ( ; nnzai<sizeNnzA && nnzbi<sizeNnzB && nnzci_nxt<=sizeNnzC; ) {
    //
    //-- dispatch on cached cmpval for current index-runs (nnzai..nnzai_nxt),(nnzbi..nnzbi_nxt)
    if (cmpval < 0) {
@@ -131,7 +131,7 @@ vvpp_def
  } //-- end main loop
  //
  //-- gobble leftovers
- if (nnzci<sizeNnzC) {
+ if (nnzci_nxt < sizeNnzC) {
    nnzai = nnzai_nxt = sizeNnzA;
    nnzbi = nnzbi_nxt = sizeNnzB;
    nnzci_nxt = nnzci;

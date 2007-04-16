@@ -76,6 +76,7 @@ EOH
 ## + known %args
 ##    out_type        => $pptype_or_undef,   ##-- set type of output $nzvals (default: match input $nzvals)
 ##    out_type_perl   => $perlcode_or_undef, ##-- set output perl type
+##    max_type_perl   => $perlcode_or_undef, ##-- set maximum default output perl type (e.g. 'PDL::long()')
 ##    init_missingOut => $ppcode_or_undef,   ##-- sets value missingOut: default: 'missingOut=$missing();'
 ##    init_code       => $ppcode_or_undef,   ##-- misc initialization
 ##    tmp_type        => $ppcode_or_undef,   ##-- default: $GENERIC(nzvalsOut)
@@ -116,7 +117,13 @@ sub ccs_accum_hash {
    $ixOut  = PDL->zeroes(PDL::long(), $ndims,@nnzOut)
      if (!defined($ixOut)      || $ixOut->isempty);
 ).'
-   $nzvalsOut = PDL->zeroes('.($args{out_type_perl}||'$nzvalsIn->type').', @nnzOut)
+   $nzvalsOut = PDL->zeroes('.(
+                               $args{out_type_perl}
+                               ? $args{out_type_perl}
+                               : ($args{max_type_perl}
+                                  ? "(\$nzvalsIn->type > $args{max_type_perl} ? $args{max_type_perl} : \$nzvalsIn->type)"
+                                  : '$nzvalsIn->type')
+                              ).', @nnzOut)
      if (!defined($nzvalsOut) || $nzvalsOut->isempty);
 '.q(
    $nOut = PDL->pdl(PDL::long(),0)                  if (!defined($nOut) || $nOut->isempty);
@@ -343,6 +350,7 @@ EOMD
 ## Operations: Accumulators (Ufuncs): bor
 ccs_accum_def('bor', 'bitwise "or"',
 	      extra          => {GenericTypes => ['B','S','U','L'] },
+	      max_type_perl  => 'PDL::long()',
 	      init_missingOut=>'missingOut = missingVal;',
 	      tmp_addmissing =>'if (nMissing > 0) { tmp = tmp | missingVal; }',
 	      tmp_addval     =>'tmp |= $nzvalsIn(NnzIn=>nnzii);',
@@ -360,6 +368,7 @@ EOMD
 ## Operations: Accumulators (Ufuncs): band
 ccs_accum_def('band', 'bitwise "and"',
 	      extra          => {GenericTypes => ['B','S','U','L'] },
+	      max_type_perl  => 'PDL::long()',
 	      init_missingOut=>'missingOut = missingVal;',
 	      tmp_addmissing =>'if (nMissing > 0) { tmp &= missingVal; }',
 	      tmp_addval     =>'tmp &= $nzvalsIn(NnzIn=>nnzii);',

@@ -156,7 +156,7 @@ sub copyShallow {
 
 ## $ccs2 = $ccs->shadow(%args)
 ##  + args:
-##     dims  => \@dims,   ##-- defaul: [@$dims1]
+##     dims  => \@dims,   ##-- default: [@$dims1]
 ##     xdims => $xdims2,  ##-- default: $xdims1->pdl
 ##     ptrs  => \@ptrs2,  ##-- default: []
 ##     which => $which2,  ##-- default: undef
@@ -253,6 +253,9 @@ sub xdims { $_[0][$XDIMS]; }
 
 ## $nnz = $obj->nstored()
 sub nstored { $_[0][$WHICH]->dim(1); }
+
+## $nmissing = $obj->nmissing()
+sub nmissing { 1 + $_[0]->nelem - $_[0]->[$VALS]->nelem; }
 
 ## $missing = $obj->missing()
 ## $missing = $obj->missing($missing)
@@ -430,6 +433,262 @@ sub set {
   }
   return $_[0];
 }
+
+##--------------------------------------------------------------
+## Ufuncs
+
+## $ufunc_sub = _ufuncsub($subname, \&ccs_accum_sub)
+sub _ufuncsub {
+  my ($subname,$accumsub) = @_;
+  return sub {
+    my $ccs = shift;
+    ##
+    ##-- preparation
+    my $which   = $ccs->whichND;
+    my $which0  = $which->slice("(0),");
+    my $which1  = $which->slice("1:-1,");
+    my $sorti   = $which1->qsortveci;
+    my $vals    = $ccs->[$VALS];
+    my $vals1   = $vals->index($sorti);
+    my $missing = $vals->slice("(-1)");
+    my @dims    = $ccs->dims;
+    ##
+    ##-- guts
+    my ($which2,$nzvals2) = $accumsub->($which1->dice_axis(1,$sorti),$vals1,
+					($missing->isgood ? ($missing,$dims[0]) : (0,0))
+				       );
+    ##
+    ##-- get output pd
+    shift(@dims);
+    return $ccs->shadow(
+			dims  =>[@dims],
+			xdims =>PDL->sequence($P_LONG,$#{$ccs->[$DIMS]}),
+			which =>$which2,
+			vals  =>$nzvals2->append($missing->convert($nzvals2->type)),
+		       );
+  };
+}
+
+foreach my $ufunc (
+		   qw(prod dprod sum dsum),
+		   qw(and or band bor),
+		  )
+  {
+    eval "*${ufunc}over = _ufuncsub('${ufunc}over', PDL::CCS::Ufunc->can('ccs_accum_${ufunc}'))";
+  }
+foreach my $ufunc (qw(maximum minimum))
+  {
+    eval "*${ufunc} = _ufuncsub('${ufunc}', PDL::CCS::Ufunc->can('ccs_accum_${ufunc}'))";
+  }
+
+sub sum   { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->sum   + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
+sub dsum  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->dsum  + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
+sub prod  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->prod  * ($z->isgood ? ($z->sclr ** $_[0]->nmissing) : 1); }
+sub dprod { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->dprod * ($z->isgood ? ($z->sclr ** $_[0]->nmissing) : 1); }
+sub min   { $_[0][$VALS]->min; }
+sub max   { $_[0][$VALS]->max; }
+
+sub any { $_[0][$VALS]->any; }
+sub all { $_[0][$VALS]->all; }
+
+
+##--------------------------------------------------------------
+## Unary Operations
+
+## $sub = _unary_op($opname,$pdlsub)
+sub _unary_op {
+  my ($opname,$pdlsub) = @_;
+  return sub { $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$pdlsub->($_[0][$VALS])); };
+}
+
+foreach my $unop (qw(bitnot sqrt abs sin cos not exp log log10))
+  {
+    eval "*${unop} = _unary_op('${unop}',PDL->can('${unop}'));";
+  }
+
+##--------------------------------------------------------------
+## Binary Operations: missing-is-annihilator
+
+## \@matchdims_or_undef = _ccs_binop_relevant_dims(\@dims1,\@dims2)
+##  + barf()s on mismath
+sub _ccs_binop_relevant_dims {
+  my ($opname,$dims1,$dims2) = @_;
+  my $rdims = [];
+  foreach (0..($#$dims1 < $#$dims2 ? $#$dims1 : $#$dims2)) {
+    next if ($dims1->[$_] <= 1 || $dims2->[$_] <= 1);
+    if ($dims1->[$_] != $dims2->[$_]) {
+      barf("PDL::CCS::Nd::",
+	   ($opname||'_ccs_binop_relevant_dims'),
+	   "(): mismatch on non-trivial dim($_): $dims1->[$_] != $dims2->[$_]");
+    }
+    push(@$rdims,$_);
+  }
+  return $rdims;
+}
+
+#our $BLOCKSIZE_MIN     =  8192;
+#our $BLOCKSIZE_DEFAULT = 65535;
+##--
+our $BLOCKSIZE_MIN     =    1;
+our $BLOCKSIZE_DEFAULT = 8192;
+sub _binary_op_mia {
+  my ($opname,$pdlsub,$deftype) = @_;
+
+  return sub {
+    my ($a,$b,$swap) = @_;
+    $swap=0 if (!defined($swap));
+
+    ##-- get relevant dimensions
+    my @adims = $a->dims;
+    my @bdims = $b->dims;
+    my @cdims = (
+		 map {
+		   $_ <= $#adims && $adims[$_] > 1 ? $adims[$_] : $bdims[$_]
+		 } (0..($#adims > $#bdims ? $#adims : $#bdims))
+		);
+    my $rdims = _ccs_binop_relevant_dims($opname,\@adims,\@bdims);
+    my $rdpdl = PDL->pdl($P_LONG,$rdims);
+
+    ##-- get & sort relevant indices
+    my $ixa        = $a->[$WHICH]->dice_axis(0,$a->[$XDIMS]);
+    my $nixa       = $ixa->dim(1);
+    my $ixar       = $ixa->dice_axis(0,$rdpdl);
+    my $ixar_sorti = $ixar->qsortveci;
+    $ixa           = $ixa->dice_axis(1,$ixar_sorti);
+    $ixar          = $ixar->dice_axis(1,$ixar_sorti);
+    ##
+    my $ixb        = $b->[$WHICH]->dice_axis(0,$b->[$XDIMS]);
+    my $nixb       = $ixb->dim(1);
+    my $ixbr       = $ixb->dice_axis(0,$rdpdl);
+    my $ixbr_sorti = $ixbr->qsortveci;
+    $ixb           = $ixb->dice_axis(1,$ixbr_sorti);
+    $ixbr          = $ixbr->dice_axis(1,$ixbr_sorti);
+
+    ##-- initialize: values
+    my $avals  = $a->[$VALS];
+    my $avalsr = $avals->index($ixar_sorti);
+    my $bvals  = $b->[$VALS];
+    my $bvalsr = $bvals->index($ixbr_sorti);
+
+    ##-- initialize: state vars
+    my $blksz  = $BLOCKSIZE_DEFAULT;
+    $blksz     = $nixa if ($nixa < $blksz && $nixa >= $BLOCKSIZE_MIN);
+    $blksz     = $nixb if ($nixb < $blksz && $nixb >= $BLOCKSIZE_MIN);
+    my $istate = PDL->zeroes($P_LONG,7); ##-- [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
+    my $ostate = $istate->pdl;
+
+    ##-- initialize: output vectors
+    my $nzai   = PDL->zeroes($P_LONG,$blksz);
+    my $nzbi   = PDL->zeroes($P_LONG,$blksz);
+    my $nzc    = PDL->zeroes((defined($deftype)
+			      ? $deftype
+			      : ($avals->type > $bvals->type
+				 ? $avals->type
+				 : $bvals->type)),
+			     $blksz);
+    my $ixc    = PDL->zeroes($P_LONG, scalar(@cdims), $blksz);
+    my $nnzc   = 0;
+    my $zc     = $pdlsub->($avals->slice("-1"), $bvals->slice("-1"), $swap)->convert($nzc->type);
+    my $zc_isbad = $zc->isbad ? 1 : 0;
+
+    ##-- block-wise variables
+    my ($nzai_prv,$nzai_pnx, $nzbi_prv,$nzbi_pnx, $nzci_prv,$nzci_pnx,$cmpval_prv);
+    my ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval);
+    my ($nzci_max, $blk_slice, $blk_slice_nz);
+    my ($nzai_blk,$nzbi_blk,$ixa_blk,$ixb_blk,$nzc_blk,$cimask_blk,$ciwhich_blk);
+    do {
+      ##-- align a block
+      ccs_binop_align_block_mia($ixar,$ixbr,$istate, $nzai,$nzbi,$ostate);
+
+      ##-- parse current I/O state
+      ($nzai_prv,$nzai_pnx, $nzbi_prv,$nzbi_pnx, $nzci_prv,$nzci_pnx,$cmpval_prv) = $istate->list;
+      ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval)     = $ostate->list;
+      $nzci_max = $nzci_cur-1;
+
+      if ($nzci_cur < $nzai->dim(0)) {
+	##-- trim input pdls
+	$nzai = $nzai->slice("0:$nzci_max");
+	$nzbi = $nzbi->slice("0:$nzci_max");
+	$nzc  = $nzc->slice("0:$nzci_max");
+	$ixc  = $ixc->slice(",0:$nzci_max");
+      }
+
+      ##-- construct block output pdls: nzvals
+      $blk_slice = "${nzci_prv}:${nzci_max}";
+      $nzai_blk  = $nzai->slice($blk_slice);
+      $nzbi_blk  = $nzbi->slice($blk_slice);
+      $nzc_blk   = $pdlsub->($avalsr->index($nzai_blk), $bvalsr->index($nzbi_blk), $swap);
+
+      ##-- get indices of "good" c() values
+      $cimask_blk   = $zc_isbad ? $nzc_blk->isgood : ($nzc_blk!=$zc);
+      $ciwhich_blk  = $cimask_blk->which;
+      $nzc_blk      = $nzc_blk->index($ciwhich_blk);
+      $nnzc        += $nzc_blk->nelem;
+      $blk_slice_nz = "${nzci_prv}:".($nnzc-1);
+
+
+      ##-- construct block output pdls: ixc
+      $ixa_blk = $ixa->dice_axis(1,$nzai_blk->index($ciwhich_blk));
+      $ixb_blk = $ixb->dice_axis(1,$nzbi_blk->index($ciwhich_blk));
+      foreach (0..$#cdims) {
+	if ($_ <= $#adims && $cdims[$_]==$adims[$_]) {
+	  $ixc->slice("($_),$blk_slice_nz") .= $ixa_blk->slice("($_),");
+	} else {
+	  $ixc->slice("($_),$blk_slice_nz") .= $ixb_blk->slice("($_),");
+	}
+      }
+
+      ##-- construct block output pdls: nzc
+      $nzc->slice($blk_slice_nz) .= $nzc_blk;
+
+      ##-- maybe allocate for another block
+      if ($nzai_cur < $nixa || $nzbi_cur < $nixb) {
+	$nzci_nxt -= ($nzci_cur-$nnzc);
+	$nzci_cur  = $nnzc;
+
+	$ixc = $ixc->reshape($ixc->dim(0), $nzci_nxt+$blksz);
+	$nzc = $nzc->reshape($nzci_nxt+$blksz);
+	$nzai = $nzai->reshape($nzci_nxt+$blksz);
+	$nzbi = $nzbi->reshape($nzci_nxt+$blksz);
+
+	$istate .= $ostate;
+	$istate->set(4, $nzci_cur);
+	$istate->set(5, $nzci_nxt);
+      }
+    } while ($nzai_cur < $nixa || $nzbi_cur < $nixb);
+
+    ##-- set up final output pdl
+    my $ixc_sorti = $ixc->qsortveci;
+    $nzc          = $nzc->index($ixc_sorti)->append($zc);
+    $nzc->sever;
+
+    $ixc          = $ixc->dice_axis(1,$ixc_sorti);
+    $ixc->sever;
+
+    return $a->shadow(
+		      dims  => [@cdims],
+		      xdims => PDL->sequence($P_LONG,scalar(@cdims)),
+		      which => $ixc,
+		      vals  => $nzc,
+		     );
+  };
+}
+
+foreach my $binop (
+		   qw(plus minus mult divide modulo power),
+		   qw(gt ge lt le eq ne spaceship),
+		  )
+  {
+    eval "*${binop} = _binary_op_mia('${binop}',PDL->can('${binop}'));";
+  }
+
+foreach my $intop (
+		   qw(and2 or2 xor shiftleft shiftright),
+		  )
+  {
+    eval "*${intop} = _binary_op_mia('${intop}',PDL->can('${intop}'),\$P_LONG);";
+  }
+
 
 ##--------------------------------------------------------------
 ## General Information
