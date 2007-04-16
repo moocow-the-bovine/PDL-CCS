@@ -28,6 +28,8 @@ BEGIN {
   our $P_LONG = PDL::long();
 
   our $BAD    = PDL->zeroes(1)->setvaltobad(0)->squeeze;
+
+  #$PDL::CCS::Nd::BLOCKSIZE_MAX=8; ##-- DEBUG
 }
 
 ##---------------------------------------------------------------------
@@ -160,6 +162,7 @@ sub test_nd_binop_mia {
   test_data_1;
   $a = $a->setvaltobad(0);
   $a = $a->setbadtoval($missing) if ($missing->isgood);
+  $a = $a->abs; ##-- use absval so bitwise ops don't overflow
 
   our $b = $a->rotate(1);
   $b->sever;
@@ -222,30 +225,31 @@ sub test_nd_unop {
   test_data_1;
   $a = $a->setvaltobad(0);
   $a = $a->setbadtoval($missing) if ($missing->isgood);
-  our $ccs = $a->toccs($missing);
+  our $as = $a->toccs($missing);
 
   ##-- guts
-  our $ccs2 = $ccs_op->($ccs);
-  our $a2   = $pdl_op->($a);
+  our $bs = $ccs_op->($as);
+  our $b  = $pdl_op->($a);
 
-  if (ref($a2)) {
-    isok("ccs:nd:unop=${op_name},missing=${missing}", $ccs2->type==$a2->type && all(matchpdl($ccs2->decode,$a2)));
+  if (ref($b)) {
+    isok("ccs:nd:unop=${op_name},missing=${missing}", $bs->type==$b->type && all(matchpdl($bs->decode,$b)));
   } else {
-    isok("ccs:nd:unop=${op_name},missing=${missing}", $ccs2 eq $a2);
+    isok("ccs:nd:unop=${op_name},missing=${missing}", $bs eq $b);
   }
 }
 #test_nd_unop('abs',0);
-#test_nd_unop('bitnot',$BAD);
+test_nd_unop('bitnot',-1);
+test_nd_unop('bitnot',$BAD);
 
 sub test_nd_unop_all {
   my ($unop,$missing);
-  foreach $missing (0,65535,$BAD) {
+  foreach $missing (0,-1,$BAD) {
     foreach $unop (qw(bitnot sqrt abs sin cos not exp log log10)) {
       test_nd_unop($unop,$missing);
     }
   }
 }
-#test_nd_unop_all();
+test_nd_unop_all();
 
 ##---------------------------------------------------------------------
 ## CCS: ufunc: Nd

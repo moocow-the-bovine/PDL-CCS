@@ -29,6 +29,44 @@ our %EXPORT_TAGS =
 ##--------------------------------------------------------------
 ## Operator overloading
 use overload (
+	      ##-- Binary ops: arithmetic
+	      "+" => \&plus_mia,
+	      "-" => \&minus_mia,
+	      "*" => \&mult_mia,
+	      "/" => \&divide_mia,
+	      "%" => \&modulo_mia,
+	      "**" => \&power_mia,
+
+	      ##-- Binary ops: comparisons
+	      ">"  => \&gt_mia,
+	      "<"  => \&lt_mia,
+	      ">=" => \&ge_mia,
+	      "<=" => \&le_mia,
+	      "<=>" => \&spaceship_mia,
+	      "==" => \&eq_mia,
+	      "!=" => \&ne_mia,
+	      #"eq" => \&eq_mia
+
+	      ##-- Binary ops: bitwise & logic
+	      "|"  => \&or2_mia,
+	      "&"  => \&and2_mia,
+	      "!"  => \&not_mia,
+	      "~"  => \&bitnot_mia,
+	      "^"  => \&xor_mia,
+	      "<<" => \&shiftleft_mia,
+	      ">>" => \&shiftright_mia,
+
+	      ##-- Unary operations
+	      "sqrt" => \&sqrt_mia,
+	      "abs"  => \&abs_mia,
+	      "sin"  => \&sin_mia,
+	      "cos"  => \&cos_mia,
+	      "log"  => \&log_mia,
+	      "exp"  => \&exp_mia,
+
+	      ##-- TODO: assignment (.=), assigning-variants (+=, *=, etc.), matmult (x)
+
+	      ##-- Stringification
 	      "\"\"" => \&string,
 	     );
 
@@ -526,17 +564,18 @@ sub _ccs_binop_relevant_dims {
   return $rdims;
 }
 
-#our $BLOCKSIZE_MIN     =  8192;
-#our $BLOCKSIZE_DEFAULT = 65535;
+#our $BLOCKSIZE_MIN     =    64;
+#our $BLOCKSIZE_MAX     = undef;
 ##--
-our $BLOCKSIZE_MIN     =    1;
-our $BLOCKSIZE_DEFAULT = 8192;
+our $BLOCKSIZE_MIN     =      1;
+our $BLOCKSIZE_MAX     =  65535;
 sub _binary_op_mia {
   my ($opname,$pdlsub,$deftype) = @_;
 
   return sub {
     my ($a,$b,$swap) = @_;
     $swap=0 if (!defined($swap));
+    $b = $b->toccs;
 
     ##-- get relevant dimensions
     my @adims = $a->dims;
@@ -571,9 +610,9 @@ sub _binary_op_mia {
     my $bvalsr = $bvals->index($ixbr_sorti);
 
     ##-- initialize: state vars
-    my $blksz  = $BLOCKSIZE_DEFAULT;
-    $blksz     = $nixa if ($nixa < $blksz && $nixa >= $BLOCKSIZE_MIN);
-    $blksz     = $nixb if ($nixb < $blksz && $nixb >= $BLOCKSIZE_MIN);
+    my $blksz  = $nixa > $nixb ? $nixa : $nixb;
+    $blksz     = $BLOCKSIZE_MIN if (defined($BLOCKSIZE_MIN) && $blksz < $BLOCKSIZE_MIN);
+    $blksz     = $BLOCKSIZE_MAX if (defined($BLOCKSIZE_MAX) && $blksz > $BLOCKSIZE_MAX);
     my $istate = PDL->zeroes($P_LONG,7); ##-- [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
     my $ostate = $istate->pdl;
 
@@ -594,8 +633,9 @@ sub _binary_op_mia {
     ##-- block-wise variables
     my ($nzai_prv,$nzai_pnx, $nzbi_prv,$nzbi_pnx, $nzci_prv,$nzci_pnx,$cmpval_prv);
     my ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval);
-    my ($nzci_max, $blk_slice, $blk_slice_nz);
+    my ($nzci_max, $blk_slice, $nnzc_blk,$nnzc_slice_blk);
     my ($nzai_blk,$nzbi_blk,$ixa_blk,$ixb_blk,$nzc_blk,$cimask_blk,$ciwhich_blk);
+    my $nnzc_prev=0;
     do {
       ##-- align a block
       ccs_binop_align_block_mia($ixar,$ixbr,$istate, $nzai,$nzbi,$ostate);
@@ -605,12 +645,15 @@ sub _binary_op_mia {
       ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval)     = $ostate->list;
       $nzci_max = $nzci_cur-1;
 
-      if ($nzci_cur < $nzai->dim(0)) {
-	##-- trim input pdls
+      if ($nzai_cur >= $nixa && $nzbi_cur >= $nixb) {
+	##-- final block: trim pdls
 	$nzai = $nzai->slice("0:$nzci_max");
 	$nzbi = $nzbi->slice("0:$nzci_max");
-	$nzc  = $nzc->slice("0:$nzci_max");
-	$ixc  = $ixc->slice(",0:$nzci_max");
+
+	$nzc  = $nzc->slice("0:".($nnzc+$nzci_max));
+	$ixc  = $ixc->slice(",0:".($nnzc+$nzci_max));
+
+	last if ($nzci_max < 0);
       }
 
       ##-- construct block output pdls: nzvals
@@ -623,38 +666,41 @@ sub _binary_op_mia {
       $cimask_blk   = $zc_isbad ? $nzc_blk->isgood : ($nzc_blk!=$zc);
       $ciwhich_blk  = $cimask_blk->which;
       $nzc_blk      = $nzc_blk->index($ciwhich_blk);
-      $nnzc        += $nzc_blk->nelem;
-      $blk_slice_nz = "${nzci_prv}:".($nnzc-1);
 
+      $nnzc_blk        = $nzc_blk->nelem;
+      $nnzc           += $nnzc_blk;
+      $nnzc_slice_blk  = "${nnzc_prev}:".($nnzc-1);
 
       ##-- construct block output pdls: ixc
       $ixa_blk = $ixa->dice_axis(1,$nzai_blk->index($ciwhich_blk));
       $ixb_blk = $ixb->dice_axis(1,$nzbi_blk->index($ciwhich_blk));
       foreach (0..$#cdims) {
 	if ($_ <= $#adims && $cdims[$_]==$adims[$_]) {
-	  $ixc->slice("($_),$blk_slice_nz") .= $ixa_blk->slice("($_),");
+	  $ixc->slice("($_),$nnzc_slice_blk") .= $ixa_blk->slice("($_),");
 	} else {
-	  $ixc->slice("($_),$blk_slice_nz") .= $ixb_blk->slice("($_),");
+	  $ixc->slice("($_),$nnzc_slice_blk") .= $ixb_blk->slice("($_),");
 	}
       }
 
       ##-- construct block output pdls: nzc
-      $nzc->slice($blk_slice_nz) .= $nzc_blk;
+      $nzc->slice($nnzc_slice_blk) .= $nzc_blk;
 
       ##-- maybe allocate for another block
       if ($nzai_cur < $nixa || $nzbi_cur < $nixb) {
-	$nzci_nxt -= ($nzci_cur-$nnzc);
-	$nzci_cur  = $nnzc;
+	$nzci_nxt -= $nzci_cur;
+	$nzci_cur  = 0;
 
-	$ixc = $ixc->reshape($ixc->dim(0), $nzci_nxt+$blksz);
-	$nzc = $nzc->reshape($nzci_nxt+$blksz);
-	$nzai = $nzai->reshape($nzci_nxt+$blksz);
-	$nzbi = $nzbi->reshape($nzci_nxt+$blksz);
+	$ixc = $ixc->reshape($ixc->dim(0), $ixc->dim(1)+$nzci_nxt+$blksz);
+	$nzc = $nzc->reshape($nzc->dim(0)+$nzci_nxt+$blksz);
+	$nzai = $nzai->reshape($nzci_nxt+$blksz) if ($nzci_nxt+$blksz > $nzai->dim(0));
+	$nzbi = $nzbi->reshape($nzci_nxt+$blksz) if ($nzci_nxt+$blksz > $nzbi->dim(0));
 
 	$istate .= $ostate;
 	$istate->set(4, $nzci_cur);
 	$istate->set(5, $nzci_nxt);
       }
+      $nnzc_prev = $nnzc;
+
     } while ($nzai_cur < $nixa || $nzbi_cur < $nixb);
 
     ##-- set up final output pdl
@@ -679,14 +725,14 @@ foreach my $binop (
 		   qw(gt ge lt le eq ne spaceship),
 		  )
   {
-    eval "*${binop} = _binary_op_mia('${binop}',PDL->can('${binop}'));";
+    eval "*${binop} = *${binop}_mia = _binary_op_mia('${binop}',PDL->can('${binop}'));";
   }
 
 foreach my $intop (
 		   qw(and2 or2 xor shiftleft shiftright),
 		  )
   {
-    eval "*${intop} = _binary_op_mia('${intop}',PDL->can('${intop}'),\$P_LONG);";
+    eval "*${intop} = *${intop}_mia = _binary_op_mia('${intop}',PDL->can('${intop}'),\$P_LONG);";
   }
 
 
@@ -724,9 +770,9 @@ sub string {
   return
     (
      ''
-     ."PDL::CCS(".join(',', @{$_[0][$DIMS]}[$_[0][$XDIMS]->list]).")\n"
+     .ref($_[0])."(".join(',', @{$_[0][$DIMS]}[$_[0][$XDIMS]->list]).")\n"
      .$,." which:(".join(',', $_[0][$WHICH]->type, $_[0][$WHICH]->dims).")^T=$whichstr\n"
-     .$,." nzvals:(" .join(',', $_[0][$VALS]->type,  $_[0][$VALS]->dims).")=$_[0][$VALS]\n"
+     .$,." vals:(" .join(',', $_[0][$VALS]->type,  $_[0][$VALS]->dims).")=$_[0][$VALS]\n"
     );
 }
 
