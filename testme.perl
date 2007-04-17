@@ -465,7 +465,8 @@ sub transpose {
 sub inplace { $_[0][$NZVALS]->inplace(@_[1..$#_]); }
 
 ## $bool = $ccs->is_inplace()
-sub is_inplace { $_[0][$NZVALS]->is_inplace; }
+sub is_inplace { $_[0][$NZVALS]->is_inplace(@_[1..$#_]); }
+
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators

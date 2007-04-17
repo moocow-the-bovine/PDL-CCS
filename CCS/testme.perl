@@ -12,6 +12,7 @@ use PDL::CCS::Compat;
 use PDL::CCS::Nd;
 use Storable qw(store retrieve);
 use PDL::IO::Storable;
+use Benchmark qw(cmpthese timethese);
 use Data::Dumper;
 
 BEGIN {
@@ -27,9 +28,15 @@ BEGIN {
   our $P_BYTE = PDL::byte();
   our $P_LONG = PDL::long();
 
+  ##-- flags
+  our $CCSND_BAD_IS_MISSING = $PDL::CCS::Nd::CCSND_BAD_IS_MISSING;
+  our $CCSND_NAN_IS_MISSING = $PDL::CCS::Nd::CCSND_NAN_IS_MISSING;
+  our $CCSND_INPLACE        = $PDL::CCS::Nd::CCSND_INPLACE;
+  our $FLAGS_DEFAULT        = $PDL::CCS::Nd::FLAGS_DEFAULT;
+
   our $BAD    = PDL->zeroes(1)->setvaltobad(0)->squeeze;
 
-  #$PDL::CCS::Nd::BLOCKSIZE_MAX=8; ##-- DEBUG
+  #$PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=8; ##-- DEBUG
 }
 
 ##---------------------------------------------------------------------
@@ -83,10 +90,158 @@ sub test_data_bg {
 #test_data_bg();
 
 ##---------------------------------------------------------------------
-## CCS: Nd: binary ops: missing-annihilator: full dim-match
+## bg data: blocksize twiddling
+sub test_bg_blocksize {
+  test_data_bg;
+
+  $bgd  = $bgccs->double;
+  $bgd  = $bgccs;
+  $ugd  = $bgd->sumover;
+  $bgd /= $ugd; ##-- kira: "Debugger floating point exception" if $bgccs still has an integer type
+
+  $bg0 = $bgccs->copy;
+  $bg0->[$VALS] = $bg0->[$VALS]->double;
+
+  cmpthese(4,
+	   {
+	    'bs=0'    => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=0;     $bg1 = $bg0*$bg0; },
+	    'bs=65535'=> sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=65535; $bg1 = $bg0*$bg0; },
+	    'bs=8192' => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=8192;  $bg1 = $bg0*$bg0; },
+	    'bs=4096' => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=1024;  $bg1 = $bg0*$bg0; },
+	   });
+}
+test_bg_blocksize;
+
+##---------------------------------------------------------------------
+## CCS: Nd: recode
+
+sub test_recode {
+  test_data_1;
+
+  ##-- test: assignment
+  $as  = $a->toccs;
+  $as .= 0;
+  isok("assign(as.=0)", all matchpdl($as->decode,$a->zeroes));
+  $as .= $a;
+  isok("assign(as.=a)", all matchpdl($as->decode,$a));
+
+  ##-- test: ++
+  $as++; $a++;
+  isok("++", all matchpdl($as->decode,$a));
+  $as--; $a--;
+
+  ##-- test: !
+  $nas = !$as;
+  $na  = !$a;
+  isok("!", all matchpdl($nas->decode,$na));
+
+  ##-- test: ==
+  $aseq = ($as==$a);
+  isok("==", $aseq->all);
+
+  ##-- test: ccs-encode singleton
+  our $z0  = pdl(0);
+  our $z1  = pdl(1);
+  our $z0s = $z0->toccs;
+  our $z1s = $z1->toccs;
+  isok("ccs:nd:encode:singleton:0",      $z0==$z0s->decode);
+  isok("ccs:nd:encode:singleton:1",      $z1==$z1s->decode);
+  isok("ccs:nd:encode:singleton:0:bool", (($z0 && $z0s) || (!$z0 && !$z0s)));
+  isok("ccs:nd:encode:singleton:1:bool", (($z1 && $z1s) || (!$z1 && !$z1s)));
+
+  ##-- test recode BAD->0
+  $as = $a->toccs($BAD);
+  $as->missing(0);
+  $as->recode;
+  isok("ccs:nd:recode(BAD->0)", all matchpdl($as->decode,$a));
+
+  ##-- test recode: empty pdl /0
+  $as->[$VALS] .= 0;
+  $as->recode();
+
+  $asd = $as->decode;
+  isok("ccs:nd:recode(empty:z=0)", all matchpdl($asd,$a->zeroes));
+
+  ##-- test recode: empty/bad
+  our $abad = $a->zeroes->setvaltobad(0);
+  $as = $abad->toccs($BAD);
+  isok("ccs:nd:recode(empty:z=bad)", all matchpdl($as->decode,$abad));
+
+  ##-- test type conversion
+  isok("ccs:nd:long()", PDL::CCS::Nd::long()==PDL::long());
+  $as     = $a->toccs;
+  $aslong = $as->long;
+  isok("ccs:nd->long()", $aslong->type == PDL::long());
+}
+test_recode();
+
+##---------------------------------------------------------------------
+## CCS: Nd: binary ops: scalar (correct)
+
+sub test_nd_binop_sclr {
+  our ($op_name,$b,$missing,$swap,$flags) = @_;
+
+  ##-- get params
+  $op_name = 'add' if (!defined($op_name));
+  our $pdl_op = PDL->can($op_name);
+  our $ccs_op = PDL::CCS::Nd->can($op_name);
+  die("test_nd_binop_sclr(): no PDL op named '$op_name'!") if (!defined($pdl_op));
+  die("test_nd_binop_sclr(): no CCS op named '$op_name'!") if (!defined($ccs_op) || $ccs_op eq $pdl_op);
+
+  $missing = 0 if (!defined($missing));
+  $missing = pdl($missing);
+
+  $swap = 0 if (!defined($swap));
+
+  ##-- get data
+  test_data_1;
+  $a = $a->setvaltobad(0);
+  $a = $a->setbadtoval($missing) if ($missing->isgood);
+
+  our $as = $a->toccs($missing,$flags);
+
+  ##-- set blocksize?
+  #$PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX = 2;
+
+  ##-- guts
+  our $cs = $ccs_op->($as,          $b,  $swap);
+  our $c  = $pdl_op->($a,  todense($b),  $swap);
+
+  isok("ccs:nd:binop=${op_name},z=${missing},b=sclr($b),swap=$swap:type", $cs->type==$c->type);
+  isok("ccs:nd:binop=${op_name},z=${missing},b=sclr($b),swap=$swap:vals", all(matchpdl($cs->decode,$c)));
+}
+##-- test_nd_binop_sclr(op,b,missing,swap,flags)
+test_nd_binop_sclr('mult',$BAD,0);
+#test_nd_binop_sclr('mult',42, 0,0,0);
+#test_nd_binop_sclr('mult',pdl([[42]])->toccs, 0,0,0);
+#test_nd_binop_sclr('divide',0, $BAD,0,0);
+#test_nd_binop_sclr('power',0, $BAD,1,0);
+
+sub test_nd_binop_sclr_all {
+  my ($sclr,$binop,$missing,$swap);
+  foreach $missing ($BAD) {
+    foreach $swap (0,1) {
+      foreach $binop (
+		      qw(plus minus mult divide modulo power),
+		      qw(gt ge lt le eq ne spaceship),
+		      qw(and2 or2 xor),
+		      qw(shiftleft shiftright), #)
+		     ) {
+	foreach $sclr (0,42) {
+	  test_nd_binop_sclr($binop,$sclr,$missing,$swap);
+	}
+      }
+    }
+  }
+}
+#test_nd_binop_sclr_all();
+
+
+##---------------------------------------------------------------------
+## CCS: Nd: binary ops: missing-annihilator: col- & row-vectors
 
 sub test_nd_binop_cvrv_mia {
-  my ($op_name,$missing,$swap) = @_;
+  my ($op_name,$missing,$swap, $flags) = @_;
   ##-- get params
   $op_name = 'add' if (!defined($op_name));
   our $pdl_op = PDL->can($op_name);
@@ -107,20 +262,27 @@ sub test_nd_binop_cvrv_mia {
   our $b0 = sequence(  $a->dim(0))+1;
   our $b1 = sequence(1,$a->dim(1))+1;
 
-  our $as  = $a->toccs($missing);
-  our $bs0 = $b0->toccs($missing);
-  our $bs1 = $b1->toccs($missing);
+  our $as  = $a->toccs($missing,$flags);
+  our $bs0 = $b0->toccs($missing,$flags);
+  our $bs1 = $b1->toccs($missing,$flags);
+
+  ##-- set blocksize?
+  #$PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX = 2;
 
   ##-- guts
   our $cs0 = $ccs_op->($as,$bs0, $swap);
   our $c0  = $pdl_op->($a, $b0,  $swap);
-  isok("ccs:nd:arg2=rv,binop=${op_name},z=${missing},swap=$swap", $cs0->type==$c0->type && all(matchpdl($cs0->decode,$c0)));
+  isok("ccs:nd:arg2=rv,binop=${op_name},z=${missing},swap=$swap:type", $cs0->type==$c0->type);
+  isok("ccs:nd:arg2=rv,binop=${op_name},z=${missing},swap=$swap:vals", all(matchpdl($cs0->decode,$c0)));
 
   our $cs1 = $ccs_op->($as,$bs1, $swap);
   our $c1  = $pdl_op->($a, $b1,  $swap);
-  isok("ccs:nd:arg2=cv,binop=${op_name},z=${missing},swap=$swap", $cs1->type==$c1->type && all(matchpdl($cs1->decode,$c1)));
+  isok("ccs:nd:arg2=cv,binop=${op_name},z=${missing},swap=$swap:type", $cs1->type==$c1->type);
+  isok("ccs:nd:arg2=cv,binop=${op_name},z=${missing},swap=$swap:vals", all(matchpdl($cs1->decode,$c1)));
 }
-test_nd_binop_cvrv_mia('mult',$BAD,0);
+test_nd_binop_cvrv_mia('plus',$BAD,0);
+#test_nd_binop_cvrv_mia('mult',$BAD,0);
+#test_nd_binop_cvrv_mia('divide',0,0, 3);
 
 sub test_nd_binop_cvrv_all {
   my ($binop,$missing,$swap);
@@ -138,7 +300,7 @@ sub test_nd_binop_cvrv_all {
     }
   }
 }
-test_nd_binop_cvrv_all();
+#test_nd_binop_cvrv_all();
 
 
 ##---------------------------------------------------------------------
@@ -175,7 +337,8 @@ sub test_nd_binop_mia {
   our $c  = $pdl_op->($a, $b,  $swap);
 
   if (ref($c)) {
-    isok("ccs:nd:binop=${op_name},missing=${missing},swap=$swap", $cs->type==$c->type && all(matchpdl($cs->decode,$c)));
+    isok("ccs:nd:binop=${op_name},missing=${missing},swap=$swap:type", $cs->type==$c->type);
+    isok("ccs:nd:binop=${op_name},missing=${missing},swap=$swap:vals", all(matchpdl($cs->decode,$c)));
   } else {
     isok("ccs:nd:binop=${op_name},missing=${missing},swap=$swap", $cs eq $c);
   }
@@ -186,7 +349,7 @@ sub test_nd_binop_mia {
 #test_nd_binop_mia('xor',$BAD,0);
 test_nd_binop_mia('shiftleft',$BAD,0);
 
-sub test_nd_binop_all {
+sub test_nd_binop_mia_all {
   my ($binop,$missing,$swap);
   foreach $missing ($BAD) {
     foreach $swap (0,1) {
@@ -202,7 +365,7 @@ sub test_nd_binop_all {
     }
   }
 }
-test_nd_binop_all();
+#test_nd_binop_mia_all();
 
 
 ##---------------------------------------------------------------------
@@ -232,13 +395,14 @@ sub test_nd_unop {
   our $b  = $pdl_op->($a);
 
   if (ref($b)) {
-    isok("ccs:nd:unop=${op_name},missing=${missing}", $bs->type==$b->type && all(matchpdl($bs->decode,$b)));
+    isok("ccs:nd:unop=${op_name},missing=${missing}:type", $bs->type==$b->type);
+    isok("ccs:nd:unop=${op_name},missing=${missing}:vals", all(matchpdl($bs->decode,$b)));
   } else {
     isok("ccs:nd:unop=${op_name},missing=${missing}", $bs eq $b);
   }
 }
 #test_nd_unop('abs',0);
-test_nd_unop('bitnot',-1);
+#test_nd_unop('bitnot',-1);
 test_nd_unop('bitnot',$BAD);
 
 sub test_nd_unop_all {
@@ -249,7 +413,7 @@ sub test_nd_unop_all {
     }
   }
 }
-test_nd_unop_all();
+#test_nd_unop_all();
 
 ##---------------------------------------------------------------------
 ## CCS: ufunc: Nd
@@ -276,7 +440,8 @@ sub test_nd_ufunc_1 {
   our $a2   = $pdl_ufunc->($a);
 
   if (ref($a2)) {
-    isok("ccs:nd:ufunc=${ufunc_name},missing=${missing}", $ccs2->type==$a2->type && all(matchpdl($ccs2->decode,$a2)));
+    isok("ccs:nd:ufunc=${ufunc_name},missing=${missing}:type", $ccs2->type==$a2->type);
+    isok("ccs:nd:ufunc=${ufunc_name},missing=${missing}:vals", all(matchpdl($ccs2->decode,$a2)));
   } else {
     isok("ccs:nd:ufunc=${ufunc_name},missing=${missing}", $ccs2 eq $a2);
   }
@@ -284,6 +449,8 @@ sub test_nd_ufunc_1 {
 #test_nd_ufunc_1('max',0);
 #test_nd_ufunc_1('dprod',1);
 #test_nd_ufunc_1('sumover',$BAD);
+#test_nd_ufunc_1('ngoodover',$BAD);
+test_nd_ufunc_1('nbadover',$BAD);
 
 sub test_nd_ufunc_all {
   my ($ufunc,$missing);
@@ -292,16 +459,17 @@ sub test_nd_ufunc_all {
 		    qw(sumover dsumover prodover dprodover),
 		    qw(andover orover bandover borover),
 		    qw(maximum minimum),
+		    qw(nnz nbadover ngoodover),
 		    ##
 		    ##-- scalars
-		    qw(sum dsum prod dprod max min),
+		    qw(sum dsum prod dprod max min nbad ngood),
 		   )
       {
 	test_nd_ufunc_1($ufunc,$missing);
       }
   }
 }
-#test_nd_ufunc_all();
+test_nd_ufunc_all();
 
 ##---------------------------------------------------------------------
 ## CCS: binops (block-wise alignment / missing-is-annihiliator): with column-vector

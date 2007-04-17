@@ -141,7 +141,7 @@ sub ccs_accum_hash {
 )),
 	   Code =>
 (q(
- long nnzii_prev, nnzii, nnzoi=0;
+ long nnzii_prev=-1, nnzii=0, nnzoi=0;
  long sizeNnzIn=$SIZE(NnzIn), sizeNnzOut=$SIZE(NnzOut), nMissing, nMissingInit;
  int ival1,ival2,cmpval, carp_unsorted=0;
  $GENERIC(nzvalsOut) missingOut;
@@ -155,7 +155,7 @@ sub ccs_accum_hash {
  missingVal   = $missing();
  nMissingInit = $N()-1;
  nMissing     = nMissingInit;
- tmp          = $nzvalsIn(NnzIn=>0);
+ ).(defined($args{tmp_reset}) ? $args{tmp_reset} :  'tmp = $nzvalsIn(NnzIn=>0);').q( /* initialize tmp */
  //
  //-- loop
  for (nnzii_prev=0,nnzii=1; nnzii<sizeNnzIn && nnzoi<sizeNnzOut; nnzii_prev=nnzii++) {
@@ -411,6 +411,59 @@ If $N() is specified and greater than zero,
 and if $missing() is less than any listed value for a vector key with a run-length
 of less than $N(), then $missing() is used as the output value for that key.
 This is probably What You Want.
+
+EOMD
+	     );
+
+##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): nbad
+ccs_accum_def('nbad', 'number of bad values',
+	      extra          =>{HandleBad=>1},
+	      out_type       =>'int+',
+	      #max_type_perl  =>'PDL::long()',
+	      #init_missingOut=>'missingOut=$N();',
+	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
+	      tmp_addmissing =>'if (nMissing > 0 && $ISBAD(missing())) { tmp += nMissing; }',
+	      tmp_addval     =>'if ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) tmp++;',
+	      tmp_reset      =>'tmp = ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0;',
+	      doc_addmissing => <<'EOMD',
+
+Should handle missing values appropriately.
+
+EOMD
+	     );
+
+##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): ngood
+ccs_accum_def('ngood', 'number of good values',
+	      extra          =>{HandleBad=>1},
+	      out_type       =>'int+',
+	      #max_type_perl  =>'PDL::long()',
+	      #init_missingOut=>'missingOut=$N();',
+	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
+	      tmp_addmissing =>'if (nMissing > 0 && $ISGOOD(missing())) { tmp += nMissing; }',
+	      tmp_addval     =>'if ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) tmp++;',
+	      tmp_reset      =>'tmp = ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0;',
+	      doc_addmissing => <<'EOMD',
+
+Should handle missing values appropriately.
+
+EOMD
+	     );
+
+##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): nnz
+ccs_accum_def('nnz', 'number of non-zero values',
+	      out_type       =>'int+',
+	      #max_type_perl  =>'PDL::long()',
+	      #init_missingOut=>'missingOut=$N();',
+	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
+	      tmp_addmissing =>'if (nMissing > 0 && missingVal != 0) { tmp += nMissing; }',
+	      tmp_addval     =>'if ($nzvalsIn(NnzIn=>nnzii) != 0) tmp++;',
+	      tmp_reset      =>'tmp = ( $nzvalsIn(NnzIn=>nnzii) != 0 ) ? 1 : 0;',
+	      doc_addmissing => <<'EOMD',
+
+Should handle missing values appropriately.
 
 EOMD
 	     );
