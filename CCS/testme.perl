@@ -19,8 +19,8 @@ BEGIN {
   $, = ' ';
   our $eps=1e-6;
 
-  our $DIMS  = $PDL::CCS::Nd::DIMS;
-  our $XDIMS = $PDL::CCS::Nd::XDIMS;
+  our $PDIMS = our $DIMS = $PDL::CCS::Nd::PDIMS;
+  our $VDIMS = our $XDIMS = $PDL::CCS::Nd::VDIMS;
   our $WHICH = $PDL::CCS::Nd::WHICH;
   our $VALS  = $PDL::CCS::Nd::VALS;
   our $PTRS  = $PDL::CCS::Nd::PTRS;
@@ -37,6 +37,8 @@ BEGIN {
   our $BAD    = PDL->zeroes(1)->setvaltobad(0)->squeeze;
 
   #$PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=8; ##-- DEBUG
+
+  our $NOTOK_DIE = 1;
 }
 
 ##---------------------------------------------------------------------
@@ -44,6 +46,7 @@ BEGIN {
 sub isok {
   my ($label,$bool) = @_;
   print "test($label): ", ($bool ? "ok" : "NOT ok"), "\n";
+  die("isok(): test failed for '$label'!") if ($NOTOK_DIE && !$bool);
 }
 
 sub matchpdl {
@@ -110,7 +113,82 @@ sub test_bg_blocksize {
 	    'bs=4096' => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=1024;  $bg1 = $bg0*$bg0; },
 	   });
 }
-test_bg_blocksize;
+#test_bg_blocksize;
+
+##---------------------------------------------------------------------
+## CCS: Nd: virtual dims
+
+sub test_vdims_1 {
+  test_data_1;
+  $as = $a->toccs;
+
+  $asd = $as->decode;
+  isok("toccs/decode", all($asd==$a));
+
+  ##-- test: whichND
+  $aw  = $a->whichND->vv_qsortvec;
+  $asw = $as->whichND;
+  isok("ccs:nd:whichND:literal",all($aw==$asw));
+
+  ##-- test: whichND: dummy(0,1)
+  $a1  = $a->dummy(0,1);
+  $as1 = $as->dummy(0,1);
+  $a1w = $a1->whichND;
+  $as1w= $as1->whichND;
+  $as1v= $as1->whichVals;
+  isok("ccs:nd:whichND:+dummy(0,1)",   all($a1w->vv_qsortvec==$as1w->vv_qsortvec));
+  isok("ccs:nd:whichVals:+dummy(0,1)", all($as1v==$a1->indexND($as1w)));
+
+  ##-- test: whichND: dummy(0,2)
+  $a1  = $a->dummy(0,2);
+  $as1 = $as->dummy(0,2);
+  $a1w = $a1->whichND;
+  $as1w= $as1->whichND;
+  $as1v= $as1->whichVals;
+  isok("ccs:nd:whichND:+dummy(0,2)", all($a1w->vv_qsortvec==$as1w->vv_qsortvec));
+  isok("ccs:nd:whichVals:+dummy(0,2)", all($as1v==$a1->indexND($as1w)));
+
+  ##-- test: whichND: dummy(0,2)+dummy(0,3)
+  $a1  = $a->dummy(0,2)->dummy(0,3);
+  $as1 = $as->dummy(0,2)->dummy(0,3);
+  $a1w = $a1->whichND;
+  $as1w= $as1->whichND;
+  $as1v= $as1->whichVals;
+  isok("ccs:nd:whichND:+dummy(0,2)+dummy(0,3)", all($a1w->vv_qsortvec==$as1w->vv_qsortvec));
+  isok("ccs:nd:whichND:+dummy(0,2)+dummy(0,3)", all($as1v==$a1->indexND($as1w)));
+
+
+  ##-- test: dummy(0,1)
+  $a1  = $a->dummy(0,1);
+  $as1 = $as->dummy(0,1);
+  $as1d= $as1->decode;
+  isok("ccs:nd:dummy(0,1)", all($as1d==$a1));
+
+  ##-- test: dummy(0,3)
+  $a1 = $a->dummy(0,3);
+  $as1 = $as->dummy(0,3);
+  $as1d = $as1->decode;
+  isok("ccs:nd:dummy(0,3)", all($as1d==$a1));
+
+  ##-- test: dummy(1,3)
+  $a1 = $a->dummy(1,3);
+  $as1 = $as->dummy(1,3);
+  $as1d = $as1->decode;
+  isok("ccs:nd:dummy(1,3)", all($as1d==$a1));
+
+  ##-- test: dummy(2,3)
+  $a1 = $a->dummy(2,3);
+  $as1 = $as->dummy(2,3);
+  $as1d = $as1->decode;
+  isok("ccs:nd:dummy(2,3)", all($as1d==$a1));
+
+  ##-- test: dummy(-1,3)
+  $a1 = $a->dummy(-1,3);
+  $as1 = $as->dummy(-1,3);
+  $as1d = $as1->decode;
+  isok("ccs:nd:dummy(-1,3)", all($as1d==$a1));
+}
+test_vdims_1;
 
 ##---------------------------------------------------------------------
 ## CCS: Nd: recode
@@ -211,8 +289,8 @@ sub test_nd_binop_sclr {
   isok("ccs:nd:binop=${op_name},z=${missing},b=sclr($b),swap=$swap:vals", all(matchpdl($cs->decode,$c)));
 }
 ##-- test_nd_binop_sclr(op,b,missing,swap,flags)
-test_nd_binop_sclr('mult',$BAD,0);
-#test_nd_binop_sclr('mult',42, 0,0,0);
+#test_nd_binop_sclr('mult',$BAD,0);
+test_nd_binop_sclr('mult',42, 0,0,0);
 #test_nd_binop_sclr('mult',pdl([[42]])->toccs, 0,0,0);
 #test_nd_binop_sclr('divide',0, $BAD,0,0);
 #test_nd_binop_sclr('power',0, $BAD,1,0);
@@ -262,9 +340,10 @@ sub test_nd_binop_cvrv_mia {
   our $b0 = sequence(  $a->dim(0))+1;
   our $b1 = sequence(1,$a->dim(1))+1;
 
-  our $as  = $a->toccs($missing,$flags);
-  our $bs0 = $b0->toccs($missing,$flags);
-  our $bs1 = $b1->toccs($missing,$flags);
+  our $as   = $a->toccs($missing,$flags);
+  our $bs0  = $b0->toccs($missing,$flags);
+  our $bs1  = $b1->toccs($missing,$flags);
+  our $bs1v = $b1->flat->toccs($missing,$flags)->dummy(0,1);
 
   ##-- set blocksize?
   #$PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX = 2;
@@ -275,10 +354,14 @@ sub test_nd_binop_cvrv_mia {
   isok("ccs:nd:arg2=rv,binop=${op_name},z=${missing},swap=$swap:type", $cs0->type==$c0->type);
   isok("ccs:nd:arg2=rv,binop=${op_name},z=${missing},swap=$swap:vals", all(matchpdl($cs0->decode,$c0)));
 
-  our $cs1 = $ccs_op->($as,$bs1, $swap);
-  our $c1  = $pdl_op->($a, $b1,  $swap);
+  our $cs1  = $ccs_op->($as,$bs1, $swap);
+  our $c1   = $pdl_op->($a, $b1,  $swap);
   isok("ccs:nd:arg2=cv,binop=${op_name},z=${missing},swap=$swap:type", $cs1->type==$c1->type);
   isok("ccs:nd:arg2=cv,binop=${op_name},z=${missing},swap=$swap:vals", all(matchpdl($cs1->decode,$c1)));
+
+  our $cs1v = $ccs_op->($as,$bs1v, $swap);
+  isok("ccs:nd:arg2=cv(ccs-virtual),binop=${op_name},z=${missing},swap=$swap:type", $cs1v->type==$c1->type);
+  isok("ccs:nd:arg2=cv(ccs-virtual),binop=${op_name},z=${missing},swap=$swap:vals", all(matchpdl($cs1v->decode,$c1)));
 }
 test_nd_binop_cvrv_mia('plus',$BAD,0);
 #test_nd_binop_cvrv_mia('mult',$BAD,0);

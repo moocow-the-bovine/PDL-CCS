@@ -15,7 +15,7 @@ use Carp;
 use strict;
 
 our $VERSION = $PDL::CCS::VERSION;
-our @ISA = ('PDL::Exporter');
+our @ISA = qw();
 our @EXPORT_OK =
   (
    ##-- Encoding/Decoding
@@ -25,6 +25,7 @@ our %EXPORT_TAGS =
   (
    Func => [@EXPORT_OK],               ##-- respect PDL conventions (hopefully)
   );
+our @EXPORT = @{$EXPORT_TAGS{Func}};
 
 ##--------------------------------------------------------------
 ## Global variables for block-wise computation of binary operations
@@ -40,8 +41,8 @@ our $BINOP_BLOCKSIZE_MAX  =      0;
 ##======================================================================
 ## Globals
 
-our $DIMS    = 0;
-our $XDIMS   = 1; ##-- dimension translation pdl: $whichND_logical = $WHICH->dice_axis(0,$XDIMS)
+our $PDIMS   = 0;
+our $VDIMS   = 1;
 our $WHICH   = 2;
 our $VALS    = 3;
 our $PTRS    = 4;
@@ -65,15 +66,16 @@ our $P_LONG = PDL::long();
 ## $obj = $class_or_obj->newFromDense($denseND,$missing);
 ## $obj = $class_or_obj->newFromDense($denseND,$missing,$flags);
 ##  + object structure: ARRAY
-##     $DIMS    => \@dims,     ##-- $dimi => $dim,
-##     $XDIMS   => $xdims,     ##-- pdl(long,$Ndims) : $LOGICAL_DIM => $PHYSICAL_DIM
-##                             ##   + s.t. $whichND_logical = $whichND->dice_axis(0,$xdims)
-##     $WHICH   => $whichND,   ##-- pdl(long,$Ndims,$Nnz) ~ $dense_orig->whichND
-##                             ##   #+ NOT guaranteed to be sorted in any meaningful way
+##     $PDIMS   => $pdims,     ##-- pdl(long,$NPdims)     : physical dimension sizes : $pdim_i => $dimSize_i
+##     $VDIMS   => $vdims,     ##-- pdl(long,$NVdims)     : virtual dimension sizes
+##                             ##     + $vdim_i => / -$vdimSize_i   if $vdim_i is dummy
+##                             ##                  \  $pdim_i       otherwise
+##                             ##     + s.t. $whichND_logical_physical = $whichND->dice_axis(0,$vdims->where($vdims>=0));
+##     $WHICH   => $whichND,   ##-- pdl(long,$NPdims,$Nnz) ~ $dense_orig->whichND
 ##                             ##   + guaranteed to be sorted as for qsortvec() specs
 ##                             ##   + NOT changed by dimension-shuffling transformations
 ##     $VALS    => $vals,      ##-- pdl( ?  ,$Nnz+1)      ~ $dense->where($dense)->append($missing)
-##     $PTRS    => \@PTRS,     ##-- array of ccsutils-pointers by original dimension number
+##     $PTRS    => \@PTRS,     ##-- array of ccsutils-pointers by physical dimension number
 ##     $FLAGS   => $flags,     ##-- integer holding some flags
 ##
 ##  + each element of @PTRS is itself an array:
@@ -98,8 +100,9 @@ sub fromDense {
   my $pwhichND = ($missing->isbad ? $p->isgood() : ($p != $missing))->whichND->vv_qsortvec;
   my $pnz  = $p->indexND($pwhichND)->append($missing);
   $pnz->sever;                       ##-- always sever nzvals ?
-  $obj->[$DIMS]    = [$p->dims];
-  $obj->[$XDIMS]   = @{$obj->[$DIMS]} ? PDL->sequence($P_LONG,scalar(@{$obj->[$DIMS]})) : PDL->null->long;
+  my $pdims = PDL->pdl($P_LONG,[$p->dims]);
+  $obj->[$PDIMS]   = $pdims;
+  $obj->[$VDIMS]   = $pdims->isempty ? $pdims->pdl : $pdims->sequence;
   $obj->[$WHICH]   = $pwhichND;
   $obj->[$VALS]    = $pnz;
   $obj->[$PTRS]    = [];            ##-- do we really need this ... yes
@@ -109,17 +112,23 @@ sub fromDense {
 
 ## $obj = $class_or_obj->newFromWhich($whichND,$nzvals,%options);
 ## $obj = $class_or_obj->newFromWhich($whichND,$nzvals);
-##  + %options:
-##     dims    => \@dims,   ##-- dimension list; default guessed from $whichND
-##     missing => $missing, ##-- default: BAD if $nzvals->badflag, 0 otherwise
-##     xdims   => $xdims,   ##-- dimension translation PDL (default: sequence($ndims)) : $LOGICAL_DIM => $PHYSICAL_DIM
-##     flags   => $flags,   ##-- flags
-##  + no dataflow!
+##  + %options: see $obj->fromWhich()
 sub newFromWhich {
   my $that = shift;
   return bless([],ref($that)||$that)->fromWhich(@_);
 }
 
+## $obj = $obj->fromWhich($whichND,$nzvals,%options);
+## $obj = $obj->fromWhich($whichND,$nzvals);
+##  + literally adopts $whichND !
+##  + %options:
+##     sorted  => $bool,    ##-- if true, $whichND is assumed to be pre-sorted
+##     steal   => $bool,    ##-- if true, $whichND and $nzvals are used literally (implies 'sorted')
+##                          ##    + in this case, $nzvals should really be: $nzvals->append($missing)
+##     pdims   => $pdims,   ##-- physical dimension list; default guessed from $whichND (alias: 'dims')
+##     missing => $missing, ##-- default: BAD if $nzvals->badflag, 0 otherwise
+##     vdims   => $vdims,   ##-- virtual dims (default: sequence($nPhysDims)); alias: 'xdims'
+##     flags   => $flags,   ##-- flags
 sub fromWhich {
   my ($obj,$wnd,$nzvals,%opts) = @_;
   my $missing = (defined($opts{missing})
@@ -127,14 +136,31 @@ sub fromWhich {
 		 : ($nzvals->badflag
 		    ? PDL->pdl($nzvals->type,0)->setvaltobad(0)
 		    : PDL->pdl($nzvals->type,0)));
-  my $dims  = ( defined($opts{dims})  ? $opts{dims}  : [($wnd->xchg(0,1)->maximum+1)->list]  );
-  my $xdims = ( defined($opts{xdims}) ? $opts{xdims} : PDL->sequence($P_LONG,scalar(@$dims)) );
-  $wnd     = $wnd->dice_axis(0,$xdims);
-  my $wi   = $wnd->isempty ? PDL->null->long : $wnd->qsortveci;
-  $wnd     = $wnd->dice_axis(1,$wi)->pdl();         ##-- copy!
-  $nzvals  = $nzvals->index($wi)->append($missing); ##-- copy (b/c append)
-  $obj->[$DIMS]    = $dims;
-  $obj->[$XDIMS]   = @{$obj->[$DIMS]} ? PDL->sequence($P_LONG,scalar(@{$obj->[$DIMS]})) : PDL->null->long;
+  $opts{pdims} = $opts{dims}  if (!defined($opts{pdims}) && defined($opts{dims}));
+  $opts{vdims} = $opts{xdims} if (!defined($opts{vdims}) && defined($opts{xdims}));
+  my $pdims = (defined($opts{pdims})
+	       ? $opts{pdims}
+	       : (defined($opts{dims})
+		  ? $opts{dims}
+		  : PDL->pdl($P_LONG, [($wnd->xchg(0,1)->maximum+1)->list]) ));
+  my $vdims = (defined($opts{vdims})
+	       ? $opts{vdims}
+	       : (defined($opts{xdims})
+		  ? $opts{xdims}
+		  : $pdims->sequence));
+  ##-- maybe sort & copy
+  if (!$opts{steal}) {
+    ##-- not stolen: copy or sever
+    if (!$opts{sorted}) {
+      my $wi   = $wnd->isempty ? PDL->null->long : $wnd->qsortveci;
+      $wnd     = $wnd->dice_axis(1,$wi);
+      $nzvals  = $nzvals->index($wi);
+    }
+    $wnd->sever;                         ##-- sever (~ copy)
+    $nzvals = $nzvals->append($missing); ##-- copy (b/c append)
+  }
+  $obj->[$PDIMS]   = $pdims;
+  $obj->[$VDIMS]   = $vdims;
   $obj->[$WHICH]   = $wnd;
   $obj->[$VALS]    = $nzvals;
   $obj->[$PTRS]    = [];
@@ -161,8 +187,8 @@ BEGIN { *clone = \&copy; }
 sub copy {
   my $ccs1 = shift;
   my $ccs2 = bless [], ref($ccs1);
-  $ccs2->[$DIMS]  = [ @{$ccs1->[$DIMS]} ];
-  $ccs2->[$XDIMS] = $ccs1->[$XDIMS]->pdl;
+  $ccs2->[$PDIMS] = $ccs1->[$PDIMS]->pdl;
+  $ccs2->[$VDIMS] = $ccs1->[$VDIMS]->pdl;
   $ccs2->[$WHICH] = $ccs1->[$WHICH]->pdl;
   $ccs2->[$VALS]  = $ccs1->[$VALS]->pdl;
   $ccs2->[$PTRS]  = [ map {defined($_) ? [map {$_->pdl} @$_] : undef} @{$ccs1->[$PTRS]} ]; ##-- copy pointers?
@@ -172,14 +198,14 @@ sub copy {
 
 ## $ccs2 = $ccs->copyShallow()
 ##  + a very shallow version of copy()
-##  + Copied    : @$DIMS, @$PTRS, @{$PTRS->[*]}, $FLAGS
-##  + Referenced: $XDIMS, $WHICH, $VALS,  $PTRS->[*][*]
+##  + Copied    : $PDIMS, @$PTRS, @{$PTRS->[*]}, $FLAGS
+##  + Referenced: $VDIMS, $WHICH, $VALS,  $PTRS->[*][*]
 sub copyShallow {
   my $ccs = bless [@{$_[0]}], ref($_[0]);
   ##
   ##-- do copy some of it
-  $ccs->[$DIMS]  = [ @{$ccs->[$DIMS]} ];
-  #$ccs->[$XDIMS] = $ccs->[$XDIMS]->pdl;
+  $ccs->[$PDIMS]  = $ccs->[$PDIMS]->pdl;
+  #$ccs->[$VDIMS] = $ccs->[$VDIMS]->pdl;
   $ccs->[$PTRS]  = [ map {defined($_) ? [@$_] : undef} @{$ccs->[$PTRS]} ];
   $ccs;
 }
@@ -187,8 +213,8 @@ sub copyShallow {
 ## $ccs2 = $ccs->shadow(%args)
 ##  + args:
 ##     to    => $ccs2,    ##-- default: new
-##     dims  => \@dims,   ##-- default: [@$dims1]
-##     xdims => $xdims2,  ##-- default: $xdims1->pdl
+##     pdims => $pdims2,  ##-- default: $pdims1->pdl  (alias: 'dims')
+##     vdims => $vdims2,  ##-- default: $vdims1->pdl  (alias: 'xdims')
 ##     ptrs  => \@ptrs2,  ##-- default: []
 ##     which => $which2,  ##-- default: undef
 ##     vals  => $vals2,   ##-- default: undef
@@ -196,8 +222,8 @@ sub copyShallow {
 sub shadow {
   my ($ccs,%args) = @_;
   my $ccs2        = defined($args{to}) ? $args{to} : bless([], ref($ccs)||$ccs);
-  $ccs2->[$DIMS]  = defined($args{dims})  ? $args{dims}  : [@{$ccs->[$DIMS]}];
-  $ccs2->[$XDIMS] = defined($args{xdims}) ? $args{xdims} : $ccs->[$XDIMS]->pdl;
+  $ccs2->[$PDIMS] = (defined($args{pdims}) ? $args{pdims} : (defined($args{dims})  ? $args{dims}  : $ccs->[$PDIMS]->pdl));
+  $ccs2->[$VDIMS] = (defined($args{vdims}) ? $args{vdims} : (defined($args{xdims}) ? $args{xdims} : $ccs->[$VDIMS]->pdl));
   $ccs2->[$PTRS]  = $args{ptrs}  ? $args{ptrs} : [];
   $ccs2->[$WHICH] = $args{which};
   $ccs2->[$VALS]  = $args{vals};
@@ -252,12 +278,17 @@ sub recode {
 ##  + may be DANGEROUS to indexing methods, b/c it alters $VALS
 ##  + clears pointers
 sub sortwhich {
+  return $_[0] if ($_[0][$WHICH]->isempty);
   my $sorti     = $_[0][$WHICH]->qsortveci;
   $_[0][$WHICH] = $_[0][$WHICH]->dice_axis(1,$sorti);
   $_[0][$VALS]  = $_[0][$VALS]->index($sorti->append($_[0][$WHICH]->dim(1)));
+#
+#-- DANGEROUS: pointer copy
 #  foreach (grep {defined($_)} @{$_[0][$PTRS]}) {
-#    $_->[1]->index($sorti) .= $_->[1]; ##-- dangerous
+#    $_->[1]->index($sorti) .= $_->[1];
 #  }
+#--/DANGEROUS: pointer copy
+#
   @{$_[0][$PTRS]} = qw() if (! ($sorti==PDL->sequence($P_LONG,$sorti->dims))->all );
   return $_[0];
 }
@@ -269,17 +300,35 @@ sub sortwhich {
 ## $dense = $ccs->decode()
 ## $dense = $ccs->decode($dense)
 sub decode {
-  ccs_decode($_[0][$WHICH]->dice_axis(0,$_[0][$XDIMS]),
-	     ($_[0][$VALS]->dim(0) > 1 ? $_[0][$VALS]->slice("0:-2") : $_[0][$VALS]),
-	     $_[0][$VALS]->slice("(-1)"),
-	     [@{$_[0][$DIMS]}[$_[0][$XDIMS]->list]],
-	     @_[1..$#_]);
+  ##-- decode physically stored index+value pairs
+  my $dense = ccs_decode($_[0][$WHICH],
+			 $_[0]->_nzvals,
+			 $_[0]->missing,
+			 [ $_[0][$PDIMS] ],
+			);
+
+  ##-- map physical dims with reorder()
+  my $porder = $_[0][$VDIMS]->where($_[0][$VDIMS]>=0);
+  $dense = $dense->reorder($porder->list); #if (($porder!=$_[0][$PDIMS]->sequence)->any);
+
+  ##-- map virtual dims with dummy()
+  my @vdims = $_[0][$VDIMS]->list;
+  foreach (grep {$vdims[$_]<0} (0..$#vdims)) {
+    $dense = $dense->dummy($_, -$vdims[$_]);
+  }
+
+  ##-- assign if $dense was specified by the user
+  if (defined($_[1])) {
+    $_[1] .= $dense;
+    return $_[1];
+  }
+
+  return $dense;
 }
 
 ## $dense = $ccs_or_dense->todense()
 *PDL::todense = \&todense;
 sub todense { isa($_[0],__PACKAGE__) ? $_[0]->decode() : $_[0]; }
-
 
 ##--------------------------------------------------------------
 ## PDL API: Basic Properties
@@ -307,18 +356,27 @@ foreach my $pdltype (qw(byte short ushort long longlong float double)) {
   eval "*${pdltype} = _pdltype_sub(PDL::${pdltype}());";
 }
 
+## $dimpdl = $obj->dimpdl()
+##  + values in $dimpdl are negative for virtual dimensions
+sub dimpdl {
+  my $dims  = $_[0][$VDIMS]->pdl;
+  my $physi = ($_[0][$VDIMS]>=0)->which;
+  $dims->index($physi) .= $_[0][$PDIMS]->index($_[0][$VDIMS]->index($physi));
+  return $dims;
+}
+
 ## @dims = $obj->dims()
-sub dims { @{$_[0][$DIMS]}[$_[0][$XDIMS]->list]; }
+sub dims { $_[0]->dimpdl->abs->list; }
 
 ## $dim = $obj->dim($dimi)
 *getdim = \&dim;
-sub dim { $_[0][$DIMS][$_[0][$XDIMS]->at($_[1])]; }
+sub dim { $_[0]->dimpdl->abs->at($_[1]); }
 
 ## $ndims = $obj->ndims()
-sub ndims { scalar(@{$_[0][$DIMS]}); }
+sub ndims { $_[0][$VDIMS]->nelem; }
 
 ## $nelem = $obj->nelem
-sub nelem { PDL->pdl($P_LONG,$_[0][$DIMS])->dprod; }
+sub nelem { $_[0]->dimpdl->abs->dprod; }
 
 ## $bool = $obj->isnull
 sub isnull { $_[0][$VALS]->isnull; }
@@ -329,18 +387,43 @@ sub isempty { $_[0][$VALS]->isempty; }
 ##--------------------------------------------------------------
 ## Low-level CCS access
 
-## $xdims = $obj->xdims()
-sub xdims { $_[0][$XDIMS]; }
+## $bool = $obj->allmissing
+##  + true if no non-missing values are stored
+sub allmissing { $_[0][$VALS]->nelem <= 1; }
 
-## $nnz = $obj->nstored()
-sub nstored { $_[0][$WHICH]->dim(1); }
+## $pdims = $obj->pdims()
+## $vdims = $obj->vdims()
+sub pdims { $_[0][$PDIMS]; }
+sub vdims { $_[0][$VDIMS]; }
 
-## $nnz = $obj->_nnz
-##   + returns actual $obj->[$VALS]->dim(0)-1
-sub _nnz { $_[0][$VALS]->dim(0)-1; }
 
-## $nmissing = $obj->nmissing()
-sub nmissing { 1 + $_[0]->nelem - $_[0]->[$VALS]->nelem; }
+## $nelem_p = $obj->nelem_p : maximum number of physically addressable elements
+## $nelem_v = $obj->nelem_v : maximum number of virtually addressable elements
+sub nelem_p { $_[0][$PDIMS]->dprod; }
+*nelem_v = \&nelem;
+
+## $v_per_p = $obj->_ccs_nvperp() : number of virtual elements per physical element
+sub _ccs_nvperp { $_[0][$VDIMS]->where($_[0][$VDIMS]<0)->abs->dprod; }
+
+## $nstored_p = $obj->nstored_p : actual number of physically stored elements
+## $nstored_v = $obj->nstored_v : actual number of phyiscally+virtually stored elements
+sub nstored_p { $_[0][$WHICH]->dim(1); }
+sub nstored_v { $_[0][$WHICH]->dim(1) * $_[0]->_ccs_nvperp; }
+*nstored = \&nstored_v;
+
+
+## $nnz = $obj->_nnz_p : returns actual  $obj->[$VALS]->dim(0)-1
+## $nnz = $obj->_nnz_v : returns virtual $obj->[$VALS]->dim(0)-1
+sub _nnz_p { $_[0][$VALS]->dim(0)-1; }
+sub _nnz_v { ($_[0][$VALS]->dim(0)-1) * $_[0]->_ccs_nvperp; }
+*_nnz = \&_nnz_v;
+
+## $nmissing_p = $obj->nmissing_p()
+## $nmissing_v = $obj->nmissing_v()
+sub nmissing_p { $_[0]->nelem_p - $_[0]->nstored_p; }
+sub nmissing_v { $_[0]->nelem_v - $_[0]->nstored_v; }
+*nmissing = \&nmissing_v;
+
 
 ## $missing = $obj->missing()
 ## $missing = $obj->missing($missing)
@@ -356,28 +439,31 @@ sub _whichND {
   $_[0][$WHICH];
 }
 
-## $nzvals = $obj->nzvals();
-## $nzvals = $obj->nzvals($nzvals)
-sub nzvals {
+## $_nzvals = $obj->_nzvals()
+## $_nzvals = $obj->_nzvals($nzvals)
+##  + phyiscal storage
+sub _nzvals {
   $_[0][$VALS]=$_[1]->append($_[0][$VALS]->slice("-1")) if (@_ > 1);
-  return $_[0][$VALS]->index(null) if ($_[0][$VALS]->dim(0)<=1);
+  return $_[0][$VALS]->index(PDL->null) if ($_[0][$VALS]->dim(0)<=1);
   $_[0][$VALS]->slice("0:-2");
 }
 
-## $vals = $obj->vals()
-## $vals = $obj->vals($storedvals)
-sub vals {
+## $vals = $obj->_vals()
+## $vals = $obj->_vals($storedvals)
+##  + physical storage only
+sub _vals {
   $_[0][$VALS]=$_[1] if (@_ > 1);
   $_[0][$VALS];
 }
 
 
-## $ptr           = $obj->ptr($dim); ##-- scalar context
-## ($ptr,$pi2nzi) = $obj->ptr($dim); ##-- list context
-##   + returns cached value in $ccs->[$PTRS][$dim] if present
-##   + caches value in $ccs->[$PTRS][$dim] otherwise
+## $ptr           = $obj->ptr($dim_p); ##-- scalar context
+## ($ptr,$pi2nzi) = $obj->ptr($dim_p); ##-- list context
+##   + returns cached value in $ccs->[$PTRS][$dim_p] if present
+##   + caches value in $ccs->[$PTRS][$dim_p] otherwise
 ##   + $dim defaults to zero, for compatibility
 ##   + if $dim is zero, all($pi2nzi==sequence($obj->nstored))
+##   + physical dimensions ONLY
 sub ptr {
   my ($ccs,$dim) = @_;
   $dim = 0 if (!defined($dim));
@@ -385,9 +471,10 @@ sub ptr {
   return wantarray ? @{$ccs->[$PTRS][$dim]} : $ccs->[$PTRS][$dim][0];
 }
 
-## ($ptr,$pi2nzi) = $obj->getptr($dim);
+## ($ptr,$pi2nzi) = $obj->getptr($dim_p);
 ##  + as for ptr(), but does NOT cache anything, and does NOT check the cache
-sub getptr { ccs_encode_pointers($_[0][$WHICH]->slice("($_[1]),"), $_[0][$DIMS][$_[1]]); }
+##  + physical dimensions ONLY
+sub getptr { ccs_encode_pointers($_[0][$WHICH]->slice("($_[1]),"), $_[0][$PDIMS][$_[1]]); }
 
 ## $flags = $obj->flags()
 ## $flags = $obj->flags($flags)
@@ -431,7 +518,8 @@ sub inplace ($) { $_[0][$FLAGS] |= $CCSND_INPLACE; $_[0]; }
 ## $obj = $obj->sever()
 ##  + severs all sub-pdls
 sub sever {
-  $_[0][$XDIMS]->sever;
+  $_[0][$PDIMS]->sever;
+  $_[0][$VDIMS]->sever;
   $_[0][$WHICH]->sever;
   $_[0][$VALS]->sever;
   foreach (grep {defined($_)} (@{$_[0][$PTRS]})) {
@@ -441,8 +529,9 @@ sub sever {
   $_[0];
 }
 
-## \&code = _twiddle_bad_sub($pdlcode)
-sub _twiddle_bad_sub {
+## \&code = _setbad_sub($pdlcode)
+##  + returns a sub implementing setbadtoval(), setvaltobad(), etc.
+sub _setbad_sub {
   my $pdlsub = shift;
   return sub {
     if ($_[0]->is_inplace) {
@@ -459,40 +548,58 @@ sub _twiddle_bad_sub {
 
 ## $obj = $obj->setnantobad()
 foreach my $badsub (qw(setnantobad setbadtonan setbadtoval setvaltobad)) {
-  eval "*${badsub} = _twiddle_bad_sub(PDL->can('$badsub'));";
+  eval "*${badsub} = _setbad_sub(PDL->can('$badsub'));";
 }
 
 ##--------------------------------------------------------------
 ## Dimension Shuffling
 
-## $ccs2 = $ccs->reorder_pdl($dimpdl)
+## $ccs2 = $ccs->dummy($vdim_index)
+## $ccs2 = $ccs->dummy($vdim_index, $vdim_size)
+sub dummy {
+  my ($ccs,$vdimi,$vdimsize) = @_;
+  my @vdims = $ccs->[$VDIMS]->list;
+  $vdimsize = 1 if (!defined($vdimsize));
+  $vdimi    = 0 if (!defined($vdimi));
+  $vdimi    = @vdims + $vdimi + 1 if ($vdimi < 0);
+  if ($vdimi < 0) {
+    barf(ref($ccs). "::dummy(): negative dimension number ", ($vdimi+@vdims), " exceeds number of dims ", scalar(@vdims));
+  }
+  splice(@vdims,$vdimi,0,-$vdimsize);
+  my $ccs2 = $ccs->copyShallow;
+  $ccs2->[$VDIMS] = PDL->pdl($P_LONG,\@vdims);
+  return $ccs2;
+}
+
+## $ccs2 = $ccs->reorder_pdl($vdim_index_pdl)
 sub reorder_pdl {
   my $ccs2 = $_[0]->copyShallow;
-  $ccs2->[$XDIMS] = $ccs2->[$XDIMS]->index($_[1]);
-  $ccs2->[$XDIMS]->sever;
+  $ccs2->[$VDIMS] = $ccs2->[$VDIMS]->index($_[1]);
+  $ccs2->[$VDIMS]->sever;
   $ccs2;
 }
 
-## $ccs2 = $ccs->reorder(@dimlist)
+## $ccs2 = $ccs->reorder(@vdim_list)
 sub reorder { $_[0]->reorder_pdl(PDL->pdl($P_LONG,@_[1..$#_])); }
 
-## $ccs2 = $ccs->xchg($dim1,$dim2)
+## $ccs2 = $ccs->xchg($vdim1,$vdim2)
 sub xchg {
-  my $dimpdl = PDL->sequence($P_LONG,scalar(@{$_[0][$DIMS]}));
+  my $dimpdl = PDL->sequence($P_LONG,$_[0]->ndims);
   my $tmp    = $dimpdl->at($_[1]);
   $dimpdl->set($_[1], $dimpdl->at($_[2]));
   $dimpdl->set($_[2], $tmp);
   return $_[0]->reorder_pdl($dimpdl);
 }
 
-## $ccs2 = $ccs->mv($dimFrom,$dimTo)
+## $ccs2 = $ccs->mv($vDimFrom,$vDimTo)
 sub mv  {
   my ($d1,$d2) = @_[1,2];
-  $d1 = @{$_[0][$DIMS]}+$d1 if ($d1 < 0);
-  $d2 = @{$_[0][$DIMS]}+$d2 if ($d2 < 0);
+  my $ndims = $_[0]->ndims;
+  $d1 = $ndims+$d1 if ($d1 < 0);
+  $d2 = $ndims+$d2 if ($d2 < 0);
   return $_[0]->reorder($d1 < $d2
-			? ((0..($d1-1)), (($d1+1)..$d2), $d1, (($d2+1)..$#{$_[0][$DIMS]}))
-			: ((0..($d2-1)), $d1, ($d2..($d1-1)), (($d1+1)..$#{$_[0][$DIMS]}))
+			? ((0..($d1-1)), (($d1+1)..$d2), $d1,            (($d2+1)..($ndims-1)))
+			: ((0..($d2-1)), $d1,            ($d2..($d1-1)), (($d1+1)..($ndims-1)))
 		       );
 }
 
@@ -503,14 +610,29 @@ sub transpose { $_[0]->xchg(0,1)->copy; }
 
 
 ##--------------------------------------------------------------
-## Indexing
+## Indexing: FIXME for vdims!
+
+sub slice {
+  barf(ref($_[0])."::slice() is not implemented yet (try dummy, dice_axis, indexND, etc.)");
+}
 
 ## $nzi = $ccs->indexNDi($ndi)
+##  + returns Nnz indices for virtual ND-index PDL $ndi
 sub indexNDi {
-  my $foundi       = $_[1]->vsearchvec($_[0][$WHICH]);
-  my $foundi_mask  = ($_[1]==$_[0][$WHICH]->dice_axis(1,$foundi))->andover;
+  my ($ccs,$ndi)   = @_;
+  ##
+  ##-- get physical dims
+  my $dims      = $ccs->dimpdl;
+  my $whichdimp = ($dims>=0)->which;
+  my $pdimi     = $dims->index($whichdimp);
+  ##
+  $ndi = $ndi->dice_axis(0,$whichdimp)
+    if ( $ndi->dim(0)!=$ccs->[$WHICH]->dim(0) || ($pdimi!=PDL->sequence($ccs->[$WHICH]->dim(0)))->any );
+  ##
+  my $foundi       = $ndi->vsearchvec($ccs->[$WHICH]);
+  my $foundi_mask  = ($ndi==$ccs->[$WHICH]->dice_axis(1,$foundi))->andover;
   $foundi_mask->inplace->not;
-  $foundi->where($foundi_mask) .= $_[0][$WHICH]->dim(1);
+  $foundi->where($foundi_mask) .= $ccs->[$WHICH]->dim(1);
   return $foundi;
 }
 
@@ -523,17 +645,40 @@ sub index2d { $_[0]->indexND($_[1]->cat($_[2])->xchg(0,1)); }
 ## $vals = $ccs->index($flati)
 sub index {
   my ($ccs,$i) = @_;
-  my $dummy  = PDL->pdl(0)->slice(join(',', map {"*$_"} @{$ccs->[$DIMS]}));
+  my $dummy  = PDL->pdl(0)->slice(join(',', map {"*$_"} $ccs->dims));
   my @coords = $dummy->one2nd($i);
-  my $ind = PDL->zeroes($P_LONG,scalar(@{$ccs->[$DIMS]}),$i->dims);
+  my $ind = PDL->zeroes($P_LONG,$ccs->ndims,$i->dims);
   $ind->slice("($_),") .= $coords[$_] foreach (0..$#coords);
   return $ccs->indexND($ind);
 }
 
-## $ccs2 = $ccs->dice_axis($axis, $axisi)
+## $ccs2 = $ccs->dice_axis($axis_v, $axisi)
 ##  + returns a new ccs object, should participate in dataflow
 sub dice_axis {
-  my ($ccs,$axis,$axisi) = @_;
+  my ($ccs,$axis_v,$axisi) = @_;
+  ##
+  ##-- get
+  my $ndims = $ccs->ndims;
+  $axis_v = $ndims + $axis_v if ($axis_v < 0);
+  barf(ref($ccs)."::dice_axis(): axis ".($axis_v<0 ? ($axis_v+$ndims) : $axis_v)." out of range: should be 0<=dim<$ndims")
+    if ($axis_v < 0 || $axis_v >= $ndims);
+  my $axis  = $ccs->[$VDIMS]->at($axis_v);
+  my $asize = $axis < 0 ? -$axis : $ccs->[$PDIMS]->at($axis);
+  $axisi    = PDL->topdl($axisi);
+  my ($aimin,$aimax) = $axisi->minmax;
+  barf(ref($ccs)."::dice_axis(): invalid index $aimin (valid range 0..".($asize-1).")") if ($aimin < 0);
+  barf(ref($ccs)."::dice_axis(): invalid index $aimax (valid range 0..".($asize-1).")") if ($aimax >= $asize);
+  ##
+  ##-- check for virtual
+  if ($axis < 0) {
+    ##-- we're dicing a virtual axis: ok, but why?
+    my $naxisi = $axisi->nelem;
+    my $ccs2   = $ccs->copyShallow();
+    $ccs2->[$VDIMS] = $ccs->[$VDIMS]->pdl;
+    $ccs2->[$VDIMS]->set($axis_v, -$naxisi);
+    return $ccs2;
+  }
+  ##-- ok, we're dicing on a real axis
   my ($ptr,$pi2nzi)    = $ccs->ptr($axis);
   my ($ptrix,$pi2nzix) = $ptr->ccs_decode_pointer($axisi);
   my $nzix   = $pi2nzi->index($pi2nzix);
@@ -543,10 +688,10 @@ sub dice_axis {
   my $nzvals = $ccs->[$VALS]->index($nzix->append($ccs->[$WHICH]->dim(1)));
   ##
   ##-- construct output object
-  my $ccs2              = $ccs->shadow();
-  $ccs2->[$DIMS][$axis] = $axisi->nelem;
-  $ccs2->[$WHICH]       = $which;
-  $ccs2->[$VALS]        = $nzvals;
+  my $ccs2 = $ccs->shadow();
+  $ccs2->[$PDIMS]->set($axis, $axisi->nelem);
+  $ccs2->[$WHICH] = $which;
+  $ccs2->[$VALS]  = $nzvals;
   ##
   ##-- sort output object (if not dicing on 0th dimension)
   return $axis==0 ? $ccs2 : $ccs2->sortwhich();
@@ -555,16 +700,52 @@ sub dice_axis {
 ## $onedi = $ccs->n2oned($ndi)
 ##  + returns a pseudo-index
 sub n2oned {
-  my $dimsizes = PDL->pdl($P_LONG,[1,@{$_[0][$DIMS]}])->slice("0:-2")->cumuprodover;
+  my $dimsizes = PDL->pdl($P_LONG,1)->append($_[0][$VDIMS]->abs)->slice("0:-2")->cumuprodover;
   return ($_[1] * $dimsizes)->sumover;
 }
 
 ## $whichND = $obj->whichND
-##  + just returns the literal index PDL: beware of dataflow!
-sub whichND { $_[0][$WHICH]->dice_axis(0,$_[0][$XDIMS]); }
+##  + just returns the literal index PDL if possible: beware of dataflow!
+##  + indices are NOT guaranteed to be returned in any surface-logical order,
+##    although physically indexed dimensions should be sorted in physical-lexicographic order
+sub whichND {
+  my $vpi = ($_[0][$VDIMS]>=0)->which;
+  my ($wnd);
+  if ( $_[0][$VDIMS]->nelem==$_[0][$PDIMS]->nelem ) {
+    if (($vpi==$_[0][$PDIMS]->sequence)->all) { $wnd=$_[0][$WHICH]; }     ##-- all literal & physical
+    else { $wnd=$_[0][$WHICH]->dice_axis(0,$_[0][$VDIMS]->index($vpi)); } ##-- all physical, but shuffled
+    return wantarray ? $wnd->xchg(0,1)->dog : $wnd;
+  }
+  ##-- virtual dims are in the game: construct output pdl
+  my $ccs = shift;
+  my $nvperp = $ccs->_ccs_nvperp;
+  my $nv     = $ccs->nstored_v;
+  $wnd = PDL->zeroes($P_LONG, $ccs->ndims, $nv);
+  $wnd->dice_axis(0,$vpi)->flat .= $ccs->[$WHICH]->slice(",*$nvperp,")->flat;
+  my $nzi    = PDL->sequence($P_LONG,$nv);
+  my @vdims    = $ccs->[$VDIMS]->list;
+  my ($vdimi,);
+  foreach (grep {$vdims[$#vdims-$_]<0} (0..$#vdims)) {
+    $vdimi = $#vdims-$_;
+    $nzi->modulo(-$vdims[$vdimi], $wnd->slice("($vdimi),"), 0);
+  }
+  return wantarray ? $wnd->xchg(0,1)->dog : $wnd;
+}
+
+## $whichVals = $ccs->whichVals()
+##  + returns $VALS corresponding to whichND() indices
+##  + beware of dataflow!
+sub whichVals {
+  my $vpi = ($_[0][$VDIMS]>=0)->which;
+  return $_[0]->_nzvals() if ( $_[0][$VDIMS]->nelem==$_[0][$PDIMS]->nelem ); ##-- all physical
+  ##
+  ##-- virtual dims are in the game: construct output pdl
+  return $_[0]->_nzvals->slice("*".($_[0]->_ccs_nvperp))->flat;
+}
 
 ## $which = $obj->which()
-sub which { $_[0]->n2oned($_[0]->whichND)->qsort; }
+##  + not guaranteed to be returned in any meaningful order
+sub which { $_[0]->n2oned($_[0]->whichND); }
 
 ## $val = $ccs->at(@index)
 sub at { $_[0]->indexND(PDL->pdl($P_LONG,@_[1..$#_]))->sclr; }
@@ -607,9 +788,10 @@ sub _ufuncsub {
     ##
     ##-- get output pd
     shift(@dims);
+    my $newdims = PDL->pdl($P_LONG,\@dims);
     return $ccs->shadow(
-			dims  =>[@dims],
-			xdims =>PDL->sequence($P_LONG,$#{$ccs->[$DIMS]}),
+			pdims =>$newdims,
+			vdims =>$newdims->sequence,
 			which =>$which2,
 			vals  =>$nzvals2->append($missing->convert($nzvals2->type)),
 		       );
@@ -670,23 +852,8 @@ foreach my $unop (qw(bitnot sqrt abs sin cos not exp log log10))
 ##--------------------------------------------------------------
 ## Binary Operations: missing-is-annihilator
 
-## \@matchdims_or_undef = _ccsnd_binop_relevant_dims(\@dims1,\@dims2)
-##  + barf()s on mismath
-sub _ccsnd_binop_relevant_dims {
-  my ($opname,$dims1,$dims2) = @_;
-  my $rdims = [];
-  foreach (0..($#$dims1 < $#$dims2 ? $#$dims1 : $#$dims2)) {
-    next if ($dims1->[$_] <= 1 || $dims2->[$_] <= 1);
-    if ($dims1->[$_] != $dims2->[$_]) {
-      barf("PDL::CCS::Nd::",
-	   ($opname||'_ccsnd_binop_relevant_dims'),
-	   "(): mismatch on non-trivial dim($_): $dims1->[$_] != $dims2->[$_]");
-    }
-    push(@$rdims,$_);
-  }
-  return $rdims;
-}
-
+## \&code = _ccsnd_binary_op_mia($opName, $pdlCode, $defType)
+##  + returns code for wrapping a builtin PDL binary operation $pdlCode under the name $opname
 sub _ccsnd_binary_op_mia {
   my ($opname,$pdlsub,$deftype) = @_;
 
@@ -710,28 +877,81 @@ sub _ccsnd_binary_op_mia {
     ##-- convert b to CCS
     $b = toccs($b);
 
-    ##-- get relevant dimensions
-    my @adims = $a->dims;
-    my @bdims = $b->dims;
-    my @cdims = (
-		 map {
-		   $_ <= $#adims && $adims[$_] > 1 ? $adims[$_] : $bdims[$_]
-		 } (0..($#adims > $#bdims ? $#adims : $#bdims))
-		);
-    my $rdims = _ccsnd_binop_relevant_dims($opname,\@adims,\@bdims);
-    my $rdpdl = PDL->pdl($P_LONG,$rdims);
+    ##-- get relevant dimensions (formerly _ccsnd_binop_relevant_dims())
+    my @vdimsa = $a->[$VDIMS]->list;
+    my @vdimsb = $b->[$VDIMS]->list;
+    my @pdimsa = $a->[$PDIMS]->list;
+    my @pdimsb = $b->[$PDIMS]->list;
+    my @rdims  = qw();
+    my ($vdima,$vdimb, $dimsza,$dimszb);
+    foreach (0..($#vdimsa < $#vdimsb ? $#vdimsa : $#vdimsb)) {
+      $vdima = $vdimsa[$_];
+      $vdimb = $vdimsb[$_];
+      ##
+      ##-- get (virtual) dimension sizes
+      $dimsza = $vdima>=0 ? $pdimsa[$vdima] : -$vdima;
+      $dimszb = $vdimb>=0 ? $pdimsb[$vdimb] : -$vdimb;
+      ##
+      ##-- check for (virtual) size mismatch
+      next if ($dimsza==1 || $dimszb==1);   ##... ignoring (virtual) dims of size 1
+      barf( __PACKAGE__ , "::$opname(): dimension size mismatch on dim($_): $dimsza != $dimszb")
+	if ($dimsza != $dimszb);
+      ##
+      ##-- dims match: only align if both are physical
+      push(@rdims, [$vdima,$vdimb]) if ($vdima>=0 || $vdimb>=0);
+    }
+    my $rdpdl = PDL->pdl($P_LONG,\@rdims); ##-- pdl(long,2,$nrdims) : [[$vdima,$vdimb], ...]
+    ##
+    ##
+    my @_cdsrc = qw(); ##-- ( $a_or_b_for_dim0, ... )
+    foreach (0..($#vdimsa > $#vdimsb ? $#vdimsa : $#vdimsb)) {
+      push(@vdimsa, -1) if ($_ >= @vdimsa);
+      push(@vdimsb, -1) if ($_ >= @vdimsb);
+      $vdima  = $vdimsa[$_];
+      $vdimb  = $vdimsb[$_];
+      $dimsza = $vdima>=0 ? $pdimsa[$vdima] : -$vdima;
+      $dimszb = $vdimb>=0 ? $pdimsb[$vdimb] : -$vdimb;
+      ##
+      if ($vdima>=0) {
+	if ($vdimb>=0)  { push(@_cdsrc, $dimsza>=$dimszb ? 0 : 1); } ##-- a:p, b:p --> c:p[max2(sz(a),sz(b)]
+	else            { push(@_cdsrc, 0); }                        ##-- a:p, b:v --> c:p[a]
+      }
+      elsif ($vdimb>=0) { push(@_cdsrc, 1); }                        ##-- a:v, b:p --> c:p[b]
+      else              { push(@_cdsrc, $dimsza>=$dimszb ? 0 : 1); } ##-- a:v, b:v --> c:v[max2(sz(a),sz(b))]
+    }
+    my $_cdsrcp = PDL->pdl($P_LONG,@_cdsrc);
+    ##
+    ##-- get c() dimension pdls
+    my @vdimsc = qw();
+    my @pdimsc = qw();
+    my @apcp  = qw(); ##-- ([$apdimi,$cpdimi], ...)
+    my @bpcp  = qw(); ##-- ([$bpdimi,$bpdimi], ...)
+    foreach (0..$#_cdsrc) {
+      if ($_cdsrc[$_]==0) {
+	if ($vdimsa[$_]<0) { $vdimsc[$_]=$vdimsa[$_]; }
+	else { $vdimsc[$_]=@pdimsc; push(@apcp,[$_,scalar(@pdimsc)]); push(@pdimsc,$pdimsa[$vdimsa[$_]]); }
+      } else {
+	if ($vdimsb[$_]<0) { $vdimsc[$_]=$vdimsb[$_]; }
+	else { $vdimsc[$_]=@pdimsc; push(@bpcp,[$_,scalar(@pdimsc)]); push(@pdimsc,$pdimsb[$vdimsb[$_]]); }
+      }
+    }
+    ##
+    my $pdimsc = PDL->pdl($P_LONG,\@pdimsc);
+    my $vdimsc = PDL->pdl($P_LONG,\@vdimsc);
+    my $apcp   = PDL->pdl($P_LONG,\@apcp);
+    my $bpcp   = PDL->pdl($P_LONG,\@bpcp);
 
-    ##-- get & sort relevant indices
-    my $ixa        = $a->[$WHICH]->dice_axis(0,$a->[$XDIMS]);
+    ##-- get & sort relevant indices : !!! FIXME !!!
+    my $ixa        = $a->[$WHICH];
     my $nixa       = $ixa->dim(1);
-    my $ixar       = $ixa->dice_axis(0,$rdpdl);
+    my $ixar       = $ixa->dice_axis(0,$rdpdl->slice("(0)"));
     my $ixar_sorti = $ixar->isempty ? PDL->null->long : $ixar->qsortveci;
     $ixa           = $ixa->dice_axis(1,$ixar_sorti);
     $ixar          = $ixar->dice_axis(1,$ixar_sorti);
     ##
-    my $ixb        = $b->[$WHICH]->dice_axis(0,$b->[$XDIMS]);
+    my $ixb        = $b->[$WHICH];
     my $nixb       = $ixb->dim(1);
-    my $ixbr       = $ixb->dice_axis(0,$rdpdl);
+    my $ixbr       = $ixb->dice_axis(0,$rdpdl->slice("(1)"));
     my $ixbr_sorti = $ixbr->isempty ? PDL->null->long : $ixbr->qsortveci;
     $ixb           = $ixb->dice_axis(1,$ixbr_sorti);
     $ixbr          = $ixbr->dice_axis(1,$ixbr_sorti);
@@ -758,7 +978,7 @@ sub _ccsnd_binary_op_mia {
 				 ? $avals->type
 				 : $bvals->type)),
 			     $blksz);
-    my $ixc    = PDL->zeroes($P_LONG, scalar(@cdims), $blksz);
+    my $ixc    = PDL->zeroes($P_LONG, $pdimsc->nelem, $blksz);
     my $nnzc   = 0;
     my $zc     = $pdlsub->($avals->slice("-1"), $bvals->slice("-1"), $swap)->convert($nzc->type);
     my $nanismissing = ($a->[$FLAGS]&$CCSND_NAN_IS_MISSING);
@@ -770,7 +990,7 @@ sub _ccsnd_binary_op_mia {
     my ($nzai_prv,$nzai_pnx, $nzbi_prv,$nzbi_pnx, $nzci_prv,$nzci_pnx,$cmpval_prv);
     my ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval);
     my ($nzci_max, $blk_slice, $nnzc_blk,$nnzc_slice_blk);
-    my ($nzai_blk,$nzbi_blk,$ixa_blk,$ixb_blk,$nzc_blk,$cimask_blk,$ciwhich_blk);
+    my ($nzai_blk,$nzbi_blk,$ixa_blk,$ixb_blk,$ixc_blk,$nzc_blk,$cimask_blk,$ciwhich_blk);
     my $nnzc_prev=0;
     do {
       ##-- align a block of data
@@ -801,14 +1021,14 @@ sub _ccsnd_binary_op_mia {
 	  $nnzc_slice_blk  = "${nnzc_prev}:".($nnzc-1);
 
 	  ##-- construct block output pdls: ixc
-	  $ixa_blk = $ixa->dice_axis(1,$nzai_blk->index($ciwhich_blk));
-	  $ixb_blk = $ixb->dice_axis(1,$nzbi_blk->index($ciwhich_blk));
-	  foreach (0..$#cdims) {
-	    if ($_ <= $#adims && $cdims[$_]==$adims[$_]) {
-	      $ixc->slice("($_),$nnzc_slice_blk") .= $ixa_blk->slice("($_),");
-	    } else {
-	      $ixc->slice("($_),$nnzc_slice_blk") .= $ixb_blk->slice("($_),");
-	    }
+	  $ixc_blk = $ixc->slice(",$nnzc_slice_blk");
+	  if (!$apcp->isempty) {
+	    $ixa_blk = $ixa->dice_axis(1,$nzai_blk->index($ciwhich_blk));
+	    $ixc_blk->dice_axis(0,$apcp->slice("(1),")) .= $ixa_blk->dice_axis(0,$apcp->slice("(0),"));
+	  }
+	  if (!$bpcp->isempty) {
+	    $ixb_blk = $ixb->dice_axis(1,$nzbi_blk->index($ciwhich_blk));
+	    $ixc_blk->dice_axis(0,$bpcp->slice("(1),")) .= $ixb_blk->dice_axis(0,$bpcp->slice("(0),"));
 	  }
 
 	  ##-- construct block output pdls: nzc
@@ -852,8 +1072,8 @@ sub _ccsnd_binary_op_mia {
 
     ##-- set up final output object
     my $c = $a->shadow(
-		       dims  => [@cdims],
-		       xdims => PDL->sequence($P_LONG,scalar(@cdims)),
+		       pdims => $pdimsc,
+		       vdims => $vdimsc,
 		       which => $ixc,
 		       vals  => $nzc,
 		      );
@@ -939,7 +1159,7 @@ sub compressionRate {
   my $ccssize = (0
 		 + PDL->pdl($ccs->[$WHICH]->nelem) * PDL::howbig($ccs->[$WHICH]->type)
 		 + PDL->pdl($ccs->[$VALS]->nelem)  * PDL::howbig($ccs->[$VALS]->type)
-		 + PDL->pdl($ccs->[$XDIMS]->nelem) * PDL::howbig($ccs->[$XDIMS]->type)
+		 + PDL->pdl($ccs->[$VDIMS]->nelem) * PDL::howbig($ccs->[$VDIMS]->type)
 		);
   return (($dsize - $ccssize) / $dsize)->sclr;
 }
@@ -947,18 +1167,24 @@ sub compressionRate {
 ##--------------------------------------------------------------
 ## Stringification & Viewing
 
+## $dimstr = _dimstr($pdl)
+sub _dimstr { return '('.$_[0]->type.', '.join(',',$_[0]->dims).')'; }
+sub _pdlstr { return _dimstr($_[0]).'='.$_[0]; }
+
 ## $str = $obj->string()
 sub string {
-  my $whichstr = ''.$_[0][$WHICH]->dice_axis(0,$_[0][$XDIMS])->xchg(0,1);
+  my ($pdims,$vdims,$which,$vals) = @{$_[0]}[$PDIMS,$VDIMS,$WHICH,$VALS];
+  my $whichstr  = ''.$which->xchg(0,1);
   $whichstr =~ s/^([^A-Z])/$,  $1/mg;
-  #$whichstr =~ s/^\s*?\n\s*//mg;
   chomp($whichstr);
   return
     (
      ''
-     .ref($_[0])."(".join(',', @{$_[0][$DIMS]}[$_[0][$XDIMS]->list]).")\n"
-     .$,." which:(".join(',', $_[0][$WHICH]->type, $_[0][$WHICH]->dims).")^T=$whichstr\n"
-     .$,." vals:(" .join(',', $_[0][$VALS]->type,  $_[0][$VALS]->dims).")=$_[0][$VALS]\n"
+     .ref($_[0]) . _dimstr($_[0]) ."\n"
+     .$,." pdims:" . _pdlstr($pdims) ."\n"
+     .$,." vdims:" . _pdlstr($vdims) ."\n"
+     .$,." which:" . _dimstr($which)."^T=" . $whichstr . "\n"
+     .$,." vals:" . _pdlstr($vals)  ."\n"
     );
 }
 
