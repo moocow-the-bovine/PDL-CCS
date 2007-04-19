@@ -852,6 +852,85 @@ foreach my $unop (qw(bitnot sqrt abs sin cos not exp log log10))
 ##--------------------------------------------------------------
 ## Binary Operations: missing-is-annihilator
 
+## ($rdpdl,$pdimsc,$vdimsc,$apcp,$bpcp) = _ccsnd_binop_align_dims($pdimsa,$vdimsa, $pdimsb,$vdimsb, $opname)
+##  + returns:
+##     $rdpdl  : (long,2,$nrdims) : [ [$vdimai,$vdimbi], ...] s.t. $vdimai should align with $vdimbi
+##     $pdimsc : (long,$ndimsc)   : physical dim-size pdl for CCS output $c()
+##     $vdimsc : (long,$ndimsc)   : virtual dim-size pdl for CCS output $c()
+##     $apcp   : (long,2,$nac)    : [ [$apdimi,$cpdimi], ... ] s.t. $cpdimi aligns 1-1 with $apdimi
+##     $bpcp   : (long,2,$nbc)    : [ [$bpdimi,$cpdimi], ... ] s.t. $cpdimi aligns 1-1 with $bpdimi
+sub _ccsnd_binop_align_dims {
+  my ($pdimsa,$vdimsa,$pdimsb,$vdimsb, $opname) = @_;
+  $opname = '_ccsnd_binop_relevant_dims' if (!defined($opname));
+
+  ##-- init
+  my @pdimsa = $pdimsa->list;
+  my @pdimsb = $pdimsb->list;
+  my @vdimsa = $vdimsa->list;
+  my @vdimsb = $vdimsb->list;
+
+  ##-- get alignment-relevant dims
+  my @rdims  = qw();
+  my ($vdima,$vdimb, $dimsza,$dimszb);
+  foreach (0..($#vdimsa < $#vdimsb ? $#vdimsa : $#vdimsb)) {
+    $vdima = $vdimsa[$_];
+    $vdimb = $vdimsb[$_];
+
+    ##-- get (virtual) dimension sizes
+    $dimsza = $vdima>=0 ? $pdimsa[$vdima] : -$vdima;
+    $dimszb = $vdimb>=0 ? $pdimsb[$vdimb] : -$vdimb;
+
+    ##-- check for (virtual) size mismatch
+    next if ($dimsza==1 || $dimszb==1);   ##... ignoring (virtual) dims of size 1
+    barf( __PACKAGE__ , "::$opname(): dimension size mismatch on dim($_): $dimsza != $dimszb")
+      if ($dimsza != $dimszb);
+
+    ##-- dims match: only align if both are physical
+    push(@rdims, [$vdima,$vdimb]) if ($vdima>=0 && $vdimb>=0);
+  }
+  my $rdpdl = PDL->pdl($P_LONG,\@rdims);
+
+  ##-- get output dimension sources
+  my @_cdsrc = qw(); ##-- ( $a_or_b_for_dim0, ... )
+  foreach (0..($#vdimsa > $#vdimsb ? $#vdimsa : $#vdimsb)) {
+    push(@vdimsa, -1) if ($_ >= @vdimsa);
+    push(@vdimsb, -1) if ($_ >= @vdimsb);
+    $vdima  = $vdimsa[$_];
+    $vdimb  = $vdimsb[$_];
+    $dimsza = $vdima>=0 ? $pdimsa[$vdima] : -$vdima;
+    $dimszb = $vdimb>=0 ? $pdimsb[$vdimb] : -$vdimb;
+    if ($vdima>=0) {
+      if ($vdimb>=0)  { push(@_cdsrc, $dimsza>=$dimszb ? 0 : 1); } ##-- a:p, b:p --> c:p[max2(sz(a),sz(b)]
+      else            { push(@_cdsrc, 0); }                        ##-- a:p, b:v --> c:p[a]
+    }
+    elsif ($vdimb>=0) { push(@_cdsrc, 1); }                        ##-- a:v, b:p --> c:p[b]
+    else              { push(@_cdsrc, $dimsza>=$dimszb ? 0 : 1); } ##-- a:v, b:v --> c:v[max2(sz(a),sz(b))]
+  }
+  my $_cdsrcp = PDL->pdl($P_LONG,@_cdsrc);
+
+  ##-- get c() dimension pdls
+  my @pdimsc = qw();
+  my @vdimsc = qw();
+  my @apcp  = qw(); ##-- ([$apdimi,$cpdimi], ...)
+  my @bpcp  = qw(); ##-- ([$bpdimi,$bpdimi], ...)
+  foreach (0..$#_cdsrc) {
+    if ($_cdsrc[$_]==0) {
+      if ($vdimsa[$_]<0) { $vdimsc[$_]=$vdimsa[$_]; }
+      else { $vdimsc[$_]=@pdimsc; push(@apcp,[$_,scalar(@pdimsc)]); push(@pdimsc,$pdimsa[$vdimsa[$_]]); }
+    } else {
+      if ($vdimsb[$_]<0) { $vdimsc[$_]=$vdimsb[$_]; }
+      else { $vdimsc[$_]=@pdimsc; push(@bpcp,[$_,scalar(@pdimsc)]); push(@pdimsc,$pdimsb[$vdimsb[$_]]); }
+    }
+  }
+  my $pdimsc = PDL->pdl($P_LONG,\@pdimsc);
+  my $vdimsc = PDL->pdl($P_LONG,\@vdimsc);
+  my $apcp   = PDL->pdl($P_LONG,\@apcp);
+  my $bpcp   = PDL->pdl($P_LONG,\@bpcp);
+
+  return ($rdpdl,$pdimsc,$vdimsc,$apcp,$bpcp);
+}
+
+
 ## \&code = _ccsnd_binary_op_mia($opName, $pdlCode, $defType)
 ##  + returns code for wrapping a builtin PDL binary operation $pdlCode under the name $opname
 sub _ccsnd_binary_op_mia {
@@ -861,7 +940,7 @@ sub _ccsnd_binary_op_mia {
     my ($a,$b,$swap) = @_;
     $swap=0 if (!defined($swap));
 
-    ##-- check for scalar operations
+    ##-- check for & dispatch scalar operations
     if (!ref($b) || $b->nelem==1) {
       if ($a->is_inplace) {
 	$pdlsub->($a->[$VALS]->inplace, todense($b), $swap);
@@ -877,90 +956,47 @@ sub _ccsnd_binary_op_mia {
     ##-- convert b to CCS
     $b = toccs($b);
 
-    ##-- get relevant dimensions (formerly _ccsnd_binop_relevant_dims())
-    my @vdimsa = $a->[$VDIMS]->list;
-    my @vdimsb = $b->[$VDIMS]->list;
-    my @pdimsa = $a->[$PDIMS]->list;
-    my @pdimsb = $b->[$PDIMS]->list;
-    my @rdims  = qw();
-    my ($vdima,$vdimb, $dimsza,$dimszb);
-    foreach (0..($#vdimsa < $#vdimsb ? $#vdimsa : $#vdimsb)) {
-      $vdima = $vdimsa[$_];
-      $vdimb = $vdimsb[$_];
-      ##
-      ##-- get (virtual) dimension sizes
-      $dimsza = $vdima>=0 ? $pdimsa[$vdima] : -$vdima;
-      $dimszb = $vdimb>=0 ? $pdimsb[$vdimb] : -$vdimb;
-      ##
-      ##-- check for (virtual) size mismatch
-      next if ($dimsza==1 || $dimszb==1);   ##... ignoring (virtual) dims of size 1
-      barf( __PACKAGE__ , "::$opname(): dimension size mismatch on dim($_): $dimsza != $dimszb")
-	if ($dimsza != $dimszb);
-      ##
-      ##-- dims match: only align if both are physical
-      push(@rdims, [$vdima,$vdimb]) if ($vdima>=0 || $vdimb>=0);
-    }
-    my $rdpdl = PDL->pdl($P_LONG,\@rdims); ##-- pdl(long,2,$nrdims) : [[$vdima,$vdimb], ...]
-    ##
-    ##
-    my @_cdsrc = qw(); ##-- ( $a_or_b_for_dim0, ... )
-    foreach (0..($#vdimsa > $#vdimsb ? $#vdimsa : $#vdimsb)) {
-      push(@vdimsa, -1) if ($_ >= @vdimsa);
-      push(@vdimsb, -1) if ($_ >= @vdimsb);
-      $vdima  = $vdimsa[$_];
-      $vdimb  = $vdimsb[$_];
-      $dimsza = $vdima>=0 ? $pdimsa[$vdima] : -$vdima;
-      $dimszb = $vdimb>=0 ? $pdimsb[$vdimb] : -$vdimb;
-      ##
-      if ($vdima>=0) {
-	if ($vdimb>=0)  { push(@_cdsrc, $dimsza>=$dimszb ? 0 : 1); } ##-- a:p, b:p --> c:p[max2(sz(a),sz(b)]
-	else            { push(@_cdsrc, 0); }                        ##-- a:p, b:v --> c:p[a]
-      }
-      elsif ($vdimb>=0) { push(@_cdsrc, 1); }                        ##-- a:v, b:p --> c:p[b]
-      else              { push(@_cdsrc, $dimsza>=$dimszb ? 0 : 1); } ##-- a:v, b:v --> c:v[max2(sz(a),sz(b))]
-    }
-    my $_cdsrcp = PDL->pdl($P_LONG,@_cdsrc);
-    ##
-    ##-- get c() dimension pdls
-    my @vdimsc = qw();
-    my @pdimsc = qw();
-    my @apcp  = qw(); ##-- ([$apdimi,$cpdimi], ...)
-    my @bpcp  = qw(); ##-- ([$bpdimi,$bpdimi], ...)
-    foreach (0..$#_cdsrc) {
-      if ($_cdsrc[$_]==0) {
-	if ($vdimsa[$_]<0) { $vdimsc[$_]=$vdimsa[$_]; }
-	else { $vdimsc[$_]=@pdimsc; push(@apcp,[$_,scalar(@pdimsc)]); push(@pdimsc,$pdimsa[$vdimsa[$_]]); }
-      } else {
-	if ($vdimsb[$_]<0) { $vdimsc[$_]=$vdimsb[$_]; }
-	else { $vdimsc[$_]=@pdimsc; push(@bpcp,[$_,scalar(@pdimsc)]); push(@pdimsc,$pdimsb[$vdimsb[$_]]); }
-      }
-    }
-    ##
-    my $pdimsc = PDL->pdl($P_LONG,\@pdimsc);
-    my $vdimsc = PDL->pdl($P_LONG,\@vdimsc);
-    my $apcp   = PDL->pdl($P_LONG,\@apcp);
-    my $bpcp   = PDL->pdl($P_LONG,\@bpcp);
+    ##-- align dimensions & determine output sources
+    my ($rdpdl,$pdimsc,$vdimsc,$apcp,$bpcp) = _ccsnd_binop_align_dims(@$a[$PDIMS,$VDIMS],
+								      @$b[$PDIMS,$VDIMS],
+								      $opname);
+    my $nrdims = $rdpdl->dim(1);
 
-    ##-- get & sort relevant indices : !!! FIXME !!!
-    my $ixa        = $a->[$WHICH];
-    my $nixa       = $ixa->dim(1);
-    my $ixar       = $ixa->dice_axis(0,$rdpdl->slice("(0)"));
-    my $ixar_sorti = $ixar->isempty ? PDL->null->long : $ixar->qsortveci;
-    $ixa           = $ixa->dice_axis(1,$ixar_sorti);
-    $ixar          = $ixar->dice_axis(1,$ixar_sorti);
-    ##
-    my $ixb        = $b->[$WHICH];
-    my $nixb       = $ixb->dim(1);
-    my $ixbr       = $ixb->dice_axis(0,$rdpdl->slice("(1)"));
-    my $ixbr_sorti = $ixbr->isempty ? PDL->null->long : $ixbr->qsortveci;
-    $ixb           = $ixb->dice_axis(1,$ixbr_sorti);
-    $ixbr          = $ixbr->dice_axis(1,$ixbr_sorti);
-
-    ##-- initialize: values
+    ##-- get & sort relevant indices, vals
+    my $ixa    = $a->[$WHICH];
     my $avals  = $a->[$VALS];
-    my $avalsr = $avals->index($ixar_sorti);
-    my $bvals  = $b->[$VALS];
-    my $bvalsr = $bvals->index($ixbr_sorti);
+    my $nixa   = $ixa->dim(1);
+    my $ra     = $rdpdl->slice("(0)");
+    my ($ixar,$avalsr);
+    if (!$ra->isempty && ($ra==PDL->sequence($P_LONG,$nrdims))->all) {
+      ##-- a: relevant dims are a prefix of physical dims, e.g. pre-sorted
+      $ixar   = $nrdims==$ixa->dim(0) ? $ixa : $ixa->slice("0:".($nrdims-1));
+      $avalsr = $avals;
+    } else {
+      $ixar          = $ixa->dice_axis(0,$ra);
+      my $ixar_sorti = $ixar->isempty ? PDL->null->long : $ixar->qsortveci;
+      $ixa           = $ixa->dice_axis(1,$ixar_sorti);
+      $ixar          = $ixar->dice_axis(1,$ixar_sorti);
+      $avalsr        = $avals->index($ixar_sorti);
+    }
+    ##
+    my $ixb   = $b->[$WHICH];
+    my $bvals = $b->[$VALS];
+    my $nixb  = $ixb->dim(1);
+    my $rb    = $rdpdl->slice("(1)");
+    my ($ixbr,$bvalsr);
+    if (!$rb->isempty && ($rb==PDL->sequence($P_LONG,$nrdims))->all) {
+      ##-- b: relevant dims are a prefix of physical dims, e.g. pre-sorted
+      $ixbr   = $nrdims==$ixb->dim(0) ? $ixb : $ixb->slice("0:".($nrdims-1));
+      $bvalsr = $bvals;
+    } else {
+      $ixbr          = $ixb->dice_axis(0,$rb);
+      my $ixbr_sorti = $ixbr->isempty ? PDL->null->long : $ixbr->qsortveci;
+      $ixb           = $ixb->dice_axis(1,$ixbr_sorti);
+      $ixbr          = $ixbr->dice_axis(1,$ixbr_sorti);
+      $bvalsr        = $bvals->index($ixbr_sorti);
+    }
+
 
     ##-- initialize: state vars
     my $blksz  = $nixa > $nixb ? $nixa : $nixb;

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -wd
+#!/usr/bin/perl -w
 
 use lib qw(./blib/lib ./blib/arch);
 use PDL;
@@ -38,14 +38,21 @@ BEGIN {
 
   #$PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=8; ##-- DEBUG
 
-  our $NOTOK_DIE = 1;
 }
 
 ##---------------------------------------------------------------------
 ## test subs
+BEGIN {
+  our $N_OK=0;
+  our $N_NOTOK=0;
+  our $NOTOK_DIE = 1;
+  our $TEST_VERBOSE = 1;
+}
 sub isok {
   my ($label,$bool) = @_;
-  print "test($label): ", ($bool ? "ok" : "NOT ok"), "\n";
+  if ($TEST_VERBOSE) { print "test($label): ", ($bool ? "ok" : "NOT ok"), "\n"; }
+  if ($bool) { ++$N_OK; }
+  else       { ++$N_NOTOK; }
   die("isok(): test failed for '$label'!") if ($NOTOK_DIE && !$bool);
 }
 
@@ -55,6 +62,24 @@ sub matchpdl {
 }
 
 sub make { system('make'); }
+
+sub test_all {
+  my $verbose=shift;
+  $TEST_VERBOSE=$verbose if (defined($verbose));
+
+  test_vdims_1();
+  test_recode();
+  test_nd_binop_sclr_all();
+  test_nd_binop_cvrv_all();
+  test_nd_binop_mia_all();
+  test_nd_unop_all();
+  test_nd_ufunc_all();
+
+  our $ntested = $N_OK+$N_NOTOK;
+  printf("\ntest_all: $N_OK of $ntested tests passed (%6.2f%%)\n", $ntested>0 ? 100*($N_OK/$ntested) : 0);
+}
+test_all(0);
+exit(0);
 
 ##---------------------------------------------------------------------
 ## test data
