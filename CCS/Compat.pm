@@ -44,6 +44,9 @@ our @EXPORT_OK =
    ##
    ##-- Operations
    (map {("ccs${_}_cv","ccs${_}_rv")} (@ccs_binops,qw(add diff))),
+   ##
+   ##-- Ufuncs
+   (map {("ccs${_}","ccs${_}t")} qw(sumover prodover)),
   );
 our %EXPORT_TAGS =
   (
@@ -748,7 +751,7 @@ sub ccs_binop_compat_cv {
   return sub { $ccsop->(@_[1,2,3,4]) };
 }
 foreach my $op (@ccs_binops) {
-  eval "*ccs${op}_cv = *PDL::ccs${op}_cv = ccs_binop_compat_cv(\\&PDL::ccs_${op}_vector_ma);";
+  eval "*ccs${op}_cv = *PDL::ccs${op}_cv = ccs_binop_compat_cv(\\&PDL::ccs_${op}_vector_mia);";
 }
 *ccsadd_cv = *PDL::ccsadd_cv = \&ccsplus_cv;
 *ccsdiff_cv = *PDL::ccsdiff_cv = \&ccsminus_cv;
@@ -785,7 +788,7 @@ sub ccs_binop_compat_rv {
   };
 }
 foreach my $op (@ccs_binops) {
-  eval "*ccs${op}_rv = *PDL::ccs${op}_rv = ccs_binop_compat_rv(\\&PDL::ccs_${op}_vector_ma);";
+  eval "*ccs${op}_rv = *PDL::ccs${op}_rv = ccs_binop_compat_rv(\\&PDL::ccs_${op}_vector_mia);";
 }
 *ccsadd_rv = *PDL::ccsadd_rv = \&ccsplus_rv;
 *ccsdiff_rv = *PDL::ccsdiff_rv = \&ccsminus_rv;
@@ -795,7 +798,152 @@ foreach my $op (@ccs_binops) {
 ##------------------------------------------------------
 ## Ufuncs (accumulators)
 
-#ccs${name}over()
+## \&ufuncsub = ccs_ufunc_compat(\&ccs_accum_sub)
+sub ccs_ufunc_compat {
+  my $sub = shift;
+  return sub {
+    my ($ptr,$rowids,$nzvals, $M,$rowvals) = @_;
+    my ($ixout,$valsut) = $sub->($rowids->slice("*1,"),$nzvals, 0,0);
+    $M       = $rowids->max+1 if (!defined($M));
+    $rowvals = zeroes($nzvals->type,$M) if (!defined($rowvals));
+    $rowvals->index($ixout->flat) .= $valsout;
+    return $rowvals;
+  };
+}
+
+## \&ufuncsub = ccs_ufunc_compat_t(\&ccs_accum_sub)
+sub ccs_ufunc_compat_t {
+  my $sub = shift;
+  return sub {
+    my ($ptr,$rowids,$nzvals, $colvals) = @_;
+    my ($colids,$nzix) = ccs_decode_pointer($ptr->append($nzvals->nelem));
+    ccs_ufunc_compat(undef,$colids,$nzvals->index($nzix), $ptr->dim(0),$colvals);
+  };
+}
+
+*ccssumover  = *PDL::ccssumover  = ccs_ufunc_compat  (\&ccs_accum_sum);
+*ccssumovert = *PDL::ccssumovert = ccs_ufunc_compat_t(\&ccs_accum_sum);
+
+*ccprodover   = *PDL::ccsprodover  = ccs_ufunc_compat  (\&ccs_accum_prod);
+*ccsprodovert = *PDL::ccsprodovert = ccs_ufunc_compat_t(\&ccs_accum_prod);
 
 
 1; ##-- make perl happy
+
+##======================================================================
+## Footer Administrivia
+##======================================================================
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 EXAMPLES
+
+=head2 Compressed Column Format Example
+
+ $a = pdl([
+	   [10, 0, 0, 0,-2,  0],
+	   [3,  9, 0, 0, 0,  3],
+	   [0,  7, 8, 7, 0,  0],
+	   [3,  0, 8, 7, 5,  0],
+	   [0,  8, 0, 9, 9, 13],
+	   [0,  4, 0, 0, 2, -1]
+	  ]);
+
+ ($ptr,$rowids,$nzvals) = ccsencode($a);
+
+ print join("\n", "ptr=$ptr", "rowids=$rowids", "nzvals=$nzvals");
+
+... prints something like:
+
+ ptr=[0 3 7 9 12 16]
+ rowids=[ 0 1 3 1 2 4 5 2 3 2 3 4  0 3 4 5 1  4  5]
+ nzvals=[10 3 3 9 7 8 4 8 8 7 7 9 -2 5 9 2 3 13 -1]
+
+
+=head2 Sparse Matrix Example
+
+ ##-- create a random sparse matrix
+ $a  = random(100,100);
+ $a *= ($a>.9);
+
+ ##-- encode it
+ ($ptr,$rowids,$nzvals) = ccsencode($a);
+
+ ##-- what did we save?
+ sub pdlsize { return PDL::howbig($_[0]->type)*$_[0]->nelem; }
+ print "Encoding saves us ",
+       ($saved = pdlsize($a) - pdlsize($ptr) - pdlsize($rowids) - pdlsize($nzvals)),
+       " bytes (", (100.0*$saved/pdlsize($a)), "%)\n";
+
+... prints something like:
+
+ Encoding saves us 71416 bytes (89.27%)
+
+
+=head2 Decoding Example
+
+ ##-- random matrix
+ $a = random(100,100);
+
+ ##-- make an expensive copy of $a by encoding & decoding
+ ($ptr,$rowids,$nzvals) = ccsencode($a);
+ $a2 = ccsdecode($ptr,$rowids,$nzvals);
+
+ ##-- ...and make sure it's good
+ print all($a==$a2) ? "Decoding is good!\n" : "Nasty icky bug!\n";
+
+=cut
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 ACKNOWLEDGEMENTS
+
+Perl by Larry Wall.
+
+PDL by Karl Glazebrook, Tuomas J. Lukka, Christian Soeller, and others.
+
+Original inspiration and algorithms from the SVDLIBC C library by Douglas Rohde;
+which is itself based on SVDPACKC
+by Michael Berry, Theresa Do, Gavin O'Brien, Vijay Krishna and Sowmini Varadhan.
+
+=cut
+
+##----------------------------------------------------------------------
+=pod
+
+=head1 KNOWN BUGS
+
+Many.
+
+=cut
+
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 AUTHOR
+
+Bryan Jurish E<lt>moocow@ling.uni-potsdam.deE<gt>
+
+=head2 Copyright Policy
+
+Copyright (C) 2005-2007, Bryan Jurish. All rights reserved.
+
+This package is free software, and entirely without warranty.
+You may redistribute it and/or modify it under the same terms
+as Perl itself.
+
+=head1 SEE ALSO
+
+perl(1),
+PDL(3perl),
+PDL::SVDLIBC(3perl),
+PDL::CCS::Nd(3perl),
+
+SVDLIBC: http://tedlab.mit.edu/~dr/SVDLIBC/
+
+SVDPACKC: http://www.netlib.org/svdpack/
+
+=cut

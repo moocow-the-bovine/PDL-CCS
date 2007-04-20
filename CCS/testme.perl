@@ -67,6 +67,7 @@ sub test_all {
   my $verbose=shift;
   $TEST_VERBOSE=$verbose if (defined($verbose));
 
+  test_matmult_pre1();
   test_vdims_1();
   test_recode();
   test_nd_binop_sclr_all();
@@ -78,8 +79,8 @@ sub test_all {
   our $ntested = $N_OK+$N_NOTOK;
   printf("\ntest_all: $N_OK of $ntested tests passed (%6.2f%%)\n", $ntested>0 ? 100*($N_OK/$ntested) : 0);
 }
-test_all(0);
-exit(0);
+#test_all(0);
+#exit(0);
 
 ##---------------------------------------------------------------------
 ## test data
@@ -139,6 +140,133 @@ sub test_bg_blocksize {
 	   });
 }
 #test_bg_blocksize;
+
+##---------------------------------------------------------------------
+## CCS: Nd: matrix multiplication, on bigrams
+sub test_matmult_bg {
+  test_data_bg;
+
+  $bgd = $bgccs->double;
+  $bgd->bad_is_missing(1);
+  $bgd->nan_is_missing(1);
+
+  our ($NC,$NW) = (32, $bgd->dim(1));
+  $phat = random($NC,$NW)->abs;
+  $phat->maximum_n_ind($phatmaxi = zeroes(long,4,$phat->dim(1)));
+  $phatmask = zeroes(byte,$phat->dims);
+  $phatmask->index($phatmaxi->xchg(0,1)) .= 1;
+  $phat *= $phatmask;
+  $phat /= $phat->sumover->slice("*1,");
+
+  our $phats = $phat->toccs;
+
+  our $bgdr = $bgd->matmult($phats);
+
+  print "bg[NW=$NW,NW] x phat[NC=$NC,NW] --> pdl(", join(',', $bgdr->dims), ")\n";
+}
+#test_matmult_bg();
+
+
+##---------------------------------------------------------------------
+## CCS: Nd: matrix multiplication (low-level twiddling stuff)
+sub test_matmult_pre1 {
+  our ($a,$b,$c,$in, $as,$bs,$cs,$ins);
+
+  $a=sequence(4);
+  $b=($a+1);
+  $as=$a->toccs;
+  $bs=$b->toccs;
+
+  ##-- inner(row_vector,row_vector)
+  $in  = $a->inner($b);
+  $ins = $as->inner($bs);
+  $c  = ($a*$b)->sumover;
+  $cs = ($as * $bs);
+  $cs = $cs->sumover;
+  isok("matmult_pre1:(row,row):inner:sparse~dense",  all($ins->todense==$in));
+  isok("matmult_pre1:(row,row):inner~sumover(*)", all($c==$in));
+  isok("matmult_pre1:(row,row):sparse~dense",     all($cs->todense==$c));
+
+  ##-- inner(matrix,row_vector)
+  our ($N,$M,$P) = (4,3,2);
+  $a = sequence($N,$M);
+  $b = sequence($N)+1;
+  $as=$a->toccs;
+  $bs=$b->toccs;
+
+  $in = $a->inner($b);
+  $ins = $as->inner($bs);
+  $c  = ($a*$b)->sumover;
+  $cs = ($as*$bs);
+  $cs = $cs->sumover;
+  isok("matmult_pre1:(mat,row):inner:sparse~dense",  all($ins->todense==$in));
+  isok("matmult_pre1:(mat,row):inner~sumover(*)", all($c==$in));
+  isok("matmult_pre1:(mat,row):sparse~dense",     all($cs->todense==$c));
+
+  ##-- inner(matrix,col_vector)
+  $b = sequence(1,$M)+1;
+  $bs=$b->toccs;
+
+  $in = $a->inner($b);
+  $ins = $as->inner($bs);
+  $c  = ($a*$b)->sumover;
+  $cs = ($as*$bs);
+  $cs = $cs->sumover;
+  isok("matmult_pre1:(mat,col):inner:sparse~dense",  all($ins->todense==$in));
+  isok("matmult_pre1:(mat,col):inner~sumover(*)", all($c==$in));
+  isok("matmult_pre1:(mat,col):sparse~dense",     all($cs->todense==$c));
+
+  ##-- (debug)
+  sub argdims { "a(".dimstr($a).") x b(".dimstr($b).") -> c(".dimstr($c).")\n"; };
+  sub dimstr { my $p=shift; return join(',', map {$_==$N?'N':($_==$M?'M':($_==$P?'P':$_))} $p->dims); }
+
+  ##-- matmult: (mat,col) --> col : a(N,M) x b(1,N) --> c(1,M)
+  $b = sequence(1,$N)+1;
+  $bs = $b->toccs;
+  $c  = $a->matmult($b,null);
+  $cs = $as->matmult($bs);
+  isok("matmult_pre1:(mat,col)->col", all($cs->todense==$c));
+
+  ##-- matmult: (row,mat) --> row : b(M) x a(N,M) -> c(N,1)
+  $b = sequence($M)+1;
+  $bs = $b->toccs;
+  $c  = $b->matmult($a,null);
+  $cs = $bs->matmult($as);
+  isok("matmult_pre1:(row,mat)->row", all($cs->todense==$c));
+
+  ##-- matmult: (mat,sclr) --> mat : a(N,M) x b() -> c(N,M)
+  $b  = pdl(42);
+  $c  = $a->matmult($b,null);
+  $cs = $as->matmult($b);
+  isok("matmult_pre1:(mat,sclr)->mat", all($cs->todense==$c));
+
+  ##-- matmult: (row,col) --> sclr : a(N) x b(1,N) -> c(1,1)
+  $a  = sequence($N);
+  $b  = sequence(1,$N)+1;
+  $as = $a->toccs;
+  $bs = $b->toccs;
+  $c  = $a->matmult($b,null);
+  $cs = $as->matmult($bs);
+  isok("matmult_pre1:(row,col)->mat", all($cs->todense==$c));
+
+  ##-- matmult: (col,row) --> mat : b(1,N) x a(N) -> c(N,N)
+  $c  = $b->matmult($a,null);
+  $cs = $bs->matmult($as);
+  isok("matmult_pre1:(col,row)->mat", all($cs->todense==$c));
+
+  ##-- matmult: (mat,mat) --> mat : a(N,M) x b(P,N) -> c(P,M)
+  $a = sequence($N,$M);
+  $b = sequence($P,$N)+1;
+  $as = $a->toccs;
+  $bs = $b->toccs;
+  $c  = $a->matmult($b,null);
+  $cs = $as->matmult($bs);
+  isok("matmult_pre1:(mat,mat)->mat", all($cs->todense==$c));
+
+  print "test_matmult_pre1: done.\n";
+}
+test_matmult_pre1();
+
 
 ##---------------------------------------------------------------------
 ## CCS: Nd: virtual dims
@@ -387,9 +515,17 @@ sub test_nd_binop_cvrv_mia {
   our $cs1v = $ccs_op->($as,$bs1v, $swap);
   isok("ccs:nd:arg2=cv(ccs-virtual),binop=${op_name},z=${missing},swap=$swap:type", $cs1v->type==$c1->type);
   isok("ccs:nd:arg2=cv(ccs-virtual),binop=${op_name},z=${missing},swap=$swap:vals", all(matchpdl($cs1v->decode,$c1)));
+
+  our $csrc = $ccs_op->($bs0,$bs1v, $swap);
+  our $crc  = $pdl_op->($b0, $b1,   $swap);
+  isok("ccs:nd:arg1=rv,arg2=cv(ccs-virtual),binop=${op_name},z=${missing},swap=$swap:type",
+       $csrc->type==$crc->type);
+  isok("ccs:nd:arg1=rv,arg2=cv(ccs-virtual),binop=${op_name},z=${missing},swap=$swap:vals",
+       all(matchpdl($csrc->decode,$crc)));
 }
-test_nd_binop_cvrv_mia('plus',$BAD,0);
+#test_nd_binop_cvrv_mia('plus',$BAD,0);
 #test_nd_binop_cvrv_mia('mult',$BAD,0);
+test_nd_binop_cvrv_mia('mult',0,0);
 #test_nd_binop_cvrv_mia('divide',0,0, 3);
 
 sub test_nd_binop_cvrv_all {
@@ -1052,7 +1188,7 @@ sub test_ufuncs_1 {
   our $which1  = $which->slice("1:-1");
   our $whichi1 = $which1->qsortveci;
   $which1      = $which1->dice_axis(1,$whichi1);
-  our $nzvals1 = $ccs->nzvals->index($whichi1);
+  our $nzvals1 = $ccs->_nzvals->index($whichi1);
 
   ($ix_out,$nzvals_out,$nnz_out) = ccs_accum_sum($which1,$nzvals1, 0,$a->dim(0));
   isok("ccs_accum_sum:missing=0", all(ccs_decode($ix_out,$nzvals_out)==$a->sumover));
