@@ -388,9 +388,41 @@ sub isempty { $_[0][$VALS]->isempty; }
 ##--------------------------------------------------------------
 ## Low-level CCS access
 
-## $bool = $obj->allmissing
-##  + true if no non-missing values are stored
-sub allmissing { $_[0][$VALS]->nelem <= 1; }
+## $bool = $ccs->is_physically_indexed()
+##  + returns true iff only physical dimensions are present
+sub is_physically_indexed {
+  (
+   $_[0][$VDIMS]->ndims==$_[0][$PDIMS]->ndims
+   &&
+   ($_[0][$VDIMS]==$_[0][$VDIMS]->sequence)->all
+  );
+}
+
+## $ccs2 = $ccs->to_physically_indexed()
+##  + ensures that all non-missing elements are physically indexed
+##  + just returns $ccs if all non-missing elements are already physically indexed
+sub to_physically_indexed {
+  return $_[0] if ($_[0]->is_phyiscally_indexed);
+  my $ccs   = shift;
+  my $which = $ccs->whichND;
+  my $vals  = $ccs->whichVals;
+  my $sorti = $which->qsortveci;
+  return $ccs->shadow(
+		      pdims=>$ccs->[$VDIMS]->abs,
+		      vdims=>$ccs->[$VDIMS]->sequence,
+		      which=>$which->dice_axis(1,$sorti),
+		      vals =>$vals->index($sorti),
+		     )->sever;
+}
+
+## $ccs = $ccs->make_physically_indexed()
+*make_physical = \&make_physically_indexed;
+sub make_physically_indexed {
+  return $_[0] if ($_[0]->is_physically_indexed);
+  @{$_[0]} = @{$_[0]->to_physically_indexed};
+  return $_[0];
+}
+
 
 ## $pdims = $obj->pdims()
 ## $vdims = $obj->vdims()
@@ -424,6 +456,10 @@ sub _nnz_v { ($_[0][$VALS]->dim(0)-1) * $_[0]->_ccs_nvperp; }
 sub nmissing_p { $_[0]->nelem_p - $_[0]->nstored_p; }
 sub nmissing_v { $_[0]->nelem_v - $_[0]->nstored_v; }
 *nmissing = \&nmissing_v;
+
+## $bool = $obj->allmissing
+##  + true if no non-missing values are stored
+sub allmissing { $_[0][$VALS]->nelem <= 1; }
 
 
 ## $missing = $obj->missing()
@@ -475,7 +511,7 @@ sub ptr {
 ## ($ptr,$pi2nzi) = $obj->getptr($dim_p);
 ##  + as for ptr(), but does NOT cache anything, and does NOT check the cache
 ##  + physical dimensions ONLY
-sub getptr { ccs_encode_pointers($_[0][$WHICH]->slice("($_[1]),"), $_[0][$PDIMS][$_[1]]); }
+sub getptr { ccs_encode_pointers($_[0][$WHICH]->slice("($_[1]),"), $_[0][$PDIMS]->index($_[1])); }
 
 ## $flags = $obj->flags()
 ## $flags = $obj->flags($flags)
@@ -629,7 +665,7 @@ sub indexNDi {
   my ($ccs,$ndi)   = @_;
   ##
   ##-- get physical dims
-  my $dims      = $ccs->dimpdl;
+  my $dims      = $ccs->[$VDIMS];
   my $whichdimp = ($dims>=0)->which;
   my $pdimi     = $dims->index($whichdimp);
   ##
@@ -707,7 +743,7 @@ sub dice_axis {
 ## $onedi = $ccs->n2oned($ndi)
 ##  + returns a pseudo-index
 sub n2oned {
-  my $dimsizes = PDL->pdl($P_LONG,1)->append($_[0][$VDIMS]->abs)->slice("0:-2")->cumuprodover;
+  my $dimsizes = PDL->pdl($P_LONG,1)->append($_[0]->dimpdl->abs)->slice("0:-2")->cumuprodover;
   return ($_[1] * $dimsizes)->sumover;
 }
 
@@ -752,7 +788,7 @@ sub whichVals {
 
 ## $which = $obj->which()
 ##  + not guaranteed to be returned in any meaningful order
-sub which { $_[0]->n2oned($_[0]->whichND); }
+sub which { $_[0]->n2oned(scalar $_[0]->whichND); }
 
 ## $val = $ccs->at(@index)
 sub at { $_[0]->indexND(PDL->pdl($P_LONG,@_[1..$#_]))->sclr; }
@@ -1216,7 +1252,6 @@ sub assgn { $_[1]->rassgn($_[0]); }
 ## TODO:
 ##  + virtual dimensions: clump
 ##  + OPERATIONS:
-##    - matrix: matmult
 ##    - accumulators: (some still missing: statistical, extrema-indices, atan2, ...)
 
 ##--------------------------------------------------------------
@@ -1271,6 +1306,7 @@ sub compressionRate {
   my $ccssize = (0
 		 + PDL->pdl($ccs->[$WHICH]->nelem) * PDL::howbig($ccs->[$WHICH]->type)
 		 + PDL->pdl($ccs->[$VALS]->nelem)  * PDL::howbig($ccs->[$VALS]->type)
+		 + PDL->pdl($ccs->[$PDIMS]->nelem) * PDL::howbig($ccs->[$PDIMS]->type)
 		 + PDL->pdl($ccs->[$VDIMS]->nelem) * PDL::howbig($ccs->[$VDIMS]->type)
 		);
   return (($dsize - $ccssize) / $dsize)->sclr;
@@ -1302,13 +1338,7 @@ sub string {
 
 ## $pstr = $obj->lstring()
 ##  + literal perl-type string (re-blesses the object)
-sub lstring {
-  my $ccs = shift;
-  my $ref = ref($ccs);
-  my $str = ''.(bless $ccs, 'ARRAY');
-  bless($ccs,$ref);
-  return $str;
-}
+sub lstring { return overload::StrVal($_[0]); }
 
 
 ##======================================================================
@@ -1395,26 +1425,3 @@ use overload (
 
 
 1; ##-- make perl happy
-
-
-##======================================================================
-## pod: headers
-=pod
-
-=head1 NAME
-
-PDL::CCS::Nd - N-dimensional CCS-encoded PDLs
-
-=head1 SYNOPSIS
-
- use PDL;
- use PDL::CCS::Nd;
-
- ##---------------------------------------------------------------------
- ## ... stuff happens
-
-=cut
-
-##======================================================================
-## TODO: write pods
-

@@ -65,8 +65,71 @@ PDL::CCS::Compat - Backwards-compatibility module for PDL::CCS
 
  use PDL;
  use PDL::CCS::Compat;
+
+ ##-- source pdl
+ $a = random($N=8,$M=7);
+
  ##---------------------------------------------------------------------
- ## ... stuff happens
+ ## Non-missing value counts
+ $nnz    = $a->flat->nnz;         ##-- "missing" == 0
+ $nnaz   = $a->flat->nnza(1e-6);  ##-- "missing" ~= 0
+ #$ngood = $a->ngood;             ##-- "missing" == BAD (see PDL::Bad)
+
+ ##---------------------------------------------------------------------
+ ## CCS Encoding
+ ($ptr,$rowids,$vals) = ccsencode_nz ($a);             # missing == 0
+ ($ptr,$rowids,$vals) = ccsencode_naz($a,$eps);        # missing ~= 0
+ ($ptr,$rowids,$vals) = ccsencode_g  ($a);             # missing == BAD
+ ($ptr,$rowids,$vals) = ccsencode_i  ($i,$ivals,$N);   # generic flat
+ ($ptr,$rowids,$vals) = ccsencode_i2d($xi,$yi,$ivals); # generic 2d
+
+ ##---------------------------------------------------------------------
+ ## CCS Decoding
+ $cols = ccsdecodecols($ptr,$rowids,$nzvals, $xvals
+ $a2   = ccsdecode  ($ptr,$rowids,$vals);              # missing == 0
+ $a2   = ccsdecode_g($ptr,$rowids,$vals);              # missing == BAD
+
+ ##---------------------------------------------------------------------
+ ## CCS Index Conversion
+ $nzi  = ccsitonzi  ($ptr,$rowids, $ix,     $missing); # ix => nzi
+ $nzi  = ccsi2dtonzi($ptr,$rowids, $xi,$yi, $missing); # 2d => nzi
+
+ $ix       = ccswhich  ($ptr,$rowids,$vals);           # CCS => ix
+ ($xi,$yi) = ccswhichND($ptr,$rowids,$vals);           # CCS => 2d
+ $xyi      = ccswhichND($ptr,$rowids,$vals);           # ...as scalar
+
+ ##---------------------------------------------------------------------
+ ## CCS Lookup
+
+ $ixvals = ccsget  ($ptr,$rowids,$vals, $ix,$missing);     # ix => values
+ $ixvals = ccsget2d($ptr,$rowids,$vals, $xi,$yi,$missing); # 2d => values
+
+ ##---------------------------------------------------------------------
+ ## CCS Operations
+ ($ptrT,$rowidsT,$valsT) = ccstranspose($ptr,$rowids,$vals); # CCS<->CRS
+
+ ##---------------------------------------------------------------------
+ ## Vector Operations, by column
+ $nzvals_out = ccsadd_cv ($ptr,$rowids,$nzvals, $colvec);
+ $nzvals_out = ccsdiff_cv($ptr,$rowids,$nzvals, $colvec);
+ $nzvals_out = ccsmult_cv($ptr,$rowids,$nzvals, $colvec);
+ $nzvals_out = ccsdiv_cv ($ptr,$rowids,$nzvals, $colvec);
+
+ ##---------------------------------------------------------------------
+ ## Vector Operations, by row
+ $nzvals_out = ccsadd_rv ($ptr,$rowids,$nzvals, $rowvec);
+ $nzvals_out = ccsdiff_rv($ptr,$rowids,$nzvals, $rowvec);
+ $nzvals_out = ccsmult_rv($ptr,$rowids,$nzvals, $rowvec);
+ $nzvals_out = ccsdiv_rv ($ptr,$rowids,$nzvals, $rowvec);
+
+ ##---------------------------------------------------------------------
+ ## Scalar Operations
+ $nzvals_out = $nzvals * 42;  # ... or whatever
+
+ ##---------------------------------------------------------------------
+ ## Accumulators
+ $rowsumover  = ccssumover ($ptr,$rowids,$nzvals); ##-- like $a->sumover()
+ $colsumovert = ccssumovert($ptr,$rowids,$nzvals); ##-- like $a->xchg(0,1)->sumover
 
 =cut
 
@@ -803,7 +866,7 @@ sub ccs_ufunc_compat {
   my $sub = shift;
   return sub {
     my ($ptr,$rowids,$nzvals, $M,$rowvals) = @_;
-    my ($ixout,$valsut) = $sub->($rowids->slice("*1,"),$nzvals, 0,0);
+    my ($ixout,$valsout) = $sub->($rowids->slice("*1,"),$nzvals, 0,0);
     $M       = $rowids->max+1 if (!defined($M));
     $rowvals = zeroes($nzvals->type,$M) if (!defined($rowvals));
     $rowvals->index($ixout->flat) .= $valsout;

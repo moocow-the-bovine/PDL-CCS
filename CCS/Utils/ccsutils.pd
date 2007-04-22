@@ -156,7 +156,7 @@ pp_addpm(<<'EOPM');
 EOPM
 
 ##------------------------------------------------------
-## ccs_encode_pointers() : get LENGTH-encoded pointer & index translation PDL
+## ccs_encode_pointers() : get encoded pointer & index translation PDL
 pp_def
   ('ccs_encode_pointers',
    Pars => 'int ix(Nnz); int N(); int [o]ptr(Nplus1); int [o]ixix(Nnz);',
@@ -282,38 +282,6 @@ If unspecified, $proj() defaults to:
 
 EOD
   );
-
-
-##======================================================================
-## Operations: Accumulators (Ufuncs)
-##======================================================================
-pp_addpm(<<'EOPM');
-
-=pod
-
-=head1 Ufuncs (Accumulators)
-
-See L<PDL::CCS::Ufunc>.
-
-=cut
-
-EOPM
-
-
-##======================================================================
-## Operations: Binary
-##======================================================================
-pp_addpm(<<'EOPM');
-
-=pod
-
-=head1 Binary Operations
-
-See L<PDL::CCS::Ops>.
-
-=cut
-
-EOPM
 
 
 ##======================================================================

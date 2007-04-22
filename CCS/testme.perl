@@ -61,6 +61,11 @@ sub matchpdl {
   return ($a==$b)->setbadtoval(0) | ($a->isbad & $b->isbad);
 }
 
+sub pdlstr ($) {
+  return "$_[0]" if (!ref($_[0]) || $_[0]->ndims==0);
+  return '['.join(",", map {pdlstr($_)} $_[0]->dog).']';
+}
+
 sub make { system('make'); }
 
 sub test_all {
@@ -95,6 +100,7 @@ sub test_data_0 {
 		       ]);
   our $a = $p;
 }
+
 sub test_data_1 {
   our $p = pdl(double, [
 			[10,0,0,0,-2],
@@ -106,6 +112,7 @@ sub test_data_1 {
 		       ]);
   our $a = $p;
 }
+
 sub test_data_2 {
   our $a = pdl([[1,0,0,2],
 		[0,3,4,0],

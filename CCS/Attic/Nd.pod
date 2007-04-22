@@ -9,10 +9,230 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDL
 
 =head1 SYNOPSIS
 
+ use PDL;
  use PDL::CCS::Nd;
 
  ##---------------------------------------------------------------------
- ## ... stuff happens
+ ## Example data
+
+ $missing = 0;                                   ##-- missing values
+ $dense   = random(@dims);                       ##-- densely encoded pdl
+ $dense->where(random(@dims)<=0.95) .= $missing; ##   ... made sparse
+
+ $whichND = $dense->whichND;                     ##-- which values are present?
+ $nzvals  = $dense->indexND($whichND);           ##-- ... and what are they?
+
+
+ ##---------------------------------------------------------------------
+ ## Constructors etc.
+
+ $ccs = PDL::CCS:Nd->newFromDense($dense,%args);           ##-- construct from dense matrix
+ $ccs = PDL::CCS:Nd->newFromWhich($whichND,$nzvals,%args); ##-- construct from index+value pairs
+
+ $ccs = $dense->toccs();                ##-- ensure PDL::CCS::Nd-hood
+ $ccs = $ccs->toccs();                  ##-- ... analagous to PDL::topdl()
+ $ccs = $dense->toccs($missing,$flags); ##-- ... with optional arguments
+
+ $ccs2 = $ccs->copy();                  ##-- copy constructor
+ $ccs2 = $ccs->copyShallow();           ##-- shallow copy, mainly for internal use
+ $ccs2 = $ccs->shadow(%args);           ##-- flexible copy method, for internal use
+
+ ##---------------------------------------------------------------------
+ ## Maintainence & Decoding
+
+ $ccs = $ccs->recode();                 ##-- remove missing values from stored VALS
+ $ccs = $ccs->sortwhich();              ##-- internal use only
+
+ $dense2 = $ccs->decode();              ##-- extract to a (new) dense matrix
+
+ $dense2 = $ccs->todense();             ##-- ensure dense storage
+ $dense2 = $dense2->todense();          ##-- ... analagous to PDL::topdl()
+
+ ##---------------------------------------------------------------------
+ ## PDL API: Basic Properties
+
+ ##---------------------------------------
+ ## Type conversion & Checking
+ $ccs2 = $ccs->convert($type);
+ $ccs2 = $ccs->byte;
+ $ccs2 = $ccs->short;
+ $ccs2 = $ccs->ushort;
+ $ccs2 = $ccs->long;
+ $ccs2 = $ccs->longlong;
+ $ccs2 = $ccs->float;
+ $ccs2 = $ccs->double;
+
+ ##---------------------------------------
+ ## Dimensions
+ @dims  = $ccs->dims();
+ $ndims = $ccs->ndims();
+ $dim   = $ccs->dim($dimi);
+ $nelem = $ccs->nelem;
+ $bool  = $ccs->isnull;
+ $bool  = $ccs->isempty;
+
+ ##---------------------------------------
+ ## Inplace & Dataflow
+ $ccs  = $ccs->inplace();
+ $bool = $ccs->is_inplace;
+ $bool = $ccs->set_inplace($bool);
+ $ccs  = $ccs->sever;
+
+ ##---------------------------------------
+ ## Bad Value Handling
+
+ $bool = $ccs->bad_is_missing();          ##-- treat BAD values as missing?
+ $bool = $ccs->bad_is_missing($bool);
+
+ $bool = $ccs->nan_is_missing();          ##-- treat NaN values as missing?
+ $bool = $ccs->nan_is_missing($bool);
+
+ $ccs2 = $ccs->setnantobad();
+ $ccs2 = $ccs->setbadtonan();
+ $ccs2 = $ccs->setbadtoval($val);
+ $ccs2 = $ccs->setvaltobad($val);
+
+ ##---------------------------------------------------------------------
+ ## PDL API: Dimension Shuffling
+
+ $ccs2 = $ccs->dummy($vdimi,$size);
+ $ccs2 = $ccs->reorder(@vdims);
+ $ccs2 = $ccs->xchg($vdim1,$vdim2);
+ $ccs2 = $ccs->mv($vdimFrom,$vdimTo);
+ $ccs2 = $ccs->transpose();
+
+ ##---------------------------------------------------------------------
+ ## PDL API: Indexing
+
+ $nzi   = $ccs->indexNDi($ndi);              ##-- guts for indexing methods
+ $ndi   = $ccs->n2oned($ndi);                ##-- returns 1d pseudo-index for $ccs
+
+ $ivals = $ccs->indexND($ndi);
+ $ivals = $ccs->index2d($xi,$yi);
+ $ivals = $ccs->index($flati);               ##-- buggy: no pseudo-threading!
+ $ccs2  = $ccs->dice_axis($vaxis,$vaxis_ix);
+
+ $whichND = $ccs->whichND();
+ $vals    = $ccs->whichVals();                 ##-- like $ccs->indexND($ccs->whichND), but faster
+ $which   = $ccs->which()
+
+ $value = $ccs->at(@index);
+ $ccs   = $ccs->set(@index,$value);
+
+ ##---------------------------------------------------------------------
+ ## PDL API: Ufuncs
+
+ $ccs2 = $ccs->prodover;
+ $ccs2 = $ccs->dprodover;
+ $ccs2 = $ccs->sumover;
+ $ccs2 = $ccs->dsumover;
+ $ccs2 = $ccs->andover;
+ $ccs2 = $ccs->orover;
+ $ccs2 = $ccs->bandover;
+ $ccs2 = $ccs->borover;
+ $ccs2 = $ccs->maximum;
+ $ccs2 = $ccs->minimum;
+ $ccs2 = $ccs->nbadover;
+ $ccs2 = $ccs->ngoodover;
+ $ccs2 = $ccs->nnz;
+
+ $sclr = $ccs->prod;
+ $sclr = $ccs->dprod;
+ $sclr = $ccs->sum;
+ $sclr = $ccs->dsum;
+ $sclr = $ccs->nbad;
+ $sclr = $ccs->ngood;
+ $sclr = $ccs->min;
+ $sclr = $ccs->max;
+ $bool = $ccs->any;
+ $bool = $ccs->all;
+
+ ##---------------------------------------------------------------------
+ ## PDL API: Unary Operations         (Overloaded)
+
+ $ccs2 = $ccs->bitnot;                $ccs2 = ~$ccs;
+ $ccs2 = $ccs->not;                   $ccs2 = !$ccs;
+ $ccs2 = $ccs->sqrt;
+ $ccs2 = $ccs->abs;
+ $ccs2 = $ccs->sin;
+ $ccs2 = $ccs->cos;
+ $ccs2 = $ccs->exp;
+ $ccs2 = $ccs->log;
+ $ccs2 = $ccs->log10;
+
+ ##---------------------------------------------------------------------
+ ## PDL API: Binary Operations (missing is annihilator)
+ ##  + $b may be a perl scalar, a dense PDL, or a PDL::CCS::Nd object
+ ##  + $c is always returned as a PDL::CCS::Nd ojbect
+
+ ##---------------------------------------
+ ## Arithmetic
+ $c = $ccs->plus($b);         $c = $ccs1 +  $b;
+ $c = $ccs->minus($b);        $c = $ccs1 -  $b;
+ $c = $ccs->mult($b);         $c = $ccs1 *  $b;
+ $c = $ccs->divide($b);       $c = $ccs1 /  $b;
+ $c = $ccs->modulo($b);       $c = $ccs1 %  $b;
+ $c = $ccs->power($b);        $c = $ccs1 ** $b;
+
+ ##---------------------------------------
+ ## Comparisons
+ $c = $ccs->gt($b);           $c = ($ccs  >  $b);
+ $c = $ccs->ge($b);           $c = ($ccs  >= $b);
+ $c = $ccs->lt($b);           $c = ($ccs  <  $b);
+ $c = $ccs->le($b);           $c = ($ccs  <= $b);
+ $c = $ccs->eq($b);           $c = ($ccs  == $b);
+ $c = $ccs->ne($b);           $c = ($ccs  != $b);
+ $c = $ccs->spaceship($b);    $c = ($ccs <=> $b);
+
+ ##---------------------------------------
+ ## Bitwise Operations
+ $c = $ccs->and2($b);          $c = ($ccs &  $b);
+ $c = $ccs->or2($b);           $c = ($ccs |  $b);
+ $c = $ccs->xor($b);           $c = ($ccs ^  $b);
+ $c = $ccs->shiftleft($b);     $c = ($ccs << $b);
+ $c = $ccs->shiftright($b);    $c = ($ccs >> $b);
+
+ ##---------------------------------------
+ ## Matrix Operations
+ $c = $ccs->inner($b);
+ $c = $ccs->matmult($b);       $c = $ccs x $b;
+
+ ##---------------------------------------
+ ## Other Operations
+ $ccs->rassgn($b);             $ccs .= $b;
+ $str = $ccs->string();        $str  = "$ccs";
+
+
+ ##---------------------------------------------------------------------
+ ## Low-Level Object Access
+
+ $num_v_per_p = $ccs->_ccs_nvperp;                                  ##-- num virtual / num physical
+ $pdims    = $ccs->pdims;            $vdims    = $ccs->vdims;       ##-- physical|virtual dim pdl
+ $nelem    = $ccs->nelem_p;          $nelem    = $ccs->nelem_v;     ##-- physical|virtual nelem
+ $nstored  = $ccs->nstored_p;        $nstored  = $ccs->nstored_v;   ##-- physical|virtual Nnz+1
+ $nmissing = $ccs->nmissing_p;       $nmissing = $ccs->nmissing_v;  ##-- physical|virtual nelem-Nnz
+
+ $ccs = $ccs->make_physically_indexed();        ##-- ensure all dimensions are phyiscally indexed
+
+ $bool = $ccs->allmissing();                    ##-- are all values missing?
+
+ $missing_val = $ccs->missing;                  ##-- get/set missing value
+ $missing_val = $ccs->missing($missing_val);
+
+ $whichND_phys = $ccs->_whichND();              ##-- get/set physical indices
+ $whichND_phys = $ccs->_whichND($whichND_phys);
+
+ $vals_phys    = $ccs->_vals();                 ##-- get/set phsically indexed values
+ $vals_phys    = $ccs->_vals($vals_phys);
+
+ ($ptr,$ptrix) = $ccs->ptr($pdimi);             ##-- get Harwell-Boeing pointer
+ ($ptr,$ptrix) = $ccs->getptr($pdimi);
+
+ $flags = $ccs->flags();                        ##-- get/set object-local flags
+ $flags = $ccs->flags($flags);
+
+ $density = $ccs->density;                      ##-- get object density
+ $crate   = $ccs->compressionRate;              ##-- get compression rate
 
 =cut
 
@@ -507,7 +727,9 @@ barf()s if @index points to a missing value.
 
 =head2 Ufuncs
 
-The following functions from PDL::Ufunc are supported:
+The following functions from PDL::Ufunc are implemented, and
+ought to handle missing values correctly (i.e. as their dense
+counterparts would):
 
  prodover
  prod
@@ -533,6 +755,8 @@ The following functions from PDL::Ufunc are supported:
  any
  all
 
+Some Ufuncs are still unimplemented. see PDL::CCS::Ufunc for details.
+
 =cut
 
 ##======================================================================
@@ -544,12 +768,13 @@ The following functions from PDL::Ufunc are supported:
 
 The following unary operations are supported:
 
- bitnot
+ FUNCTION   OVERLOADS
+ bitnot      ~
+ not         !
  sqrt
  abs
  sin
  cos
- not
  exp
  log
  log10
@@ -561,8 +786,113 @@ into a PDL::CCS::Nd method using the idiom:
  package PDL::CCS::Nd;
  *MY_UNARY_OP = _unary_op('MY_UNARY_OP', PDL->can('MY_UNARY_OP'));
 
+Note also that unary operations may change the "missing" value associated
+with the sparse matrix.  This is easily seen to be the Right Way To Do It
+if you consider unary "not" over a very sparse (say 99% missing)
+binary-valued matrix: is is much easier and more efficient to alter only
+the 1% of phyiscally stored (non-missing) values as well as the missing value
+than to generate a new matrix with 99% non-missing values, assuming $missing==0.
+
 =cut
 
+##======================================================================
+## Methods: Operations: Binary
+##======================================================================
+=pod
+
+=head2 Binary Operations
+
+A number of basic binary operations on PDL::CCS::Nd operations are supported,
+which will produce correct results only under the assumption that "missing" values
+C<$missing> are annihilators for the operation in question.  For example, if
+we want to compute:
+
+ $c = OP($a,$b)
+
+for a binary operation OP on PDL::CCS::Nd objects C<$a> and C<$b>, the
+current implementation will produce the correct result for $c only if
+for all values C<$av> in C<$a> and C<$bv> in C<$b>:
+
+ OP($av,$b->missing) == OP($a->missing,$b->missing) , and
+ OP($a->missing,$bv) == OP($a->missing,$b->missing)
+
+This is true in general for OP==\&mult and $missing==0,
+but not e.g. for OP==\&plus and $missing==0.
+It should always hold for $missing==BAD (except in the case of assignment,
+which is a funny kind of operation anyways).
+
+Currently, the only way to ensure that all values are computed correctly
+in the general case is for $a and $b to contain exactly the same physically
+indexed values, which rather defeats the purposes of sparse storage,
+particularly if implicit pseudo-threading is involved (because then we would
+likely wind up instantiating -- or at least inspecting -- the entire dense
+matrix).  Future implementations may relax these restrictions somewhat.
+
+The following binary operations are implemented:
+
+=over 4
+
+=item Arithmetic Operations
+
+ FUNCTION     OVERLOADS
+ plus          +
+ minus         -
+ mult          *
+ divide        /
+ modulo        %
+ power         **
+
+=item Comparisons
+
+ FUNCTION     OVERLOADS
+ gt            >
+ ge            >=
+ lt            <
+ le            <=
+ eq            ==
+ ne            !=
+ spaceship     <=>
+
+=item Bitwise Operations
+
+ FUNCTION     OVERLOADS
+ and2          &
+ or2           |
+ xor           ^
+ shiftleft     <<
+ shiftright    >>
+
+=item Matrix Operations
+
+ FUNCTION     OVERLOADS
+ inner        (none)
+ matmult       x
+
+=item Other Operations
+
+ FUNCTION     OVERLOADS
+ rassgn        .=
+ string        ""
+
+=back
+
+All supported binary operation functions obey the PDL input calling conventions
+(i.e. they all accept a third argument C<$swap>), and delegate compuation
+to the underlying PDL functions.  Note that the PDL::CCS::Nd methods currently
+do B<NOT> support a third "output" argument.
+To wrap a new binary operation MY_BINOP into
+a PDL::CCS::Nd method, you can use the following idiom:
+
+ package PDL::CCS::Nd;
+ *MY_BINOP = _ccsnd_binary_op_mia('MY_BINOP', PDL->can('MY_BINOP'));
+
+The low-level alignment of physically indexed values
+for binary operations is performed by the
+function PDL::CCS::ccs_binop_align_block_mia().
+Computation is performed block-wise at the perl level to avoid
+over- rsp. underflow of the space requirements for the output PDL.
+
+=cut
 
 
 ##======================================================================
@@ -577,9 +907,23 @@ PDL::CCS::Nd object structure:
 
 =over 4
 
-=item allmissing()
+=item is_physically_indexed()
 
-True if no non-missing values are stored
+Returns true iff only physical dimensions are present.
+
+=item to_phyiscally_indexed()
+
+Just returns the calling object if all non-missing elements are already physically indexed.
+Otherwise, returns a new PDL::CCS::Nd object identical to the caller
+except that all non-missing elements are physically indexed.  This may gobble a large
+amount of memory if the calling element has large dummy dimensions.
+
+=item make_physically_indexed
+
+Wrapper for to_physically_indexed() which eliminates dummy dimensions
+destructively in the calling object.
+
+Alias: make_physical().
 
 
 =item pdims()
@@ -626,6 +970,11 @@ physically stored elements.
 
 Returns number of physically+virtually addressable elements minus the number of
 physically+virtually stored elements.
+
+
+=item allmissing()
+
+Returns true iff no non-missing values are stored.
 
 
 =item missing()
@@ -689,5 +1038,85 @@ If this flag is set, NaN (and +inf, -inf) values in $VALS are considered "missin
 regardless of the current value of $missing.
 
 =back
+
+=cut
+
+##======================================================================
+## Methods: General Information
+##======================================================================
+=pod
+
+=head2 General Information
+
+=over 4
+
+=item density()
+
+Returns the number of non-missing values divided by the number
+of indexable values in the sparse object as a perl scalar.
+
+=item compressionRate()
+
+Returns the compression rate of the PDL::CCS::Nd object
+compared to a dense piddle of the physically indexable dimensions.
+Higher values indicate better compression (e.g. lower density).
+Negative values indicate that dense storage would be more
+memory-efficient.  Pointers are not included in the computation
+of the compression rate.
+
+=back
+
+=cut
+
+##======================================================================
+## Footer Administrivia
+##======================================================================
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 ACKNOWLEDGEMENTS
+
+Perl by Larry Wall.
+
+PDL by Karl Glazebrook, Tuomas J. Lukka, Christian Soeller, and others.
+
+=cut
+
+##----------------------------------------------------------------------
+=pod
+
+=head1 KNOWN BUGS
+
+Many.
+
+=cut
+
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 AUTHOR
+
+Bryan Jurish E<lt>moocow@ling.uni-potsdam.deE<gt>
+
+=head2 Copyright Policy
+
+Copyright (C) 2007, Bryan Jurish. All rights reserved.
+
+This package is free software, and entirely without warranty.
+You may redistribute it and/or modify it under the same terms
+as Perl itself.
+
+=head1 SEE ALSO
+
+perl(1),
+PDL(3perl),
+PDL::SVDLIBC(3perl),
+PDL::CCS::Nd(3perl),
+
+SVDLIBC: http://tedlab.mit.edu/~dr/SVDLIBC/
+
+SVDPACKC: http://www.netlib.org/svdpack/
 
 =cut

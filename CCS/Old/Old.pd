@@ -143,7 +143,7 @@ for all $i with 0 < $i < $N,
 $ptr($i) contains the number of non-missing values in
 the source columns 0..($i-1):
 
- $pt->at($i) == $a->slice("0:($i-1),")->flat->nnz  ##-- this holds
+ $ptr->at($i) == $a->slice("0:($i-1),")->flat->nnz  ##-- this holds
 
 B<NOTE:> This should be fixed.  It should probably really be the case that:
 
