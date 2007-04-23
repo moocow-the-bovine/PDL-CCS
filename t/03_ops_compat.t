@@ -1,5 +1,5 @@
 # -*- Mode: CPerl -*-
-# t/03_ops.t: test ccs native operations
+# t/03_ops.t: test ccs native operations (compat)
 
 $TEST_DIR = './t';
 #use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
@@ -90,5 +90,5 @@ $nzvals_cv = ccsmult_cv($ptr,$rowids,$nzvals, $cv);
 isok("ccsmult_cv()", all(($a * $cv->slice("*1,"))==ccsdecode($ptr,$rowids,$nzvals_cv)));
 
 print "\n";
-# end of t/03_ops.t
+# end of t/*.t
 

@@ -1,5 +1,5 @@
-# -*- Mode: Perl -*-
-# t/01_nnz.t: test n nonzeros
+# -*- Mode: CPerl -*-
+# t/01_nnz.t: test n nonzeros (compat)
 
 $TEST_DIR = './t';
 #use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
@@ -21,5 +21,5 @@ isok("nnza(flat,.5)", $p->flat->nnza(.5)==7);
 
 
 print "\n";
-# end of t/01_nnz.t
+# end of t/?.t
 

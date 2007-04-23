@@ -1,5 +1,5 @@
-# -*- Mode: Perl -*-
-# t/02_encode.t: test ccs encoding
+# -*- Mode: CPerl -*-
+# t/02_encode.t: test ccs encoding (compat)
 
 $TEST_DIR = './t';
 #use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
@@ -128,5 +128,5 @@ $p2 = ccsdecode($ptr,$rowids,$nzvals);
 isok("decode()", all($p==$p2));
 
 print "\n";
-# end of t/02_encode.t
+# end of t/*.t
 
