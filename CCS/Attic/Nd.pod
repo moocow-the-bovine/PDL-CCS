@@ -5,7 +5,7 @@
 
 =head1 NAME
 
-PDL::CCS::Nd - N-dimensional sparse pseudo-PDL
+PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
 
 =head1 SYNOPSIS
 
@@ -406,7 +406,7 @@ Bitmask of the "NaN-is-missing" flag.  See the nan_is_missing() method.
 
 Bitmask of the "inplace" flag.  See PDL::Core for details.
 
-=item $FLAGS_DEFAULT
+=item $CCSND_FLAGS_DEFAULT
 
 Default flags for new objects.
 

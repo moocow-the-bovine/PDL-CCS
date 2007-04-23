@@ -301,8 +301,9 @@ $N (~ $a-E<gt>dim(0)) must be specified.
   = *PDL::ccsencodefulli = *PDL::ccsencodefull_i
   = \&ccsencode_i;
 sub ccsencode_i {
-  #my ($iflat,$avals,$N,$ptr,$rowids,$nzvals) = @_;
-  my ($iflat,$avals,$N) = splice(@_,0,3);
+  #my ($iflat,$avals,$N_optional,$ptr,$rowids,$nzvals) = @_;
+  my ($iflat,$avals) = splice(@_,0,2);
+  my $N  = defined($_[0]) && (!ref($_[0]) || $_[0]->nelem==1) ? shift : $_[0]->nelem;
   my $aw = ($iflat % $N)->cat($iflat/$N)->xchg(0,1);
   return ccs_encode_compat($aw, $avals, $N, undef, @_);
 }
@@ -320,7 +321,7 @@ sub ccsencode_i {
               int  xvals(Nnz)       ;
               int  yvals(Nnz)       ;
                   nzvals(Nnz)       ;
-              int       $N          ;
+              int       $N          ; ##-- optional
               int [o]ptr(N)         ;
               int [o]rowids(Nnz)    ;
                   [o]nzvals_enc(Nnz);
@@ -341,9 +342,10 @@ If $N is omitted, it defaults to the maximum column index given in $xvals().
   = *PDL::ccsencodefulli2d = *PDL::ccsencodefull_i2d
   = \&ccsencode_i2d;
 sub ccsencode_i2d {
-  #my ($whichx,$whichy,$avals,$N,$ptr,$rowids,$nzvals) = @_;
-  my ($whichx,$whichy,$avals,$N) = splice(@_, 0, 4);
+  #my ($whichx,$whichy,$avals,$N_optional,$ptr,$rowids,$nzvals) = @_;
+  my ($whichx,$whichy,$avals) = splice(@_, 0, 3);
   my $aw = $whichx->cat($whichy)->xchg(0,1);
+  my $N  = defined($_[0]) && (!ref($_[0]) || $_[0]->nelem==1) ? shift : ($whichx->max+1);
   return ccs_encode_compat($aw, $avals, $N, undef, @_);
 }
 
@@ -385,9 +387,13 @@ following two calls are equivalent (modulo data flow):
 
 =cut
 
-*_ccsdecodecols
-  = *PDL::_ccsencodecols = *PDL::_ccsdecodecols
-  = \&ccsdecodecols;
+
+*PDL::_ccsdecodecols = \&_ccsdecodecols;
+#Pars => 'int ptr(N); int rowids(Nnz); nzvals(Nnz); int col_ix(I); missing(); [o]cols(I,M);',
+sub _ccsdecodecols {
+  ccsdecodecols(@_[0,1,2], $_[3],$_[4], undef, $_[5]);
+}
+*PDL::ccsdecodecols = \&ccsdecodecols;
 sub ccsdecodecols {
   my ($ptr,$rowids,$nzvals, $coli,$missing,$M, $cols) = @_;
   $coli    = sequence(long,$ptr->dim(0)) if (!defined($coli));
@@ -430,7 +436,7 @@ In such cases, you might prefer to call ccsdecodecols() directly.
 =cut
 
 *PDL::ccsdecodefull = \&ccsdecodefull; ##-- (int ptr(N); int rowids(Nnz); nzvals(Nnz); [o]dense(N,M))
-sub ccsdecodefull { ccsdecodecols(@_[0,1,2], undef,0, @_[3..$#_]); }
+sub ccsdecodefull { ccsdecodecols(@_[0,1,2], undef,0,undef, @_[3..$#_]); }
 
 *PDL::ccsdecode = \&ccsdecode;
 sub ccsdecode {

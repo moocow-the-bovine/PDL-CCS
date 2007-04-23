@@ -1,2 +1,10 @@
+v1.01 Tue, 24 Apr 2007 01:24:05 +0200 (moocow)
+	+ added PDL::CCS::Nd perl class for sparse Nd piddle-like structures
+	+ separated out submodules Utils, Ufunc, Ops
+	+ added PDL::CCS::Compat for backwards-compatibility
+
+v0.03 - v0.06
+	+ various minor changes dealing with 2d pdls only
+	
 v0.01 Sat, 11 Jun 2005 10:32:05 +0200 (moocow)
-	+ initial version
+	+ initial version, 2d pdls only

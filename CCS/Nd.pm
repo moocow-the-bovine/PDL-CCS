@@ -16,16 +16,22 @@ use strict;
 
 our $VERSION = $PDL::CCS::VERSION;
 our @ISA = qw();
-our @EXPORT_OK =
-  (
-   ##-- Encoding/Decoding
-   qw(toccs todense),
-  );
 our %EXPORT_TAGS =
   (
-   Func => [@EXPORT_OK],               ##-- respect PDL conventions (hopefully)
+   ##-- respect PDL conventions (hopefully)
+   Func  => [
+	     ##-- Encoding/Decoding
+	     qw(toccs todense),
+	    ],
+   vars  => [
+	     qw($PDIMS $VDIMS $WHICH $VALS $PTRS $FLAGS $USER),
+	     qw($CCSND_BAD_IS_MISSING $CCSND_NAN_IS_MISSING $CCSND_INPLACE $CCSND_FLAGS_DEFAULT),
+	     qw($BINOP_BLOCKSIZE_MIN $BINOP_BLOCKSIZE_MAX),
+	    ],
   );
-our @EXPORT = @{$EXPORT_TAGS{Func}};
+$EXPORT_TAGS{all} = [map {@$_} values(%EXPORT_TAGS)];
+our @EXPORT    = @{$EXPORT_TAGS{Func}};
+our @EXPORT_OK = @{$EXPORT_TAGS{all}};
 
 ##--------------------------------------------------------------
 ## Global variables for block-wise computation of binary operations
@@ -53,7 +59,7 @@ our $USER    = 6;
 our $CCSND_BAD_IS_MISSING = 1;
 our $CCSND_NAN_IS_MISSING = 2;
 our $CCSND_INPLACE        = 4;
-our $FLAGS_DEFAULT        = 0; ##-- default flags
+our $CCSND_FLAGS_DEFAULT  = 0; ##-- default flags
 
 ##-- pdl constants
 our $P_BYTE = PDL::byte();
@@ -97,7 +103,7 @@ sub fromDense {
 		  : ($p->badflag
 		     ? PDL->pdl($p->type,0)->setvaltobad(0)
 		     : PDL->pdl($p->type,0)));
-  $flags = $FLAGS_DEFAULT if (!defined($flags));
+  $flags = $CCSND_FLAGS_DEFAULT if (!defined($flags));
   my $pwhichND = ($missing->isbad ? $p->isgood() : ($p != $missing))->whichND->vv_qsortvec;
   my $pnz  = $p->indexND($pwhichND)->append($missing);
   $pnz->sever;                       ##-- always sever nzvals ?
@@ -164,7 +170,7 @@ sub fromWhich {
   $obj->[$WHICH]   = $wnd;
   $obj->[$VALS]    = $nzvals;
   $obj->[$PTRS]    = [];
-  $obj->[$FLAGS]   = defined($opts{flags}) ? $opts{flags} : $FLAGS_DEFAULT;
+  $obj->[$FLAGS]   = defined($opts{flags}) ? $opts{flags} : $CCSND_FLAGS_DEFAULT;
   return $obj;
 }
 
