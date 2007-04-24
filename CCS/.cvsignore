@@ -3,6 +3,7 @@ tmon.out
 *.bin
 align_neighbors.*
 bgwhich.in.su
+*.words
 *~
 .*~
 *.o

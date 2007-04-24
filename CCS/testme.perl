@@ -12,6 +12,7 @@ use PDL::CCS::Functions;
 use PDL::CCS::Compat;
 use PDL::CCS::Nd;
 use PDL::IO::Misc;
+use PDL::Graphics::PGPLOT;
 use Storable qw(store retrieve);
 use PDL::IO::Storable;
 use Benchmark qw(cmpthese timethese);
@@ -125,6 +126,7 @@ sub test_data_bg {
   our $bgdata      = Storable::retrieve("bgdata.bin");
   our ($bgw,$bgnz) = @$bgdata{qw(which nzvals)};
   our $bgccs       = PDL::CCS::Nd->newFromWhich($bgw,$bgnz);
+  our $bgsyms      = retrieve("bgsyms.bin");
 }
 #test_data_bg();
 
@@ -263,9 +265,14 @@ sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for in
       #@ixc = $ixc_e->flat->list;
       #print OUT map { ($ixc[2*$_],"\t",$ixc[2*$_+1],"\n") } (0..($ixc_e->dim(1)-1));
       ##--
-      print "printing block of size=".(1+$nzci_max-$nzci_prv). " to '$outfile' ... ";
-      ccs_dump_which($ixc_cur, \*OUT, "%d", " ", "\n");
-      print "printed.\n";
+      if (0) { ##-- debug: dump to text file
+	print "<DEBUG> dumping block of size=".(1+$nzci_max-$nzci_prv). " to '$outfile' ... ";
+	ccs_dump_which($ixc_cur, \*OUT, "%d", " ", "\n");
+	print "dumped.\n";
+      } else {
+	##-- show what we've aligned
+	print "<DEBUG> aligned block of size ".sprintf("%8d\n", 1+$nzci_max-$nzci_prv);
+      }
       undef($ixc_f);
       undef($ixc_e);
     }
@@ -273,7 +280,7 @@ sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for in
     ##-- add to final output pdl
     if (1) {
       if (!defined($ixc_out) || $ixc_out->isempty) {
-	$ixc_out = $ixc_cur->ushort;
+	$ixc_out = $ixc_cur->ushort if (defined($ixc_cur));
       } else {
 	my $ixc_dim1_old = $ixc_out->dim(1);
 	$ixc_out->reshape($ixc_out->dim(0), $ixc_out->dim(1)+$ixc_cur->dim(1));
@@ -308,14 +315,30 @@ sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for in
 sub test_bg_npairs {
   test_data_bg;
 
+  ##-- ARGH: bug in CCS::Nd->whichND() for all-physical but shuffled dims
+  #  our $x = sequence(4,2) * (sequence(4,2)%3);
+  #  our $xs = $x->toccs;
+  #  isok("sumover", all($x->sumover==$xs->sumover->decode));
+  #  $xst  = $xs->xchg(0,1);
+  #  $xsts = $xst->sumover;
+  #  isok("xchg(0,1)->sumover", all($x->xchg(0,1)->sumover==$xsts->decode));
+
   our $bg  = $bgccs->clone;
-  ##
+
+  ##-- get total number of words (& unigram freqs)
+  our $uga     = $bgccs->sumover->todense;
+  our $nwordsa = $uga->dim(0);
+
   ##-- hack: elimate hapax BIGRAMS
   $bg->[$VALS]->where($bg->[$VALS]<=1) .= 0;
   $bg = $bg->recode;
-  $bg->[$VALS] .= 1;
-  $bg->missing(0);
-  ##
+  #$bg->[$VALS] .= 1;
+  #$bg->missing(0);
+
+  ##-- get pruned unigram freqs (hack: (L+R)/2)
+  our $ugp     = ($bg->sumover->todense + $bg->xchg(0,1)->sumover->todense)->double / 2;
+  our $nwordsp = $ugp->nnz->sclr;
+
   ##-- get actual number of words remaining in the vocabulary
   our $words     = $bg->[$WHICH]->slice("(0),")->append($bg->[$WHICH]->slice("(1),"))->flat->qsort;
   our ($wf,$wid) = rle($words);
@@ -323,29 +346,67 @@ sub test_bg_npairs {
   $wf  = $wf->where($wf);
   $wid->sever;
   $wf->sever;
-  our $nwords = $wid->nelem;
-  ##
-  ##-- align on l(r<->r)l , r(l<->l)r: hack: ???
-  our $rr = align_neighbors($bg, 0, ".rr");
-  our $ll = align_neighbors($bg, 1, ".ll");
-  ##
-  ##-- sort 'em & take union (find all pairs)
-  $ll = $ll->vv_qsortvec;
-  $rr = $rr->vv_qsortvec;
-  $pairs = vv_union($ll,$rr);
-  ##
-  ##-- and make unique
-  ($pair_f,$pair_e) = $pairs->rlevec;
-  $pairs = $pair_e->dice_axis(1,$pair_f->which);
-  undef($pair_f);
-  undef($pair_e);
-  $pairs->sever;
-  ##
+  our $nwordsp1 = $wid->nelem;
+
+  if (0) {
+    ##-- align on l(r<->r)l , r(l<->l)r: hack: ???
+    our $rr = align_neighbors($bg, 0, ".rr");
+    our $ll = align_neighbors($bg, 1, ".ll");
+
+    ##-- sort 'em & take union (find all pairs)
+    $ll = $ll->vv_qsortvec;
+    $rr = $rr->vv_qsortvec;
+    $pairs = vv_union($ll,$rr);
+
+    ##-- ... and make pairs unique
+    ($pair_f,$pair_e) = $pairs->rlevec;
+    $pairs = $pair_e->dice_axis(1,$pair_f->which);
+    undef($pair_f);
+    undef($pair_e);
+    $pairs->sever;
+
+    ##-- save some stuff
+    store($ll,'align.ll.bin');
+    store($rr,'align.rr.bin');
+    store($pairs,'align.pairs.bin');
+  } else {
+    ##-- just load
+    $ll = retrieve 'align.ll.bin';
+    $rr = retrieve 'align.rr.bin';
+    $pairs = retrieve 'align.pairs.bin';
+  }
+
+
   ##-- get some stats
-  our $npairs          = $pairs->dim(1);
-  our $npairs_possible = $nwords**2;
-  our $pair_density    = $npairs / $npairs_possible;
-  print "Pair density: $npairs/$npairs_possible pairs/possible ", sprintf("(%.2f%%)", 100.0*$pair_density);
+  our $npairs  = $pairs->dim(1);
+  our $nppairsp = $nwordsp**2;
+  our $nppairsa = $nwordsa**2;
+  printf("Number of words (pruned/all)    : %10d / %10d (%6.2f%%)\n", $nwordsp, $nwordsa, 100*$nwordsp/$nwordsa);
+  printf("Number of pairs (found/pruned^2): %10d / %10d (%6.2f%%)\n", $npairs, $nppairsp, 100.0*$npairs/$nppairsp);
+  printf("Number of pairs (found/all^2)   : %10d / %10d (%6.2f%%)\n", $npairs, $nppairsa, 100.0*$npairs/$nppairsa);
+
+  ##--prints
+  #Number of words (pruned/all)    :       9681 /      45822 ( 21.13%)
+  #Number of pairs (found/pruned^2):    6992524 /   93721761 (  7.46%)
+  #Number of pairs (found/all^2)   :    6992524 / 2099655684 (  0.33%)
+
+
+  ##-- get more word stats
+  $ugpp = $ugp->index($wid);
+  $ugap = $uga->index($wid);
+  printf("Avg word freq (pruned/all)      : %6.2f / %6.2f\n", $ugpp->davg, $uga->davg);
+  printf(" + pruned words only            : %6.2f / %6.2f\n", $ugpp->davg, $ugap->davg);
+  printf("Log-avg word freq (pruned/all)  : %6.2f / %6.2f\n", $ugpp->log->daverage->exp, $uga->log->average->exp);
+  printf(" + pruned words only            : %6.2f / %6.2f\n", $ugpp->log->daverage->exp, $ugap->log->average->exp);
+
+  ##-- prints
+  #Avg word freq (pruned/all)      :  18.72 /   7.38
+  # + pruned words only            :  18.72 /  29.93
+  #Log-avg word freq (pruned/all)  :   2.73 /   1.73
+  # + pruned words only            :   2.73 /   6.68
+
+  ##-- look at it
+  #points($ugpp->log,$ugap->log); ##-- ok: looks pretty (log-) linear
 
   print "test_bg_npairs: done.\n";
 }

@@ -761,8 +761,14 @@ sub whichND {
   my $vpi = ($_[0][$VDIMS]>=0)->which;
   my ($wnd);
   if ( $_[0][$VDIMS]->nelem==$_[0][$PDIMS]->nelem ) {
-    if (($vpi==$_[0][$PDIMS]->sequence)->all) { $wnd=$_[0][$WHICH]; }     ##-- all literal & physical
-    else { $wnd=$_[0][$WHICH]->dice_axis(0,$_[0][$VDIMS]->index($vpi)); } ##-- all physical, but shuffled
+    if (($_[0][$VDIMS]->index($vpi)==$_[0][$PDIMS]->sequence)->all) {
+      ##-- all literal & physically ordered
+      $wnd=$_[0][$WHICH];
+    }
+    else {
+      ##-- all physical, but shuffled
+      $wnd=$_[0][$WHICH]->dice_axis(0,$_[0][$VDIMS]->index($vpi));
+    }
     return wantarray ? $wnd->xchg(0,1)->dog : $wnd;
   }
   ##-- virtual dims are in the game: construct output pdl
