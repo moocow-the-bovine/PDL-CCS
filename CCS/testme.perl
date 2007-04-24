@@ -329,7 +329,7 @@ sub test_bg_npairs {
   our $rr = align_neighbors($bg, 0, ".rr");
   our $ll = align_neighbors($bg, 1, ".ll");
   ##
-  ##-- sort 'em
+  ##-- sort 'em & take union (find all pairs)
   $ll = $ll->vv_qsortvec;
   $rr = $rr->vv_qsortvec;
   $pairs = vv_union($ll,$rr);
