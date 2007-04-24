@@ -408,7 +408,7 @@ sub is_physically_indexed {
 ##  + ensures that all non-missing elements are physically indexed
 ##  + just returns $ccs if all non-missing elements are already physically indexed
 sub to_physically_indexed {
-  return $_[0] if ($_[0]->is_phyiscally_indexed);
+  return $_[0] if ($_[0]->is_physically_indexed);
   my $ccs   = shift;
   my $which = $ccs->whichND;
   my $vals  = $ccs->whichVals;
@@ -878,6 +878,7 @@ sub prod  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->prod  * ($z->isgo
 sub dprod { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->dprod * ($z->isgood ? ($z->sclr ** $_[0]->nmissing) : 1); }
 sub min   { $_[0][$VALS]->min; }
 sub max   { $_[0][$VALS]->max; }
+sub minmax { $_[0][$VALS]->minmax; }
 
 sub nbad  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->nbad   + ($z->isbad  ? $_[0]->nmissing : 0); }
 sub ngood { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->ngood  + ($z->isgood ? $_[0]->nmissing : 0); }
@@ -1322,7 +1323,7 @@ sub compressionRate {
 ## Stringification & Viewing
 
 ## $dimstr = _dimstr($pdl)
-sub _dimstr { return '('.$_[0]->type.', '.join(',',$_[0]->dims).')'; }
+sub _dimstr { return $_[0]->type.'('.join(',',$_[0]->dims).')'; }
 sub _pdlstr { return _dimstr($_[0]).'='.$_[0]; }
 
 ## $str = $obj->string()
@@ -1334,11 +1335,12 @@ sub string {
   return
     (
      ''
-     .ref($_[0]) . _dimstr($_[0]) ."\n"
+     .ref($_[0]) . ':' . _dimstr($_[0]) ."\n"
      .$,." pdims:" . _pdlstr($pdims) ."\n"
      .$,." vdims:" . _pdlstr($vdims) ."\n"
      .$,." which:" . _dimstr($which)."^T=" . $whichstr . "\n"
      .$,." vals:" . _pdlstr($vals)  ."\n"
+     .$,." missing:" . _pdlstr($_[0]->missing)  ."\n"
     );
 }
 

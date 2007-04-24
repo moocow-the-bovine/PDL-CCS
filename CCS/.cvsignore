@@ -1,6 +1,8 @@
 tmon.out
 *.dprofpp
 *.bin
+align_neighbors.*
+bgwhich.in.su
 *~
 .*~
 *.o

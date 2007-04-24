@@ -1,7 +1,8 @@
 #!/usr/bin/perl -w
 
-use lib qw(./blib/lib ./blib/arch);
+use lib qw(./blib/lib ./blib/arch ../blib/lib ../blib/arch);
 use PDL;
+use PDL::IO::Storable;
 use PDL::VectorValued;
 #use PDL::CCS::Old;
 use PDL::CCS::Utils;
@@ -10,6 +11,7 @@ use PDL::CCS::Ops;
 use PDL::CCS::Functions;
 use PDL::CCS::Compat;
 use PDL::CCS::Nd;
+use PDL::IO::Misc;
 use Storable qw(store retrieve);
 use PDL::IO::Storable;
 use Benchmark qw(cmpthese timethese);
@@ -18,6 +20,7 @@ use Data::Dumper;
 BEGIN {
   $, = ' ';
   our $eps=1e-6;
+  select(STDOUT); $|=1;
 
   our $PDIMS = our $DIMS = $PDL::CCS::Nd::PDIMS;
   our $VDIMS = our $XDIMS = $PDL::CCS::Nd::VDIMS;
@@ -32,7 +35,7 @@ BEGIN {
   our $CCSND_BAD_IS_MISSING = $PDL::CCS::Nd::CCSND_BAD_IS_MISSING;
   our $CCSND_NAN_IS_MISSING = $PDL::CCS::Nd::CCSND_NAN_IS_MISSING;
   our $CCSND_INPLACE        = $PDL::CCS::Nd::CCSND_INPLACE;
-  our $FLAGS_DEFAULT        = $PDL::CCS::Nd::FLAGS_DEFAULT;
+  our $CCSND_FLAGS_DEFAULT  = $PDL::CCS::Nd::CCSND_FLAGS_DEFAULT;
 
   our $BAD    = PDL->zeroes(1)->setvaltobad(0)->squeeze;
 
@@ -147,6 +150,207 @@ sub test_bg_blocksize {
 	   });
 }
 #test_bg_blocksize;
+
+##---------------------------------------------------------------------
+## Bigrams: test number of neighbor-links
+sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for inner() : BROKEN!
+  my ($a,$align_dim,$infix) = @_;
+
+  $infix      = '' if (!defined($infix));
+  my $outfile = "align_neighbors${infix}.out";
+  open(OUT,">$outfile") or die("$0: open failed for '$outfile': $!");
+  #print OUT "$,";
+  my $b = $a;
+
+  my $nrdims     = 1;
+  my $rdpdl      = pdl(long, [ [$align_dim,$align_dim] ]);
+  my $report_dim = $align_dim==0 ? 1 : 0;
+
+  ##-- Get & sort relevant indices, vals
+  my $ixa    = $a->[$WHICH];
+  my $avals  = $a->[$VALS];
+  my $nixa   = $ixa->dim(1);
+  my ($ixar,$avalsr);
+  if ($align_dim==0) {
+    ##-- a: relevant dims are a prefix of physical dims, e.g. pre-sorted
+    $ixar   = $ixa->slice("0,");
+    $avalsr = $avals;
+  } else {
+    $ixar          = $ixa->slice("$align_dim,");
+    my $ixar_sorti = $ixar->qsortveci;
+    $ixa           = $ixa->dice_axis(1,$ixar_sorti);
+    $ixar          = $ixar->dice_axis(1,$ixar_sorti);
+    $avalsr        = $avals->index($ixar_sorti);
+  }
+  ##
+  my $ixb   = $b->[$WHICH];
+  my $bvals = $b->[$VALS];
+  my $nixb  = $ixb->dim(1);
+  my $rb    = $rdpdl->slice("(1)");
+  my ($ixbr,$bvalsr);
+  if ($align_dim==0) {
+    ##-- b: relevant dims are a prefix of physical dims, e.g. pre-sorted
+    $ixbr   = $ixb->slice("0,");
+    $bvalsr = $bvals;
+  } else {
+    $ixbr          = $ixb->slice("$align_dim,");
+    my $ixbr_sorti = $ixbr->qsortveci;
+    $ixb           = $ixb->dice_axis(1,$ixbr_sorti);
+    $ixbr          = $ixbr->dice_axis(1,$ixbr_sorti);
+    $bvalsr        = $bvals->index($ixbr_sorti);
+  }
+
+  ##-- initialize: state vars
+  my $blksz  = $nixa > $nixb ? $nixa : $nixb;
+  $blksz     = $BINOP_BLOCKSIZE_MIN if ($BINOP_BLOCKSIZE_MIN && $blksz < $BINOP_BLOCKSIZE_MIN);
+  $blksz     = $BINOP_BLOCKSIZE_MAX if ($BINOP_BLOCKSIZE_MAX && $blksz > $BINOP_BLOCKSIZE_MAX);
+  my $istate = PDL->zeroes($P_LONG,7); ##-- [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
+  my $ostate = $istate->pdl;
+
+  ##-- initialize: output vectors
+  my $nzai    = PDL->zeroes($P_LONG,   $blksz);
+  my $nzbi    = PDL->zeroes($P_LONG,   $blksz);
+  my $ixc_cur = undef; #PDL->zeroes($P_LONG, 2,$blksz);
+  my $ixc_out = PDL->null->long;
+  my $nnzc   = 0;
+  my $zc     = 0;
+
+  ##-- block-wise variables
+  ##   + there are way too many of these...
+  my ($nzai_prv,$nzai_pnx, $nzbi_prv,$nzbi_pnx, $nzci_prv,$nzci_pnx,$cmpval_prv);
+  my ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval);
+  my ($nzci_max, $blk_slice, $nnzc_blk,$nnzc_slice_blk);
+  my ($nzai_blk,$nzbi_blk,$ixa_blk,$ixb_blk,$ixc_blk,$nzc_blk,$cimask_blk,$ciwhich_blk);
+
+  my ($ixc_e,$ixc_f);
+  my $nnzc_prev=0;
+  do {
+    ##-- align a block of data
+    ccs_binop_align_block_mia($ixar,$ixbr,$istate, $nzai,$nzbi,$ostate);
+
+    ##-- parse current alignment algorithm state
+    ($nzai_prv,$nzai_pnx, $nzbi_prv,$nzbi_pnx, $nzci_prv,$nzci_pnx,$cmpval_prv) = $istate->list;
+    ($nzai_cur,$nzai_nxt, $nzbi_cur,$nzbi_nxt, $nzci_cur,$nzci_nxt,$cmpval)     = $ostate->list;
+    $nzci_max = $nzci_cur-1;
+
+    if ($nzci_max >= 0) {
+      ##-- construct block output pdls: nzvals
+      $blk_slice = "${nzci_prv}:${nzci_max}";
+      $nzai_blk  = $nzai->slice($blk_slice);
+      $nzbi_blk  = $nzbi->slice($blk_slice);
+
+      ##-- construct block output pdls: ixc_cur
+      $ixa_blk = $ixa->slice("($report_dim),")->index($nzai_blk);
+      $ixb_blk = $ixb->slice("($report_dim),")->index($nzbi_blk);
+
+      ##-- get minimum indices in $ixa_blk, $ixb_blk
+      ($a_b,$b_a) = which_both($ixa_blk < $ixb_blk);
+      $ixc_cur    = zeroes(long, 2,$ixa_blk->dim(0));
+      $ixc_cur_ab = $ixc_cur->dice_axis(1,$a_b);
+      $ixc_cur_ab->slice("(0),") .= $ixa_blk->index($a_b);
+      $ixc_cur_ab->slice("(1),") .= $ixb_blk->index($a_b);
+      undef($ixc_cur_ab);
+      $ixc_cur_ba = $ixc_cur->dice_axis(1,$b_a);
+      $ixc_cur_ba->slice("(0),") .= $ixb_blk->index($b_a);
+      $ixc_cur_ba->slice("(1),") .= $ixa_blk->index($b_a);
+      undef($ixc_cur_ab);
+
+      ##-- make unique: ixc_cur
+      ##$ixc_cur = $ixa_blk->slice("$align_dim2")->append($ixb_blk->slice("$align_dim1"));
+      ($ixc_f,$ixc_e) = $ixc_cur->vv_qsortvec->rlevec;
+      $ixc_e          = $ixc_e->dice_axis(1,$ixc_f->which);
+      $ixc_cur        = $ixc_e;
+      #@ixc = $ixc_e->flat->list;
+      #print OUT map { ($ixc[2*$_],"\t",$ixc[2*$_+1],"\n") } (0..($ixc_e->dim(1)-1));
+      ##--
+      print "printing block of size=".(1+$nzci_max-$nzci_prv). " to '$outfile' ... ";
+      ccs_dump_which($ixc_cur, \*OUT, "%d", " ", "\n");
+      print "printed.\n";
+      undef($ixc_f);
+      undef($ixc_e);
+    }
+
+    ##-- add to final output pdl
+    if (1) {
+      if (!defined($ixc_out) || $ixc_out->isempty) {
+	$ixc_out = $ixc_cur->ushort;
+      } else {
+	my $ixc_dim1_old = $ixc_out->dim(1);
+	$ixc_out->reshape($ixc_out->dim(0), $ixc_out->dim(1)+$ixc_cur->dim(1));
+	$ixc_out->slice(",${ixc_dim1_old}:-1") .= $ixc_cur;
+      }
+    }
+    undef($ixc_cur);
+
+    ##-- possibly allocate for another block
+    if ($nzai_cur < $nixa || $nzbi_cur < $nixb) {
+      $nzci_nxt -= $nzci_cur;
+      $nzci_cur  = 0;
+
+      if ($nzci_nxt > $nzai->dim(0)) {
+	$nzai    = $nzai->reshape($nzci_nxt+$blksz);
+	$nzbi    = $nzbi->reshape($nzci_nxt+$blksz);
+      }
+
+      $istate .= $ostate;
+      $istate->set(4, $nzci_cur);
+      $istate->set(5, $nzci_nxt);
+    }
+    $nnzc_prev = $nnzc;
+  } while ($nzai_cur < $nixa || $nzbi_cur < $nixb);
+
+  ##-- all done
+  close(OUT);
+
+  return $ixc_out;
+}
+
+sub test_bg_npairs {
+  test_data_bg;
+
+  our $bg  = $bgccs->clone;
+  ##
+  ##-- hack: elimate hapax BIGRAMS
+  $bg->[$VALS]->where($bg->[$VALS]<=1) .= 0;
+  $bg = $bg->recode;
+  $bg->[$VALS] .= 1;
+  $bg->missing(0);
+  ##
+  ##-- get actual number of words remaining in the vocabulary
+  our $words     = $bg->[$WHICH]->slice("(0),")->append($bg->[$WHICH]->slice("(1),"))->flat->qsort;
+  our ($wf,$wid) = rle($words);
+  $wid = $wid->where($wf);
+  $wf  = $wf->where($wf);
+  $wid->sever;
+  $wf->sever;
+  our $nwords = $wid->nelem;
+  ##
+  ##-- align on l(r<->r)l , r(l<->l)r: hack: ???
+  our $rr = align_neighbors($bg, 0, ".rr");
+  our $ll = align_neighbors($bg, 1, ".ll");
+  ##
+  ##-- sort 'em
+  $ll = $ll->vv_qsortvec;
+  $rr = $rr->vv_qsortvec;
+  $pairs = vv_union($ll,$rr);
+  ##
+  ##-- and make unique
+  ($pair_f,$pair_e) = $pairs->rlevec;
+  $pairs = $pair_e->dice_axis(1,$pair_f->which);
+  undef($pair_f);
+  undef($pair_e);
+  $pairs->sever;
+  ##
+  ##-- get some stats
+  our $npairs          = $pairs->dim(1);
+  our $npairs_possible = $nwords**2;
+  our $pair_density    = $npairs / $npairs_possible;
+  print "Pair density: $npairs/$npairs_possible pairs/possible ", sprintf("(%.2f%%)", 100.0*$pair_density);
+
+  print "test_bg_npairs: done.\n";
+}
+test_bg_npairs;
+
 
 ##---------------------------------------------------------------------
 ## CCS: Nd: matrix multiplication, on bigrams

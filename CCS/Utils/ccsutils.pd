@@ -283,6 +283,59 @@ If unspecified, $proj() defaults to:
 EOD
   );
 
+##------------------------------------------------------
+## _ccs_dump_ix()
+##  + prints a text dump of an index
+pp_def('ccs_dump_which',
+       Pars => 'int which(Ndims,Nnz)',
+       OtherPars => 'SV *HANDLE; char *fmt; char *fsep; char *rsep',
+       PMCode=>
+(q{
+ sub PDL::ccs_dump_which {
+   my ($which,$fh,$fmt,$fsep,$rsep) = @_;
+   $fmt  = '%d'  if (!defined($fmt)  || $fmt eq '');
+   $fsep = " "   if (!defined($fsep) || $fsep eq '');
+   $rsep = "$/"  if (!defined($rsep) || $rsep eq '');
+   $fh = \*STDOUT if (!defined($fh));
+   &PDL::_ccs_dump_which_int($which,$fh,$fmt,$fsep,$rsep);
+ }
+}),
+   Code =>
+(q(
+ long dimi, sizeNdims=$SIZE(Ndims);
+ char *fmt_str  = $COMP(fmt);
+ char *fsep_str = $COMP(fsep);
+ char *rsep_str = $COMP(rsep);
+ PerlIO *pio;
+ IO     *io;
+
+ /*-- get PerlIO from SV (lifted from _rasc() n PDL_SRC_ROOT/IO/Misc/misc.pd) --*/
+ io = sv_2io($COMP(HANDLE));
+ if (!io || !(pio = IoIFP(io))) {
+   croak("can\'t get PerlIO pointer from HANDLE");
+ }
+
+ loop (Nnz) %{
+   PerlIO_printf(pio, fmt_str, $which(Ndims=>0));
+   for (dimi=1; dimi<sizeNdims; dimi++) {
+     PerlIO_puts(pio,fsep_str);
+     PerlIO_printf(pio, fmt_str, $which(Ndims=>dimi));
+   }
+   PerlIO_puts(pio,rsep_str);
+ %}
+)),
+  Doc=><<'EOD'
+
+Print a text dump of an index PDL to the filehandle C<HANDLE>, which default to C<STDUT>.
+C<$fmt> is a printf() format to use for output, which defaults to "%d".
+C<$fsep> and C<$rsep> are field-and record separators, which default to
+a single space and C<$/>, respectively.
+
+EOD
+  );
+
+
+
 
 ##======================================================================
 ## Footer Administrivia
