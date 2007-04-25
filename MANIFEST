@@ -9,7 +9,6 @@ CCS/Makefile.PL
 CCS/Functions.pm
 CCS/Compat.pm
 CCS/Nd.pm
-CCS/Nd.pod
 CCS/Version.pm
 CCS/Ops/Makefile.PL
 CCS/Ops/ccsops.pd

@@ -410,7 +410,34 @@ sub test_bg_npairs {
 
   print "test_bg_npairs: done.\n";
 }
-test_bg_npairs;
+#test_bg_npairs;
+
+##---------------------------------------------------------------------
+## CCS::Nd: revised alignment (signature-sensitive)
+
+BEGIN {
+  *_ccsnd_parse_signature = \&PDL::CCS::Nd::_ccsnd_parse_signature;
+  *_ccsnd_align_dims      = \&PDL::CCS::Nd::_ccsnd_align_dims;
+}
+sub test_align_v2 {
+  our $parsed1 = _ccsnd_parse_signature('int which(Ndims,Nnz); vals(Nnz); [o]out(Nnz);');
+
+  our $a  = zeroes(4,3)->toccs;
+  our $br  = ones(4)->toccs;
+  our $brv = ones(4)->toccs->dummy(1);
+  our $bc  = ones(1,3)->toccs;
+  our $bcv = ones(3)->toccs->dummy(0);
+
+  our $sig = _ccsnd_parse_signature('a(); b(); [o]c();');
+  our ($dims);
+  $dims = _ccsnd_align_dims($sig, [$a,$bcv]);
+
+  ##-- try it with inner()-like
+
+  print "test_align_v2: done.\n";
+}
+test_align_v2();
+
 
 
 ##---------------------------------------------------------------------
