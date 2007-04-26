@@ -338,7 +338,7 @@ sub decode {
 
 ## $dense = $ccs_or_dense->todense()
 *PDL::todense = \&todense;
-sub todense { isa($_[0],__PACKAGE__) ? $_[0]->decode() : $_[0]; }
+sub todense { isa($_[0],__PACKAGE__) ? $_[0]->decode(@_[1..$#_]) : $_[0]; }
 
 ##--------------------------------------------------------------
 ## PDL API: Basic Properties
