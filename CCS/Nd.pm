@@ -182,6 +182,60 @@ sub fromWhich {
 ## DESTROY : avoid PDL inheritance
 sub DESTROY { ; }
 
+## $ccs = $ccs->insertWhich($whichND,$whichVals)
+##  + set or insert $whichND=>$whichVals
+##  + implicitly calls make_physically_indexed
+sub insertWhich {
+  my ($ccs,$which,$vals) = @_;
+  $ccs->make_physically_indexed();
+
+  ##-- sanity check
+  if ($which->dim(0) != $ccs->[$WHICH]->dim(0)) {
+    barf(ref($ccs)."::insertWhich(): wrong number of index dimensions in whichND argument:",
+	 " is ", $which->dim(0), ", should be ", $ccs->[$WHICH]->dim(0));
+  }
+
+  ##-- check for existing indices (potentially slow)
+  my $nzi                = $ccs->indexNDi($which);
+  my ($nzi_new,$nzi_old) = ($nzi==$ccs->[$WHICH]->dim(1))->which_both;
+
+  ##-- just set values for existing indices
+  $ccs->[$VALS]->index($nzi->index($nzi_old)) .= $vals->index($nzi_old);
+
+  ##-- delegate insertion of new values to appendWhich()
+  return $ccs->sortwhich if ($nzi_new->isempty);
+  return $ccs->appendWhich($which->dice_axis(1,$nzi_new), $vals->index($nzi_new));
+}
+
+## $ccs = $ccs->appendWhich($whichND,$whichVals)
+##  + inserts $whichND=>$whichVals into $ccs which are assumed NOT to be already present
+##  + implicitly calls make_physically_indexed
+sub appendWhich {
+  my ($ccs,$which,$vals) = @_;
+  $ccs->make_physically_indexed();
+
+  ##-- sanity check
+  if ($which->dim(0) != $ccs->[$WHICH]->dim(0)) {
+    barf(ref($ccs)."::appendWhich(): wrong number of index dimensions in whichND argument:",
+	 " is ", $which->dim(0), ", should be ", $ccs->[$WHICH]->dim(0));
+  }
+
+  ##-- append: which
+  if (!$which->isempty) {
+    $ccs->[$WHICH] = $ccs->[$WHICH]->reshape($which->dim(0), $ccs->[$WHICH]->dim(1)+$which->dim(1));
+    $ccs->[$WHICH]->slice(",-".$which->dim(1).":-1") .= $which;
+  }
+
+  ##-- append: vals
+  if (!$vals->isempty) {
+    my $missing    = $ccs->missing;
+    $ccs->[$VALS]  = $ccs->[$VALS]->reshape($ccs->[$VALS]->dim(0) + $vals->dim(0));
+    $ccs->[$VALS]->slice("-".($vals->dim(0)+1).":-2") .= $vals;
+    $ccs->[$VALS]->slice("-1") .= $missing;
+  }
+
+  return $ccs->sortwhich();
+}
 
 ## $ccs = $pdl->toccs()
 ## $ccs = $pdl->toccs($missing)
@@ -523,6 +577,9 @@ sub ptr {
 ##  + physical dimensions ONLY
 sub getptr { ccs_encode_pointers($_[0][$WHICH]->slice("($_[1]),"), $_[0][$PDIMS]->index($_[1])); }
 
+## $obj = $obj->clearptrs()
+sub clearptrs { @{$_[0][$PTRS]}=qw(); }
+
 ## $flags = $obj->flags()
 ## $flags = $obj->flags($flags)
 ##  + get local flags
@@ -601,6 +658,11 @@ foreach my $badsub (qw(setnantobad setbadtonan setbadtoval setvaltobad)) {
 ##--------------------------------------------------------------
 ## Dimension Shuffling
 
+## $ccs = $ccs->setdims_p(@dims)
+##  + sets physical dimensions
+*setdims = \&setdims_p;
+sub setdims_p { $_[0][$PDIMS] = PDL->pdl($P_LONG,@_[1..$#_]); }
+
 ## $ccs2 = $ccs->dummy($vdim_index)
 ## $ccs2 = $ccs->dummy($vdim_index, $vdim_size)
 sub dummy {
@@ -671,6 +733,8 @@ sub slice {
 
 ## $nzi = $ccs->indexNDi($ndi)
 ##  + returns Nnz indices for virtual ND-index PDL $ndi
+##  + index values in $ndi which are not present in $ccs are returned in $nzi as:
+##      $ccs->[$WHICH]->dim(1) == $ccs->_nnz_p
 sub indexNDi {
   my ($ccs,$ndi)   = @_;
   ##
@@ -1484,7 +1548,7 @@ sub _pdlstr { return _dimstr($_[0]).'='.$_[0]; }
 sub string {
   my ($pdims,$vdims,$which,$vals) = @{$_[0]}[$PDIMS,$VDIMS,$WHICH,$VALS];
   my $whichstr  = ''.$which->xchg(0,1);
-  $whichstr =~ s/^([^A-Z])/$,  $1/mg;
+  $whichstr =~ s/^([^A-Z])/   $1/mg;
   chomp($whichstr);
   return
     (
@@ -1817,6 +1881,7 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
 
  ($ptr,$ptrix) = $ccs->ptr($pdimi);             ##-- get Harwell-Boeing pointer
  ($ptr,$ptrix) = $ccs->getptr($pdimi);
+ $ccs->clearptrs();                             ##-- ... or clear all
 
  $flags = $ccs->flags();                        ##-- get/set object-local flags
  $flags = $ccs->flags($flags);
@@ -2247,11 +2312,11 @@ Always copies, unlike xchg().  Also unlike xchg(), works for 1d row-vectors.
 
 Guts for indexing methods.  Given an N-dimensional index piddle $ndi, return
 a 1d index vector into $VALS for the corresponding values.
-Missing values are returned in $nzi as $Nnz.
+Missing values are returned in $nzi as $Nnz == $ccs-E<gt>_nnz_p;
 
 Uses PDL::VectorValues::vsearchvec() internally, so expect O(Ndims * log(Nnz)) complexity.
 Although the theoretical complexity is tough to beat, this method could be
-made much faster in the general (read "sparse") case by an intelligent use of $PTRS if
+made much faster in the usual (read "sparse") case by an intelligent use of $PTRS if
 and when available.
 
 =item indexND($ndi)
@@ -2497,16 +2562,40 @@ PDL::CCS::Nd object structure:
 
 =over 4
 
+=item insertWhich
+
+=for sig
+
+  Signature: ($ccs; int whichND(Ndims,Nnz1); vals(Nnz1))
+
+Set or insert values in C<$ccs> for the indices in C<$whichND> to C<$vals>.
+C<$whichND> need not be sorted.
+Implicitly makes C<$ccs> physically indexed.
+Returns the (destructively altered) C<$ccs>.
+
+
+=item appendWhich
+
+=for sig
+
+  Signature: ($ccs; int whichND(Ndims,Nnz1); vals(Nnz1))
+
+Like insertWhich(), but assumes that no values for any of the $whichND
+indices are already present in C<$ccs>.  This is faster (because no indexNDi
+need not be called), but less safe.
+
+
 =item is_physically_indexed()
 
 Returns true iff only physical dimensions are present.
 
-=item to_phyiscally_indexed()
+=item to_physically_indexed()
 
 Just returns the calling object if all non-missing elements are already physically indexed.
 Otherwise, returns a new PDL::CCS::Nd object identical to the caller
 except that all non-missing elements are physically indexed.  This may gobble a large
 amount of memory if the calling element has large dummy dimensions.
+Also ensures that physical dimension order is identical to logical dimension order.
 
 =item make_physically_indexed
 
@@ -2524,6 +2613,12 @@ Returns the $PDIMS piddle.  See L<"Object Structure">, above.
 
 Returns the $VDIMS piddle.  See L<"Object Structure">, above.
 
+
+=item setdims_p(@dims)
+
+Sets $PDIMS piddle.   See L<"Object Structure">, above.
+Returns the calling object.
+Alias: setdims().
 
 =item nelem_p()
 
@@ -2602,6 +2697,9 @@ $pdimi defaults to zero.  If $pdimi is zero, then it should hold that:
 
 Guts for ptr().  Does not check $PTRS and does not cache anything.
 
+=item clearptrs()
+
+Clears any cached Harwell-Boeing pointers.
 
 =item flags()
 
