@@ -595,6 +595,9 @@ sub bad_is_missing {
   $_[0][$FLAGS] & $CCSND_BAD_IS_MISSING;
 }
 
+## $obj = $obj->badmissing()
+sub badmissing { $_[0][$FLAGS] |= $CCSND_BAD_IS_MISSING; $_[0]; }
+
 ## $bool = $obj->nan_is_missing()
 ## $bool = $obj->nan_is_missing($bool)
 sub nan_is_missing {
@@ -604,6 +607,10 @@ sub nan_is_missing {
   }
   $_[0][$FLAGS] & $CCSND_NAN_IS_MISSING;
 }
+
+## $obj = $obj->nanmissing()
+sub nanmissing { $_[0][$FLAGS] |= $CCSND_NAN_IS_MISSING; $_[0]; }
+
 
 ## undef = $obj->set_inplace($bool)
 ##   + sets local inplace flag
@@ -1491,6 +1498,7 @@ sub inner { $_[0]->mult_mia($_[1],0)->sumover; }
 sub matmult {
   barf("Invalid number of arguments for ", __PACKAGE__, "::matmult") if ($#_ < 1);
   my ($a,$b,$c) = @_; ##-- no $c!
+  $c = undef if (!ref($c) && $c eq ''); ##-- strangeness: getting $c=''
 
   $b=toccs($b); ##-- ensure 2nd arg is a CCS object
 
@@ -1737,9 +1745,11 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
 
  $bool = $ccs->bad_is_missing();          ##-- treat BAD values as missing?
  $bool = $ccs->bad_is_missing($bool);
+ $ccs  = $ccs->badmissing();              ##-- ... a la inplace()
 
  $bool = $ccs->nan_is_missing();          ##-- treat NaN values as missing?
  $bool = $ccs->nan_is_missing($bool);
+ $ccs  = $ccs->nanmissing();              ##-- ... a la inplace()
 
  $ccs2 = $ccs->setnantobad();
  $ccs2 = $ccs->setbadtonan();
@@ -2716,6 +2726,9 @@ Get/set the value of the object-local "bad-is-missing" flag.
 If this flag is set, BAD values in $VALS are considered "missing",
 regardless of the current value of $missing.
 
+=item badmissing()
+
+Sets the "bad-is-missing" flag and returns the calling object.
 
 =item nan_is_missing()
 
@@ -2724,6 +2737,10 @@ regardless of the current value of $missing.
 Get/set the value of the object-local "NaN-is-missing" flag.
 If this flag is set, NaN (and +inf, -inf) values in $VALS are considered "missing",
 regardless of the current value of $missing.
+
+=item nanmissing()
+
+Sets the "nan-is-missing" flag and returns the calling object.
 
 =back
 
