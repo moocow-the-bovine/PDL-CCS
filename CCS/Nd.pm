@@ -1498,7 +1498,7 @@ sub inner { $_[0]->mult_mia($_[1],0)->sumover; }
 sub matmult {
   barf("Invalid number of arguments for ", __PACKAGE__, "::matmult") if ($#_ < 1);
   my ($a,$b,$c) = @_; ##-- no $c!
-  $c = undef if (!ref($c) && $c eq ''); ##-- strangeness: getting $c=''
+  $c = undef if (!ref($c) && defined($c) && $c eq ''); ##-- strangeness: getting $c=''
 
   $b=toccs($b); ##-- ensure 2nd arg is a CCS object
 
