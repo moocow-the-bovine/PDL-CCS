@@ -750,7 +750,8 @@ sub indexNDi {
   my $whichdimp = ($dims>=0)->which;
   my $pdimi     = $dims->index($whichdimp);
   ##
-  $ndi = $ndi->dice_axis(0,$whichdimp)
+  #$ndi = $ndi->dice_axis(0,$whichdimp) ##-- BUG?!
+  $ndi = $ndi->dice_axis(0,$pdimi)
     if ( $ndi->dim(0)!=$ccs->[$WHICH]->dim(0) || ($pdimi!=PDL->sequence($ccs->[$WHICH]->dim(0)))->any );
   ##
   my $foundi       = $ndi->vsearchvec($ccs->[$WHICH]);
