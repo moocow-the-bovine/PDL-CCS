@@ -1,4 +1,5 @@
-v1.02 Wed, 13 Feb 2008 22:51:02 +0100 (moocow)
+v1.02 Thu, 14 Feb 2008 12:50:11 +0100
+	+ fixed bug in PDL::CCS::Nd::string() for objects with empty index pdls
 	+ fixed virtual-dimension indexing bug in PDL::CCS::Nd::indexNDi
 	  causing indexing to fail for e.g. transposed sparse matrices
 	
