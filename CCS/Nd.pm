@@ -215,10 +215,12 @@ sub appendWhich {
   $ccs->make_physically_indexed();
 
   ##-- sanity check
-  if ($which->dim(0) != $ccs->[$WHICH]->dim(0)) {
-    barf(ref($ccs)."::appendWhich(): wrong number of index dimensions in whichND argument:",
-	 " is ", $which->dim(0), ", should be ", $ccs->[$WHICH]->dim(0));
-  }
+  #if ($which->dim(0) != $ccs->[$WHICH]->dim(0))
+  if ($which->dim(0) != $ccs->[$PDIMS]->nelem)
+    {
+      barf(ref($ccs)."::appendWhich(): wrong number of index dimensions in whichND argument:",
+	   " is ", $which->dim(0), ", should be ", $ccs->[$PDIMS]->nelem);
+    }
 
   ##-- append: which
   if (!$which->isempty) {
