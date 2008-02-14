@@ -1556,7 +1556,7 @@ sub _pdlstr { return _dimstr($_[0]).'='.$_[0]; }
 ## $str = $obj->string()
 sub string {
   my ($pdims,$vdims,$which,$vals) = @{$_[0]}[$PDIMS,$VDIMS,$WHICH,$VALS];
-  my $whichstr  = ''.$which->xchg(0,1);
+  my $whichstr  = ''.($which->isempty ? "Empty" : $which->xchg(0,1));
   $whichstr =~ s/^([^A-Z])/   $1/mg;
   chomp($whichstr);
   return
