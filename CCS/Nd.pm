@@ -474,7 +474,8 @@ sub to_physically_indexed {
   my $vals  = $ccs->whichVals;
   my $sorti = $which->qsortveci;
   return $ccs->shadow(
-		      pdims=>$ccs->[$VDIMS]->abs,
+		      #pdims=>$ccs->[$VDIMS]->abs, ##-- BUG#
+		      pdims=>$ccs->dimpdl->abs,
 		      vdims=>$ccs->[$VDIMS]->sequence,
 		      which=>$which->dice_axis(1,$sorti),
 		      vals =>$vals->index($sorti),
@@ -488,7 +489,6 @@ sub make_physically_indexed {
   @{$_[0]} = @{$_[0]->to_physically_indexed};
   return $_[0];
 }
-
 
 ## $pdims = $obj->pdims()
 ## $vdims = $obj->vdims()
