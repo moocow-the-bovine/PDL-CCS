@@ -283,7 +283,7 @@ sub copyShallow {
 ##     vdims => $vdims2,  ##-- default: $vdims1->pdl  (alias: 'xdims')
 ##     ptrs  => \@ptrs2,  ##-- default: []
 ##     which => $which2,  ##-- default: undef
-##     vals  => $vals2,   ##-- default: undef
+##     vals  => $vals2,   ##-- default: undef ; if specified, should include final 'missing' element
 ##     flags => $flags,   ##-- default: $flags1
 sub shadow {
   my ($ccs,%args) = @_;
@@ -474,11 +474,10 @@ sub to_physically_indexed {
   my $vals  = $ccs->whichVals;
   my $sorti = $which->qsortveci;
   return $ccs->shadow(
-		      #pdims=>$ccs->[$VDIMS]->abs, ##-- BUG#
 		      pdims=>$ccs->dimpdl->abs,
 		      vdims=>$ccs->[$VDIMS]->sequence,
 		      which=>$which->dice_axis(1,$sorti),
-		      vals =>$vals->index($sorti),
+		      vals =>$vals->index($sorti)->append($ccs->missing),
 		     )->sever;
 }
 
