@@ -2544,7 +2544,7 @@ The following binary operations are implemented:
 =back
 
 All supported binary operation functions obey the PDL input calling conventions
-(i.e. they all accept a third argument C<$swap>), and delegate compuation
+(i.e. they all accept a third argument C<$swap>), and delegate computation
 to the underlying PDL functions.  Note that the PDL::CCS::Nd methods currently
 do B<NOT> support a third "output" argument.
 To wrap a new binary operation MY_BINOP into
@@ -2593,7 +2593,7 @@ Returns the (destructively altered) C<$ccs>.
   Signature: ($ccs; int whichND(Ndims,Nnz1); vals(Nnz1))
 
 Like insertWhich(), but assumes that no values for any of the $whichND
-indices are already present in C<$ccs>.  This is faster (because no indexNDi
+indices are already present in C<$ccs>.  This is faster (because indexNDi
 need not be called), but less safe.
 
 
@@ -2651,7 +2651,7 @@ adressable element, which should be a positive integer.
 =item nstored_p()
 
 Returns actual number of physically addressed stored elements
-(aka $Nnz aka $WHIH-E<gt>dim(1)).
+(aka $Nnz aka $WHICH-E<gt>dim(1)).
 
 =item nstored_v()
 
@@ -2809,7 +2809,7 @@ Bryan Jurish E<lt>moocow@ling.uni-potsdam.deE<gt>
 
 =head2 Copyright Policy
 
-Copyright (C) 2007, Bryan Jurish. All rights reserved.
+Copyright (C) 2007-2008, Bryan Jurish. All rights reserved.
 
 This package is free software, and entirely without warranty.
 You may redistribute it and/or modify it under the same terms
