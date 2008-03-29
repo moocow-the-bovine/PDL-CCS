@@ -955,6 +955,17 @@ foreach my $ufunc (qw(maximum minimum))
 *ngoodover = _ufuncsub('ngoodover', PDL::CCS::Ufunc->can('ccs_accum_ngood'), 1);
 *nnz       = _ufuncsub('nnz', PDL::CCS::Ufunc->can('ccs_accum_nnz'), 1);
 
+sub average_nz {
+  my $ccs = shift;
+  return $ccs->sumover / $ccs->nnz;
+}
+sub average {
+  my $ccs = shift;
+  my $missing = $ccs->missing;
+  return $ccs->sumover / $ccs->dim(0) if ($missing==0);
+  return ($ccs->sumover + (-$ccs->nnz+$ccs->dim(0))*$missing) / $ccs->dim(0);
+}
+
 sub sum   { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->sum   + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
 sub dsum  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->dsum  + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
 sub prod  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->prod  * ($z->isgood ? ($z->sclr ** $_[0]->nmissing) : 1); }
@@ -969,6 +980,10 @@ sub ngood { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->ngood  + ($z->isg
 sub any { $_[0][$VALS]->any; }
 sub all { $_[0][$VALS]->all; }
 
+sub avg   {
+  my $z=$_[0]->missing;
+  return ($_[0][$VALS]->slice("0:-2")->sum + ($_[0]->nelem-$_[0]->_nnz)*$z->sclr) / $_[0]->nelem;
+}
 
 ##--------------------------------------------------------------
 ## Unary Operations
