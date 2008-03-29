@@ -984,6 +984,8 @@ sub avg   {
   my $z=$_[0]->missing;
   return ($_[0][$VALS]->slice("0:-2")->sum + ($_[0]->nelem-$_[0]->_nnz)*$z->sclr) / $_[0]->nelem;
 }
+sub avg_nz   { $_[0][$VALS]->slice("0:-2")->avg; }
+
 
 ##--------------------------------------------------------------
 ## Unary Operations
