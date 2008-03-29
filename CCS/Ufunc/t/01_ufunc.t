@@ -11,7 +11,7 @@ use PDL;
 use PDL::CCS::Ufunc;
 use PDL::VectorValued;
 
-BEGIN { plan tests=>96, todo=>[]; }
+BEGIN { plan tests=>104, todo=>[]; }
 
 ##-- basic data
 our $a = pdl(double, [
@@ -65,10 +65,11 @@ our $BAD = pdl(0)->setvaltobad(0);
 
 foreach $missing (0,1,31,$BAD) { ## *4
   foreach $pdl_ufunc_name (
-			   qw(sumover prodover dsumover dprodover),  ## *12
+			   qw(sumover prodover dsumover dprodover),  ## *13
 			   qw(andover orover bandover borover),
 			   qw(maximum minimum),
 			   qw(nbadover ngoodover), #nnz
+			   qw(average),
 			  )
     {
       my $ccs_ufunc_name = $pdl_ufunc_name;

@@ -43,6 +43,13 @@ EOPM
 ##------------------------------------------------------
 ## Includes / defines
 pp_addhdr(<<'EOH');
+
+#include <math.h>
+
+#ifndef INFINITY
+# define INFINITY (1.0/0.0)
+#endif
+
 EOH
 
 
@@ -467,6 +474,31 @@ Should handle missing values appropriately.
 
 EOMD
 	     );
+
+##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): average
+ccs_accum_def('average', 'average',
+	      decls => 'long ntmp;',
+	      out_type => 'float+',
+	      init_missingOut=>'if ($N() > 0) { missingOut=missingVal; } else { missingOut=INFINITY; }',
+	      tmp_reset      =>'tmp  = $nzvalsIn(NnzIn=>nnzii); ntmp=1;',
+	      tmp_addval     =>'tmp += $nzvalsIn(NnzIn=>nnzii); ntmp++;',
+	      tmp_addmissing =>(
+				'if (nMissing > 0) { tmp += nMissing * missingVal; }
+				 if ($N() > 0) { tmp /= $N(); } else { tmp /= ntmp; }'
+			       ),
+	      doc_addmissing => <<'EOMD',
+
+If $N() is specified and greater than zero, then the quantity:
+
+ $missing * ($N - (rlevec($ixIn))[0]) / $N
+
+is added to $nzvalsOut: this is probably What You Want if you are averaging over a virtual
+dimension in a sparse index-encoded PDL (see PDL::CCS::Nd for a wrapper class).
+
+EOMD
+	     );
+
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): NYI

@@ -946,7 +946,7 @@ foreach my $ufunc (
   {
     eval "*${ufunc}over = _ufuncsub('${ufunc}over', PDL::CCS::Ufunc->can('ccs_accum_${ufunc}'))";
   }
-foreach my $ufunc (qw(maximum minimum))
+foreach my $ufunc (qw(maximum minimum average))
   {
     eval "*${ufunc} = _ufuncsub('${ufunc}', PDL::CCS::Ufunc->can('ccs_accum_${ufunc}'))";
   }
@@ -959,12 +959,12 @@ sub average_nz {
   my $ccs = shift;
   return $ccs->sumover / $ccs->nnz;
 }
-sub average {
-  my $ccs = shift;
-  my $missing = $ccs->missing;
-  return $ccs->sumover / $ccs->dim(0) if ($missing==0);
-  return ($ccs->sumover + (-$ccs->nnz+$ccs->dim(0))*$missing) / $ccs->dim(0);
-}
+#sub average {
+#  my $ccs = shift;
+#  my $missing = $ccs->missing;
+#  return $ccs->sumover / $ccs->dim(0) if ($missing==0);
+#  return ($ccs->sumover + (-$ccs->nnz+$ccs->dim(0))*$missing) / $ccs->dim(0);
+#}
 
 sub sum   { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->sum   + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
 sub dsum  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->dsum  + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
