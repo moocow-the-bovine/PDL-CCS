@@ -544,6 +544,7 @@ sub _whichND {
 ## $_nzvals = $obj->_nzvals()
 ## $_nzvals = $obj->_nzvals($nzvals)
 ##  + phyiscal storage
+BEGIN { *_whichVals = \&_nzvals; }
 sub _nzvals {
   $_[0][$VALS]=$_[1]->append($_[0][$VALS]->slice("-1")) if (@_ > 1);
   return $_[0][$VALS]->index(PDL->null) if ($_[0][$VALS]->dim(0)<=1);
@@ -1905,6 +1906,9 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  $whichND_phys = $ccs->_whichND();              ##-- get/set physical indices
  $whichND_phys = $ccs->_whichND($whichND_phys);
 
+ $nzvals_phys  = $ccs->_nzvals();               ##-- get/set phsically indexed values
+ $nzvals_phys  = $ccs->_nzvals($vals_phys);
+
  $vals_phys    = $ccs->_vals();                 ##-- get/set phsically indexed values
  $vals_phys    = $ccs->_vals($vals_phys);
 
@@ -2704,6 +2708,14 @@ Returns the (new) value for $missing.
 =item _whichND($whichND)
 
 Get/set the underlying $WHICH piddle.
+
+
+=item _nzvals()
+
+=item _nzvals($storedvals)
+
+Get/set the slice of the underlying $VALS piddle correpsonding for non-missing values only.
+Alias: whichVals().
 
 
 =item _vals()
