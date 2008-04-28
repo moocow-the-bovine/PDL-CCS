@@ -1,7 +1,8 @@
-v1.04 Fri, 25 Apr 2008 10:15:29 +0200
+v1.04 Mon, 28 Apr 2008 23:48:57 +0200
 	+ added PDL::CCS::Ufunc::ccs_accum_average()
 	+ added PDL::CCS::Nd wrappers: average_nz, avg_nz, average, avg
 	+ documented PDL::CCS::Nd method _nzvals(), added alias _whichVals()
+	+ added CCS::Nd::badflag()
 
 v1.03 Wed, 20 Feb 2008 10:30:39 +0100
 	+ fixed some bugs in PDL::CCS::Nd::to_physically_indexed()

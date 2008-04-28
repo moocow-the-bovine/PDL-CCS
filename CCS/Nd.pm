@@ -628,6 +628,17 @@ sub is_inplace ($) { ($_[0][$FLAGS] & $CCSND_INPLACE) ? 1 : 0; }
 ##   + sets local inplace flag
 sub inplace ($) { $_[0][$FLAGS] |= $CCSND_INPLACE; $_[0]; }
 
+## $bool = $obj->badflag()
+## $bool = $obj->badflag($bool)
+##  + wraps $obj->[$WHICH]->badflag, $obj->[$VALS]->badflag()
+sub badflag {
+  if (@_ > 1) {
+    $_[0][$WHICH]->badflag($_[1]);
+    $_[0][$VALS]->badflag($_[1]);
+  }
+  return $_[0][$WHICH]->badflag || $_[0][$VALS]->badflag;
+}
+
 ## $obj = $obj->sever()
 ##  + severs all sub-pdls
 sub sever {
