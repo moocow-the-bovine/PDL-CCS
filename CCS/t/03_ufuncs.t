@@ -10,7 +10,7 @@ do "$TEST_DIR/common.plt";
 use PDL;
 use PDL::CCS::Nd;
 
-BEGIN { plan tests=>104, todo=>[]; }
+BEGIN { plan tests=>2*4*15, todo=>[]; }
 
 ##--------------------------------------------------------------
 ## basic test
@@ -34,6 +34,11 @@ sub test_ufunc {
   my $dense_rc = $pdl_ufunc->($a);
   my $ccs_rc   = $ccs_ufunc->($ccs);
 
+  if ($ufunc_name =~ /_ind/) {
+    ##-- hack: adjust $dense_rc for maximum_ind, minimum_ind
+    $dense_rc->where( $a->index2d($dense_rc,sequence($a->dim(1))) == $missing ) .= -1;
+  }
+
   isok("${ufunc_name}:missing=$missing_val:type", $dense_rc->type==$ccs_rc->type);
   isok("${ufunc_name}:missing=$missing_val:vals", all( matchpdl($ccs_rc->decode, $dense_rc) ));
 }
@@ -41,9 +46,10 @@ sub test_ufunc {
 our ($BAD);
 foreach $missing (0,1,255,$BAD) { ##-- *4
   foreach $ufunc (
-		  qw(sumover prodover dsumover dprodover),  ## *13
+		  qw(sumover prodover dsumover dprodover),  ## *15
 		  qw(andover orover bandover borover),
 		  qw(maximum minimum),
+		  qw(maximum_ind minimum_ind),
 		  qw(nbadover ngoodover), #nnz
 		  qw(average),
 		 )
