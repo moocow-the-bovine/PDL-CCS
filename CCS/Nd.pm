@@ -906,6 +906,19 @@ sub set {
 }
 
 ##--------------------------------------------------------------
+## Mask Utilities
+
+## $missing_mask = $ccs->ismissing()
+sub ismissing {
+  $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$_[0]->_nzvals->zeroes->long->append(1));
+}
+
+## $nonmissing_mask = $ccs->ispresent()
+sub ispresent {
+  $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$_[0]->_nzvals->ones->long->append(0));
+}
+
+##--------------------------------------------------------------
 ## Ufuncs
 
 ## $ufunc_sub = _ufuncsub($subname, \&ccs_accum_sub, $allow_bad_missing)
@@ -992,12 +1005,65 @@ sub ngood { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->ngood  + ($z->isg
 sub any { $_[0][$VALS]->any; }
 sub all { $_[0][$VALS]->all; }
 
+
 sub avg   {
   my $z=$_[0]->missing;
   return ($_[0][$VALS]->slice("0:-2")->sum + ($_[0]->nelem-$_[0]->_nnz)*$z->sclr) / $_[0]->nelem;
 }
 sub avg_nz   { $_[0][$VALS]->slice("0:-2")->avg; }
 
+
+##--------------------------------------------------------------
+## Index-Ufuncs
+
+sub _ufunc_ind_sub {
+  my ($subname,$accumsub,$allow_bad_missing) = @_;
+  barf(__PACKAGE__, "::_ufuncsub($subname): no underlying CCS accumulator func!") if (!defined($accumsub));
+  return sub {
+    my $ccs = shift;
+    ##
+    ##-- preparation
+    my $which   = $ccs->whichND;
+    my $vals    = $ccs->whichVals;
+    my $missing = $ccs->missing;
+    my @dims    = $ccs->dims;
+    my ($which0,$which1,$vals1);
+    if ($which->dim(0) <= 1) {
+      ##-- flat sum
+      $which0 = $which->slice("(0),");
+      $which1 = PDL->zeroes($P_LONG,1,$which->dim(1)); ##-- dummy
+      $vals1  = $vals;
+    } else {
+      my $sorti = $which->dice_axis(0, PDL->sequence($P_LONG,$which->dim(0))->rotate(-1))->qsortveci;
+      $which1   = $which->slice("1:-1,")->dice_axis(1,$sorti);
+      $which0   = $which->slice("(0),")->index($sorti);
+      $vals1    = $vals->index($sorti);
+    }
+    ##
+    ##-- guts
+    my ($which2,$nzvals2) = $accumsub->($which1,$vals1,
+					($allow_bad_missing || $missing->isgood ? ($missing,$dims[0]) : (0,0))
+				       );
+    ##
+    ##-- get output pdl
+    shift(@dims);
+    my $nzi2    = $nzvals2;
+    my $nzi2_ok = ($nzvals2>=0);
+    $nzi2->where($nzi2_ok) .= $which0->index($nzi2->where($nzi2_ok));
+    return $nzi2->squeeze if (!@dims); ##-- just a scalar: return a plain PDL
+    ##
+    my $newdims = PDL->pdl($P_LONG,\@dims);
+    return $ccs->shadow(
+			pdims =>$newdims,
+			vdims =>$newdims->sequence,
+			which =>$which2,
+			vals  =>$nzi2->append(-1),
+		       );
+  };
+}
+
+*maximum_ind = _ufunc_ind_sub('maximum_ind', PDL::CCS::Ufunc->can('ccs_accum_maximum_nz_ind'),1);
+*minimum_ind = _ufunc_ind_sub('minimum_ind', PDL::CCS::Ufunc->can('ccs_accum_minimum_nz_ind'),1);
 
 ##--------------------------------------------------------------
 ## Unary Operations
@@ -1827,6 +1893,8 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  $ccs2 = $ccs->borover;
  $ccs2 = $ccs->maximum;
  $ccs2 = $ccs->minimum;
+ $ccs2 = $ccs->maximum_ind; ##-- -1 indicates "missing" value is maximal
+ $ccs2 = $ccs->minimum_ind; ##-- -1 indicates "missing" value is minimal
  $ccs2 = $ccs->nbadover;
  $ccs2 = $ccs->ngoodover;
  $ccs2 = $ccs->nnz;
@@ -2443,8 +2511,10 @@ counterparts would):
  bandover
  borover
  maximum
+ maximum_ind ##-- goofy if "missing" value is maximal
  max
  minimum
+ minimum_ind ##-- goofy if "missing" value is minimal
  min
  nbadover
  nbad

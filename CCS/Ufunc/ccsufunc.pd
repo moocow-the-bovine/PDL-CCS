@@ -423,6 +423,38 @@ EOMD
 	     );
 
 ##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): maximum_nz_ind ~ maximum_ind
+ccs_accum_def('maximum_nz_ind', 'maximum_nz_ind',
+	      out_type       =>'int',
+	      decls          =>'$GENERIC(nzvalsIn) curval, bestval;',
+	      init_missingOut=>'missingOut = -1;',
+	      tmp_addmissing =>'if (nMissing > 0 && missingVal > bestval) { tmp=missingOut; }',
+	      tmp_addval     =>'curval=$nzvalsIn(NnzIn=>nnzii); if (curval>bestval) { bestval=curval; tmp=nnzii; }',
+	      tmp_reset      =>'curval=$nzvalsIn(NnzIn=>nnzii); bestval=curval; tmp=nnzii;',
+	      doc_addmissing => <<'EOMD',
+
+Output indices index $nzvalsIn, -1 indicates that the missing value is maximal.
+
+EOMD
+	     );
+
+##--------------------------------------------------------------
+## Operations: Accumulators (Ufuncs): minimum_nz_ind ~ minimum_ind
+ccs_accum_def('minimum_nz_ind', 'minimum_nz_ind',
+	      out_type       =>'int',
+	      decls          =>'$GENERIC(nzvalsIn) curval, bestval;',
+	      init_missingOut=>'missingOut = -1;',
+	      tmp_addmissing =>'if (nMissing > 0 && missingVal < bestval) { tmp=missingOut; }',
+	      tmp_addval     =>'curval=$nzvalsIn(NnzIn=>nnzii); if (curval<bestval) { bestval=curval; tmp=nnzii; }',
+	      tmp_reset      =>'curval=$nzvalsIn(NnzIn=>nnzii); bestval=curval; tmp=nnzii;',
+	      doc_addmissing => <<'EOMD',
+
+Output indices index $nzvalsIn, -1 indicates that the missing value is minimal.
+
+EOMD
+	     );
+
+##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): nbad
 ccs_accum_def('nbad', 'number of bad values',
 	      extra          =>{HandleBad=>1},
@@ -499,7 +531,6 @@ dimension in a sparse index-encoded PDL (see PDL::CCS::Nd for a wrapper class).
 EOMD
 	     );
 
-
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): NYI
 pp_addpm(<<'EOPM');
@@ -512,11 +543,11 @@ pp_addpm(<<'EOPM');
 
 =item extrema indices
 
-maximum_ind, minimum_ind, ...
+maximum_ind, minimum_ind: not quite compatible...
 
 =item statistical aggregates
 
-average, daverage, medover, oddmedover, pctover, ...
+daverage, medover, oddmedover, pctover, ...
 
 =item cumulative functions
 
