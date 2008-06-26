@@ -534,6 +534,12 @@ sub missing {
   $_[0][$VALS]->slice("-1");
 }
 
+## $obj = $obj->_missing($missingVal)
+sub _missing {
+  $_[0][$VALS]->set(-1,$_[1]) if (@_>1);
+  $_[0];
+}
+
 ## $whichND_stored = $obj->_whichND()
 ## $whichND_stored = $obj->_whichND($whichND)
 sub _whichND {
@@ -1979,8 +1985,9 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
 
  $bool = $ccs->allmissing();                    ##-- are all values missing?
 
- $missing_val = $ccs->missing;                  ##-- get/set missing value
- $missing_val = $ccs->missing($missing_val);
+ $missing_val = $ccs->missing;                  ##-- get missing value
+ $missing_val = $ccs->missing($missing_val);    ##-- set missing value
+ $ccs         = $ccs->_missing($missing_val);   ##-- ... returning the object
 
  $whichND_phys = $ccs->_whichND();              ##-- get/set physical indices
  $whichND_phys = $ccs->_whichND($whichND_phys);
