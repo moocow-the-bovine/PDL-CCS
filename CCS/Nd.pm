@@ -1307,7 +1307,7 @@ sub _ccsnd_binary_op_mia {
 	$nzc_blk   = $pdlsub->($avalsr->index($nzai_blk), $bvalsr->index($nzbi_blk), $swap);
 
 	##-- get indices of non-$missing c() values
-	$cimask_blk   = $zc_isbad ? $nzc_blk->isgood : ($nzc_blk!=$zc);
+	$cimask_blk   = $zc_isbad || $nzc->badflag ? $nzc_blk->isgood : ($nzc_blk!=$zc);
 	$cimask_blk  &= $nzc_blk->isgood   if (!$zc_isbad && $badismissing);
 	$cimask_blk  &= $nzc_blk->isfinite if ($nanismissing);
 	if ($cimask_blk->any) {
