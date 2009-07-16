@@ -1624,6 +1624,33 @@ sub matmult {
   return $_c;
 }
 
+##--------------------------------------------------------------
+## Interpolation
+
+## ($yi,$err) = $xi->interpolate($x,$y)
+##  + Signature: (xi(); x(n); y(n); [o] yi(); int [o] err())
+##  + routine for 1D linear interpolation
+##  + Given a set of points "($x,$y)", use linear interpolation to find the values $yi at a set of points $xi.
+##  + see PDL::Primitive::interpolate()
+sub interpolate {
+  my ($xi,$x,$y, $yi,$err) = @_;
+  $yi  = $xi->clone if (!defined($yi));
+  $err = $xi->clone if (!defined($err));
+  $xi->[$VALS]->interpolate($x,$y, $yi->[$VALS], $err->[$VALS]);
+  return wantarray ? ($yi,$err) : $yi;
+}
+
+## $yi = $xi->interpolate($x,$y)
+##  + Signature: (xi(); x(n); y(n); [o] yi())
+##  + routine for 1D linear interpolation
+##  + see PDL::Primitive::interpol()
+sub interpol {
+  my ($xi,$x,$y, $yi) = @_;
+  $yi = $xi->clone if (!defined($yi));
+  $xi->[$VALS]->interpol($x,$y, $yi->[$VALS]);
+  return $yi;
+}
+
 
 ##--------------------------------------------------------------
 ## General Information
@@ -1674,7 +1701,7 @@ sub string {
 }
 
 ## $pstr = $obj->lstring()
-##  + literal perl-type string (re-blesses the object)
+##  + literal perl-type string
 sub lstring { return overload::StrVal($_[0]); }
 
 

@@ -1,3 +1,6 @@
+v1.08 Thu, 16 Jul 2009 12:22:38 +0200
+	+ added CCS::Nd methods interpolate(), interpol()
+
 v1.05 Fri, 02 May 2008 13:00:22 +0200
 	+ added CCS::Nd::ismissing(), CCS::Nd::ispresent() mask methods
 	+ added CCS::Nd::maximum_ind(), CCS::Nd::minimum_ind()

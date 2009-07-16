@@ -1,6 +1,6 @@
 #!/usr/bin/perl -wd
 
-use lib qw(./blib/lib ./blib/arch);
+use lib qw(. ./blib/lib ./blib/arch);
 use PDL;
 use PDL::CCS;
 
@@ -315,7 +315,7 @@ sub DESTROY { ; }
 
 ## $ccs = $pdl->toccs()
 ## $ccs = $pdl->toccs($missing)
-BEGIN { *PDL::toccs = \&toccs; }
+#BEGIN { *PDL::toccs = \&toccs; }
 sub toccs {
   return $_[0] if (isa($_[0],'PDL::CCS::Obj'));
   return PDL::CCS::Obj->newFromDense(@_)
@@ -553,7 +553,7 @@ sub isok {
 
 sub test_ccsobj {
   ccsobj_data();
-  $ccs = PDL::CCS::Obj->newFromDense($a);
+  $ccs = PDL::CCS::Nd->newFromDense($a);
 
   ##-- pdl() [--> PDL::new()]
   $ccs2 = pdl($ccs);
