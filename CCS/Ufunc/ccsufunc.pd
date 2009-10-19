@@ -463,8 +463,12 @@ ccs_accum_def('nbad', 'number of bad values',
 	      #init_missingOut=>'missingOut=$N();',
 	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
 	      tmp_addmissing =>'if (nMissing > 0 && $ISBAD(missing())) { tmp += nMissing; }',
-	      tmp_addval     =>'if ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) tmp++;',
-	      tmp_reset      =>'tmp = ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0;',
+	      tmp_addval     =>($PDL::Bad::Status
+				? 'if ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) tmp++; /* bad support available */'
+				: 'tmp++; /* NO bad support available */'),
+	      tmp_reset      =>($PDL::Bad::Status
+				? 'tmp = ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0; /* bad support available */'
+				: 'tmp=1; /* NO bad support available */'),
 	      doc_addmissing => <<'EOMD',
 
 Should handle missing values appropriately.
@@ -474,6 +478,7 @@ EOMD
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): ngood
+require PDL::Bad;
 ccs_accum_def('ngood', 'number of good values',
 	      extra          =>{HandleBad=>1},
 	      out_type       =>'int+',
@@ -482,11 +487,11 @@ ccs_accum_def('ngood', 'number of good values',
 	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
 	      tmp_addmissing =>'if (nMissing > 0 && $ISGOOD(missing())) { tmp += nMissing; }',
 	      tmp_addval     =>($PDL::Bad::Status
-				? 'if ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) tmp++;'
-				: 'tmp++;'),
+				? 'if ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) tmp++; /* bad support available */'
+				: 'tmp++; /* NO bad support available */'),
 	      tmp_reset      =>($PDL::Bad::Status
-				? 'tmp = ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0;'
-				: 'tmp=1;'),
+				? 'tmp = ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0; /* bad support available */'
+				: 'tmp=1; /* NO bad support available */'),
 	      doc_addmissing => <<'EOMD',
 
 Should handle missing values appropriately.

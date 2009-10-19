@@ -3,6 +3,6 @@
 ## Description: set version for PDL::CCS
 
 package PDL::CCS;
-our $VERSION=1.08;
+our $VERSION=1.09;
 
 1; ##-- make perl happy
