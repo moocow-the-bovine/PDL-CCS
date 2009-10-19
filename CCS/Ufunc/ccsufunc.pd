@@ -456,19 +456,25 @@ EOMD
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): nbad
+require PDL::Bad;
 ccs_accum_def('nbad', 'number of bad values',
 	      extra          =>{HandleBad=>1},
 	      out_type       =>'int+',
 	      #max_type_perl  =>'PDL::long()',
 	      #init_missingOut=>'missingOut=$N();',
 	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
-	      tmp_addmissing =>'if (nMissing > 0 && $ISBAD(missing())) { tmp += nMissing; }',
-	      tmp_addval     =>($PDL::Bad::Status
-				? 'if ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) tmp++; /* bad support available */'
-				: 'tmp++; /* NO bad support available */'),
-	      tmp_reset      =>($PDL::Bad::Status
-				? 'tmp = ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0; /* bad support available */'
-				: 'tmp=1; /* NO bad support available */'),
+	      ($PDL::Bad::Status
+	       ? (
+		  tmp_addmissing =>'if (nMissing > 0 && $ISBAD(missing())) { tmp += nMissing; } /* bad support available */',
+		  tmp_addval     =>'if ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) tmp++;',
+		  tmp_reset      =>'tmp = ( $ISBAD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0;',
+		 )
+	       : (
+		  tmp_addmissing =>';/* NO bad support available */',
+		  tmp_addval     =>';',
+		  tmp_reset      =>'tmp = 0;',
+		 )
+	      ),
 	      doc_addmissing => <<'EOMD',
 
 Should handle missing values appropriately.
@@ -478,20 +484,24 @@ EOMD
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): ngood
-require PDL::Bad;
 ccs_accum_def('ngood', 'number of good values',
 	      extra          =>{HandleBad=>1},
 	      out_type       =>'int+',
 	      #max_type_perl  =>'PDL::long()',
 	      #init_missingOut=>'missingOut=$N();',
 	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
-	      tmp_addmissing =>'if (nMissing > 0 && $ISGOOD(missing())) { tmp += nMissing; }',
-	      tmp_addval     =>($PDL::Bad::Status
-				? 'if ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) tmp++; /* bad support available */'
-				: 'tmp++; /* NO bad support available */'),
-	      tmp_reset      =>($PDL::Bad::Status
-				? 'tmp = ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0; /* bad support available */'
-				: 'tmp=1; /* NO bad support available */'),
+	      ($PDL::Bad::Status
+	       ? (
+		  tmp_addmissing =>'if (nMissing > 0 && $ISGOOD(missing())) { tmp += nMissing; } /* bad support available */',
+		  tmp_addval     =>'if ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) tmp++;',
+		  tmp_reset      =>'tmp = ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0;',
+		 )
+	       : (
+		  tmp_addmissing =>';/* NO bad support available */',
+		  tmp_addval     =>'tmp++;',
+		  tmp_reset      =>'tmp=1;'
+		 )
+	      ),
 	      doc_addmissing => <<'EOMD',
 
 Should handle missing values appropriately.
