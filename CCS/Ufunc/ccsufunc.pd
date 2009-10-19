@@ -481,8 +481,12 @@ ccs_accum_def('ngood', 'number of good values',
 	      #init_missingOut=>'missingOut=$N();',
 	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
 	      tmp_addmissing =>'if (nMissing > 0 && $ISGOOD(missing())) { tmp += nMissing; }',
-	      tmp_addval     =>'if ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) tmp++;',
-	      tmp_reset      =>'tmp = ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0;',
+	      tmp_addval     =>($PDL::Bad::Status
+				? 'if ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) tmp++;'
+				: 'tmp++;'),
+	      tmp_reset      =>($PDL::Bad::Status
+				? 'tmp = ( $ISGOOD(nzvalsIn(NnzIn=>nnzii)) ) ? 1 : 0;'
+				: 'tmp=1;'),
 	      doc_addmissing => <<'EOMD',
 
 Should handle missing values appropriately.
