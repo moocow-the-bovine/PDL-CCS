@@ -1018,6 +1018,14 @@ sub avg   {
 }
 sub avg_nz   { $_[0][$VALS]->slice("0:-2")->avg; }
 
+sub isbad {
+  my ($a,$out) = @_;
+  return $a->shadow(which=>$a->[$WHICH]->pdl,vals=>$a->[$VALS]->isbad,to=>$out);
+}
+sub isgood {
+  my ($a,$out) = @_;
+  return $a->shadow(which=>$a->[$WHICH]->pdl,vals=>$a->[$VALS]->isgood,to=>$out);
+}
 
 ##--------------------------------------------------------------
 ## Index-Ufuncs
@@ -1538,6 +1546,8 @@ foreach my $binop (
   {
     eval "*${binop} = *${binop}_mia = _ccsnd_binary_op_mia('${binop}',PDL->can('${binop}'));";
   }
+
+*pow = *pow_mia = _ccsnd_binary_op_mia('power',PDL->can('pow'));
 
 ##-- integer-only operations
 foreach my $intop (
