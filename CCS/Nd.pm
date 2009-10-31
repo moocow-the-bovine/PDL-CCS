@@ -1639,6 +1639,8 @@ sub matmult {
 
 ## $c_dense = $a->matmult2d_sdd($b_dense)
 ##  + signature as for PDL::Primitive::matmult()
+##  + should handle missing values correctly, but probably doesn't
+##    (modulo in underlying PDL::PP code is wrong & inefficient)
 sub matmult2d_sdd {
   my ($a,$b,$c) = @_;
   $c = undef if (!ref($c) && defined($c) && $c eq ''); ##-- strangeness: getting $c=''
@@ -1667,6 +1669,41 @@ sub matmult2d_sdd {
     $c = PDL->zeroes($ctype, $b->dim(0),$a->dim(0));
   }
   ccs_matmult2d_sdd($a->_whichND,$a->_nzvals,$a->missing, $b, $c);
+
+  return $c;
+}
+
+## $c_dense = $a->matmult2d_zdd($b_dense)
+##  + signature as for PDL::Primitive::matmult()
+##  + assumes $a->missing==0
+sub matmult2d_zdd {
+  my ($a,$b,$c) = @_;
+  $c = undef if (!ref($c) && defined($c) && $c eq ''); ##-- strangeness: getting $c=''
+
+  ##-- promote if necessary
+  while ($a->getndims < 2) {$a = $a->dummy(-1)}
+  while ($b->getndims < 2) {$b = $b->dummy(-1)}
+
+  ##-- vector multiplication (easy)
+  if ( ($a->dim(0)==1 && $a->dim(1)==1) || ($b->dim(0)==1 && $b->dim(1)==1) ) {
+    if (defined($c)) { @$c = @{$a*$b}; return $c; }
+    return $a*$b;
+  }
+
+  ##-- check dim sizes
+  if ($b->dim(1) != $a->dim(0)) {
+    barf(sprintf("Dim mismatch in ", __PACKAGE__, "::matmult2d [%dx%d] x [%dx%d] : %d != %d",
+		 $a->dims,$b->dims, $a->dim(0),$b->dim(1)));
+  }
+
+  ##-- ensure $b dense, $a physically indexed ccs
+  $b = todense($b) if ($b->isa(__PACKAGE__));
+  $a = $a->to_physically_indexed();
+  if (!defined($c)) {
+    my $ctype = $a->type > $b->type ? $a->type : $b->type;
+    $c = PDL->zeroes($ctype, $b->dim(0),$a->dim(1));
+  }
+  ccs_matmult2d_zdd($a->_whichND,$a->_nzvals, $b, $c);
 
   return $c;
 }

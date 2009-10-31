@@ -623,6 +623,8 @@ sub test_matstuff {
   ##
   my $czo = $az->matmult2d_sdd($b);
   isok("matmult2d_sdd/missing=0/obj", all($czo=$c));
+  my $czoz = $az->matmult2d_zdd($b);
+  isok("matmult2d_zdd/missing=0/obj", all($czoz=$c));
 
   ##-- try to get a handle on non-zero "missing" values
   my $a1 = $a->pdl;

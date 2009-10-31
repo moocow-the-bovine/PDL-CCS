@@ -94,6 +94,8 @@ vvpp_def
 )),
   Doc =>
 (q{
+B<WARNING> this is probably incorrect, and needs a major overhaul.
+
 Two-dimensional matrix multiplication of a sparse index-encoded PDL
 $a(N,M) with a dense pdl $b(O,M), with output to a dense pdl $c(O,N).
 
