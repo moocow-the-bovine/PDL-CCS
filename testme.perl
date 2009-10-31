@@ -599,7 +599,49 @@ sub test_ccsobj {
 
   print "done.\n";
 }
-test_ccsobj();
+#test_ccsobj();
+
+
+##--------------------------------------------------------------
+## test: matrix stuff
+use PDL::CCS::Nd;
+sub test_matstuff {
+  my ($M,$N,$O) = (2,3,4);
+  my $a = sequence($M,$N);
+  my $b = (sequence($O,$M)+1)*10;
+  my $c = $a x $b;
+
+  my $az = $a->toccs;
+  my $cz = zeroes($O,$N);
+  ccs_matmult2d_zdd($az->_whichND,$az->_nzvals, $b, $cz);
+  isok("matmult2d_zdd/missing=0", all($cz==$c));
+  ##
+  my $czt = $cz->zeroes;
+  my $azt = $az->xchg(0,1)->make_physically_indexed;
+  ccs_matmult2d_sdd($azt->_whichND,$azt->_nzvals,$azt->missing, $b, $czt);
+  isok("matmult2d_sdd/missing=0/func", all($czt==$c));
+  ##
+  my $czo = $az->matmult2d_sdd($b);
+  isok("matmult2d_sdd/missing=0/obj", all($czo=$c));
+
+  ##-- try to get a handle on non-zero "missing" values
+  my $a1 = $a->pdl;
+  $a1->where(($a%2)==0) .= 1;
+  my $c1 = $a1 x $b;
+  my $az1 = $a1->toccs(1);
+  my $cz1 = zeroes($O,$N);
+  my $az1t = $az1->xchg(0,1); #->make_physically_indexed;
+  ccs_matmult2d_sdd(scalar($az1t->whichND),$az1t->whichVals,$az1t->missing, $b,$cz1);
+  isok("matmult2d_sdd/missing=1/func", all($cz1==$c1));
+  ##
+  my $cz1o = $az1->matmult2d_sdd($b);
+  isok("matmult2d_sdd/missing=1/obj", all($cz1o==$c1));
+
+
+  print "$0: test_matstuff() done -- what now?\n";
+}
+test_matstuff;
+
 
 ##---------------------------------------------------------------------
 ## DUMMY

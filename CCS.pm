@@ -1,5 +1,5 @@
 ## File: PDL::CCS.pm
-## Author: Bryan Jurish <moocow@ling.uni-potsdam.de>
+## Author: Bryan Jurish <jurish@uni-potsdam.de>
 ## Description: top-level PDL::CCS (also pulls in compatibility code)
 
 package PDL::CCS;
@@ -10,6 +10,7 @@ use PDL::CCS::Functions;
 use PDL::CCS::Utils;
 use PDL::CCS::Ufunc;
 use PDL::CCS::Ops;
+use PDL::CCS::MatrixOps;
 use PDL::CCS::Nd;
 use strict;
 
@@ -22,6 +23,7 @@ our @EXPORT_OK =
    @PDL::CCS::Utils::EXPORT_OK,
    @PDL::CCS::Ufunc::EXPORT_OK,
    @PDL::CCS::Ops::EXPORT_OK,
+   @PDL::CCS::MatrixOps::EXPORT_OK,
    @PDL::CCS::Nd::EXPORT_OK,
   );
 our %EXPORT_TAGS =
@@ -32,6 +34,7 @@ our %EXPORT_TAGS =
 	    @{$PDL::CCS::Utils::EXPORT_TAGS{Func}},
 	    @{$PDL::CCS::Ufunc::EXPORT_TAGS{Func}},
 	    @{$PDL::CCS::Ops::EXPORT_TAGS{Func}},
+	    @{$PDL::CCS::MatrixOps::EXPORT_TAGS{Func}},
 	    @{$PDL::CCS::Nd::EXPORT_TAGS{Func}},
 	   ],               ##-- respect PDL conventions (hopefully)
   );
@@ -107,6 +110,11 @@ of sparse index-encoded PDLs, useful for implementing binary operations.
 
 Various low-level ufunc (accumulator) utilities for index-encoded PDLs.
 
+=item PDL::CCS::MatrixOps
+
+Low-level generic PDL::PP utilities for matrix operations
+on index-encoded PDLs.
+
 =back
 
 =cut
@@ -158,11 +166,11 @@ missing values are annihilators.
 
 =head1 AUTHOR
 
-Bryan Jurish E<lt>moocow@ling.uni-potsdam.deE<gt>
+Bryan Jurish E<lt>jurish@uni-potsdam.deE<gt>
 
 =head2 Copyright Policy
 
-Copyright (C) 2005-2007, Bryan Jurish. All rights reserved.
+Copyright (C) 2005-2009, Bryan Jurish. All rights reserved.
 
 This package is free software, and entirely without warranty.
 You may redistribute it and/or modify it under the same terms

@@ -1,0 +1,214 @@
+##-*- Mode: CPerl -*-
+
+##======================================================================
+## Header Administrivia
+##======================================================================
+
+use PDL::VectorValued::Dev;
+require "../Version.pm";
+our $VERSION = $PDL::CCS::VERSION;
+pp_setversion($VERSION);
+
+##------------------------------------------------------
+## pm headers
+pp_addpm({At=>'Top'},<<'EOPM');
+
+#use PDL::CCS::Version;
+use strict;
+
+=pod
+
+=head1 NAME
+
+PDL::CCS::MatrixOps - Low-level matrix operations for compressed storage sparse PDLs
+
+=head1 SYNOPSIS
+
+ use PDL;
+ use PDL::CCS::MatrixOps;
+
+ ##---------------------------------------------------------------------
+ ## ... stuff happens
+
+=cut
+
+EOPM
+## /pm additions
+##------------------------------------------------------
+
+##------------------------------------------------------
+## Exports: None
+#pp_export_nothing();
+
+##------------------------------------------------------
+## Includes / defines
+pp_addhdr(<<'EOH');
+EOH
+
+
+##======================================================================
+## C Utilities
+##======================================================================
+# (none)
+
+##======================================================================
+## PDL::PP Wrappers
+##======================================================================
+
+
+##======================================================================
+## Operations: matmult2d
+##======================================================================
+
+##--------------------------------------------------------------
+vvpp_def
+  ('ccs_matmult2d_sdd',
+   Pars => ("\n    "
+	    .join("\n    ",
+		  'int ixa(NdimsA,NnzA); nza(NnzA); missinga();', ## a(M,N) (M~i, N~x): here as a(N,M)
+		  'b(O,M);',                                      ## b(O,M) (O~z, M~i)
+		  '[o]c(O,N)',                                    ## c(O,N) (O~z, N~x)
+		  '')),
+   Code =>
+(q(
+ long nzai = 0;
+ long an_nxt = $ixa(NdimsA=>0,NnzA=>nzai);
+ long am_nxt = $ixa(NdimsA=>1,NnzA=>nzai);
+ //-- main loop over output c(O,N)
+ loop (O) %{
+   loop (N) %{
+     $GENERIC(c) con=0;
+     loop (M) %{
+       if (nzai < $SIZE(NnzA) && M==am_nxt && N==an_nxt) {
+         con += $nza(NnzA=>nzai) * $b();
+         nzai = (nzai+1) % $SIZE(NnzA);
+	 an_nxt = $ixa(NdimsA=>0,NnzA=>nzai);
+	 am_nxt = $ixa(NdimsA=>1,NnzA=>nzai);
+       } else {
+         con += $missinga() * $b();
+       }
+     %}
+     $c() = con;
+   %}
+ %}
+)),
+  Doc =>
+(q{
+Two-dimensional matrix multiplication of a sparse index-encoded PDL
+$a(N,M) with a dense pdl $b(O,M), with output to a dense pdl $c(O,N).
+
+B<NOTE>: the sparse input PDL $a() should be passed here with 0th
+dimension "N" and 1st dimension "M", B<unlike> the semantics
+of the built-in PDL::Primitive::matmult(), for which $a() is passed as
+$a(M,N).  Additionally, $ixa() should be lexicographically vector-sorted.
+
+Should handle "missing" values correctly.
+If your missing values are zeroes, then ccs_matmult2d_zdd() will likely be faster.
+
+$SIZE(Ndimsa) is assumed to be 2.
+}),
+ ); ##--/ccs_matmult2d_sdd
+
+
+##--------------------------------------------------------------
+vvpp_def
+  ('ccs_matmult2d_zdd',
+   Pars => ("\n    "
+	    .join("\n    ",
+		  'int ixa(Ndimsa,NnzA); nza(NnzA);', ## a(M,N) (M~i, N~x)
+		  'b(O,M);',                          ## b(O,M) (O~z, M~i)
+		  '[o]c(O,N)',                        ## c(O,N) (O~z, N~x)
+		  '')),
+   Code =>
+(q(
+ //-- initialize output to zero
+ loop (N) %{
+   loop (O) %{
+     $c()=0;
+   %}
+ %}
+ //
+ //-- main loop over CCS-encoded a()
+ loop (NnzA) %{
+   long Mi = $ixa(Ndimsa=>0);
+   long Ni = $ixa(Ndimsa=>1);
+   loop (O) %{
+     $c(N=>Ni) += $nza() * $b(M=>Mi);
+   %}
+ %}
+)),
+  Doc =>
+(q{
+Two-dimensional matrix multiplication of a sparse index-encoded PDL
+$a() with a dense pdl $b(), with output to a dense pdl $c().
+
+The sparse input PDL $a() should be passed here with 0th
+dimension "M" and 1st dimension "N", just as for the
+built-in PDL::Primitive::matmult().
+
+"Missing" values in $a() are treated as zero.
+$SIZE(Ndimsa) is assumed to be 2.
+}),
+ ); ##--/ccs_matmult2d_zdd
+
+
+
+##======================================================================
+## Footer Administrivia
+##======================================================================
+
+##------------------------------------------------------
+## pm additions: footer
+pp_addpm(<<'EOPM');
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 ACKNOWLEDGEMENTS
+
+Perl by Larry Wall.
+
+PDL by Karl Glazebrook, Tuomas J. Lukka, Christian Soeller, and others.
+
+=cut
+
+##----------------------------------------------------------------------
+=pod
+
+=head1 KNOWN BUGS
+
+We should really implement matrix multiplication in terms of
+inner product, and have a good sparse-matrix only implementation
+of the former.
+
+=cut
+
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 AUTHOR
+
+Bryan Jurish E<lt>jurish@uni-potsdam.deE<gt>
+
+=head2 Copyright Policy
+
+All other parts Copyright (C) 2009, Bryan Jurish. All rights reserved.
+
+This package is free software, and entirely without warranty.
+You may redistribute it and/or modify it under the same terms
+as Perl itself.
+
+=head1 SEE ALSO
+
+perl(1), PDL(3perl)
+
+=cut
+
+EOPM
+
+
+# Always make sure that you finish your PP declarations with
+# pp_done
+pp_done();
+##----------------------------------------------------------------------

@@ -15,13 +15,38 @@ BEGIN {
   my $N_TESTS_PER_MATOP  = 8;
   my $N_RUNS_PER_BLOCK = 6;
   my $N_BLOCKS = 5;
+  my $N_HACKS = 2;
   plan(tests=>(
 	       $N_BLOCKS*$N_RUNS_PER_BLOCK*$N_TESTS_PER_MATOP*$N_MATOPS
+	       +
+	       $N_HACKS,
 	      ),
        todo=>[]);
 }
 
 our ($BAD);
+
+##--------------------------------------------------------------
+## hacks
+
+sub test_matmult2d {
+  my ($lab,$a,$b,$az) = @_;  ##-- dense args
+  $az = $a->toccs if (!defined($az));
+  my $c = $a x $b;       ##-- dense output (desired)
+  my $cz = $az->matmult2d_sdd($b);
+  isok("${lab}:matmult2d_sdd:obj:missing=".($az->missing->sclr), all($c==$cz));
+}
+sub test_matmult2d_all {
+  my ($M,$N,$O) = (2,3,4);
+  my $a = sequence($M,$N);
+  my $b = (sequence($O,$M)+1)*10;
+  test_matmult2d('plain',$a,$b, $a->toccs);
+
+  my $a1 = $a->pdl;
+  $a1->where(($a%2)==0) .= 1;
+  test_matmult2d('missing1',$a,$b, $a->toccs(1));
+}
+test_matmult2d_all();
 
 ##--------------------------------------------------------------
 ## matrix operation test (manual swap)

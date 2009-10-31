@@ -15,6 +15,7 @@ WriteMakefile(
 		     'Utils',
 		     'Ufunc',
 		     'Ops',
+		     'MatrixOps',
 		    ], ##-- debug#2
 	      realclean=>{ FILES=>$realclean_files, },
 	      PREREQ_PM => {

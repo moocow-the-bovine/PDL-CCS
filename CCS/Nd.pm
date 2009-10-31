@@ -10,6 +10,7 @@ use PDL::CCS::Functions qw(ccs_decode ccs_pointerlen);
 use PDL::CCS::Utils     qw(ccs_encode_pointers ccs_decode_pointer);
 use PDL::CCS::Ufunc;
 use PDL::CCS::Ops;
+use PDL::CCS::MatrixOps;
 use UNIVERSAL 'isa';
 use Carp;
 use strict;
@@ -549,7 +550,7 @@ sub _whichND {
 
 ## $_nzvals = $obj->_nzvals()
 ## $_nzvals = $obj->_nzvals($nzvals)
-##  + phyiscal storage
+##  + physical storage only
 BEGIN { *_whichVals = \&_nzvals; }
 sub _nzvals {
   $_[0][$VALS]=$_[1]->append($_[0][$VALS]->slice("-1")) if (@_ > 1);
@@ -1615,9 +1616,11 @@ sub matmult {
 
   $b=toccs($b); ##-- ensure 2nd arg is a CCS object
 
-  while ($a->getndims < 2) {$a = $a->dummy(-1)} # promote if necessary
+  ##-- promote if necessary
+  while ($a->getndims < 2) {$a = $a->dummy(-1)}
   while ($b->getndims < 2) {$b = $b->dummy(-1)}
 
+  ##-- vector multiplication (easy)
   if ( ($a->dim(0)==1 && $a->dim(1)==1) || ($b->dim(0)==1 && $b->dim(1)==1) ) {
     if (defined($c)) { @$c = @{$a*$b}; return $c; }
     return $a*$b;
@@ -1633,6 +1636,41 @@ sub matmult {
 
   return $_c;
 }
+
+## $c_dense = $a->matmult2d_sdd($b_dense)
+##  + signature as for PDL::Primitive::matmult()
+sub matmult2d_sdd {
+  my ($a,$b,$c) = @_;
+  $c = undef if (!ref($c) && defined($c) && $c eq ''); ##-- strangeness: getting $c=''
+
+  ##-- promote if necessary
+  while ($a->getndims < 2) {$a = $a->dummy(-1)}
+  while ($b->getndims < 2) {$b = $b->dummy(-1)}
+
+  ##-- vector multiplication (easy)
+  if ( ($a->dim(0)==1 && $a->dim(1)==1) || ($b->dim(0)==1 && $b->dim(1)==1) ) {
+    if (defined($c)) { @$c = @{$a*$b}; return $c; }
+    return $a*$b;
+  }
+
+  ##-- check dim sizes
+  if ($b->dim(1) != $a->dim(0)) {
+    barf(sprintf("Dim mismatch in ", __PACKAGE__, "::matmult2d [%dx%d] x [%dx%d] : %d != %d",
+		 $a->dims,$b->dims, $a->dim(0),$b->dim(1)));
+  }
+
+  ##-- ensure $b dense, $a physically indexed ccs
+  $b = todense($b) if ($b->isa(__PACKAGE__));
+  $a = $a->xchg(0,1)->to_physically_indexed();
+  if (!defined($c)) {
+    my $ctype = $a->type > $b->type ? $a->type : $b->type;
+    $c = PDL->zeroes($ctype, $b->dim(0),$a->dim(0));
+  }
+  ccs_matmult2d_sdd($a->_whichND,$a->_nzvals,$a->missing, $b, $c);
+
+  return $c;
+}
+
 
 ##--------------------------------------------------------------
 ## Interpolation
