@@ -250,6 +250,7 @@ pp_def
    }
    if (!defined($projix) || !defined($nzix)) {
      $nnzproj = ($ptr->index($proj+1)-$ptr->index($proj))->sum if (!defined($nnzproj));
+     return (null,null) if (!$nnzproj);
      $projix  = PDL->zeroes(PDL::long(), $nnzproj) if (!defined($projix));
      $nzix    = PDL->zeroes(PDL::long(), $nnzproj) if (!defined($nzix));
    }
