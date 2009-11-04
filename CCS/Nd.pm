@@ -829,7 +829,7 @@ sub dice_axis {
   my $nzix   = $pi2nzi->index($pi2nzix);
   my $which  = $ccs->[$WHICH]->dice_axis(1,$nzix);
   $which->sever;
-  $which->slice("($axis),") .= $ptrix if (!$which->isempty);
+  $which->slice("($axis),") .= $ptrix if (!$which->isempty); ##-- isempty() fix: v1.12
   my $nzvals = $ccs->[$VALS]->index($nzix->append($ccs->[$WHICH]->dim(1)));
   ##
   ##-- construct output object
