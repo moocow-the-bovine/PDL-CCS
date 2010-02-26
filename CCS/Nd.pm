@@ -1638,12 +1638,13 @@ sub matmult {
 }
 
 ## $c_dense = $a->matmult2d_sdd($b_dense)
+## $c_dense = $a->matmult2d_sdd($b_dense, $zc)
 ##  + signature as for PDL::Primitive::matmult()
-##  + should handle missing values correctly, but probably doesn't
-##    (modulo in underlying PDL::PP code is wrong & inefficient)
+##  + should handle missing values correctly (except for BAD, inf, NaN, etc.)
+##  + see PDL::CCS::MatrixOps(3pm) for details
 sub matmult2d_sdd {
-  my ($a,$b,$c) = @_;
-  $c = undef if (!ref($c) && defined($c) && $c eq ''); ##-- strangeness: getting $c=''
+  my ($a,$b,$c, $zc) = @_;
+  $c  = undef if (!ref($c) && defined($c) && $c eq ''); ##-- strangeness: getting $c=''
 
   ##-- promote if necessary
   while ($a->getndims < 2) {$a = $a->dummy(-1)}
@@ -1663,12 +1664,18 @@ sub matmult2d_sdd {
 
   ##-- ensure $b dense, $a physically indexed ccs
   $b = todense($b) if ($b->isa(__PACKAGE__));
-  $a = $a->xchg(0,1)->to_physically_indexed();
+  $a = $a->to_physically_indexed();
   if (!defined($c)) {
     my $ctype = $a->type > $b->type ? $a->type : $b->type;
-    $c = PDL->zeroes($ctype, $b->dim(0),$a->dim(0));
+    $c = PDL->zeroes($ctype, $b->dim(0),$a->dim(1));
   }
-  ccs_matmult2d_sdd($a->_whichND,$a->_nzvals,$a->missing, $b, $c);
+
+  ##-- compute $zc if required
+  if (!defined($zc)) {
+    $zc = (($a->missing + PDL->zeroes($a->type, $a->dim(0), 1)) x $b)->flat;
+  }
+
+  ccs_matmult2d_sdd($a->_whichND,$a->_nzvals,$a->missing, $b, $zc, $c);
 
   return $c;
 }

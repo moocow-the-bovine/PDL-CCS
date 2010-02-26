@@ -616,10 +616,10 @@ sub test_matstuff {
   ccs_matmult2d_zdd($az->_whichND,$az->_nzvals, $b, $cz);
   isok("matmult2d_zdd/missing=0", all($cz==$c));
   ##
-  my $czt = $cz->zeroes;
-  my $azt = $az->xchg(0,1)->make_physically_indexed;
-  ccs_matmult2d_sdd($azt->_whichND,$azt->_nzvals,$azt->missing, $b, $czt);
-  isok("matmult2d_sdd/missing=0/func", all($czt==$c));
+  my $czs = $cz->zeroes;
+  my $abnil = (($az->missing+zeroes($M,1)) x $b)->flat;
+  ccs_matmult2d_sdd($az->_whichND,$az->_nzvals,$az->missing, $b, $abnil, $czs);
+  isok("matmult2d_sdd/missing=0/func", all($czs==$c));
   ##
   my $czo = $az->matmult2d_sdd($b);
   isok("matmult2d_sdd/missing=0/obj", all($czo=$c));
@@ -632,8 +632,8 @@ sub test_matstuff {
   my $c1 = $a1 x $b;
   my $az1 = $a1->toccs(1);
   my $cz1 = zeroes($O,$N);
-  my $az1t = $az1->xchg(0,1); #->make_physically_indexed;
-  ccs_matmult2d_sdd(scalar($az1t->whichND),$az1t->whichVals,$az1t->missing, $b,$cz1);
+  my $abnil1 = (($az1->missing+zeroes($a1->dim(0),1)) x $b)->flat;
+  ccs_matmult2d_sdd($az1->_whichND,$az1->_whichVals,$az1->missing, $b, $abnil1, $cz1);
   isok("matmult2d_sdd/missing=1/func", all($cz1==$c1));
   ##
   my $cz1o = $az1->matmult2d_sdd($b);

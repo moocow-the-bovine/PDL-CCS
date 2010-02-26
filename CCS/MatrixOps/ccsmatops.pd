@@ -65,47 +65,46 @@ vvpp_def
   ('ccs_matmult2d_sdd',
    Pars => ("\n    "
 	    .join("\n    ",
-		  'int ixa(NdimsA,NnzA); nza(NnzA); missinga();', ## a(M,N) (M~i, N~x): here as a(N,M)
+		  'int ixa(NdimsA,NnzA); nza(NnzA); missinga();', ## a(M,N) (M~i, N~x): formerly here as a(N,M)
 		  'b(O,M);',                                      ## b(O,M) (O~z, M~i)
+		  'zc(O);',                                       ## zc(O)
 		  '[o]c(O,N)',                                    ## c(O,N) (O~z, N~x)
 		  '')),
    Code =>
 (q(
- long nzai = 0;
- long an_nxt = $ixa(NdimsA=>0,NnzA=>nzai);
- long am_nxt = $ixa(NdimsA=>1,NnzA=>nzai);
- //-- main loop over output c(O,N)
+ //-- initialize: set output to $zc()
  loop (O) %{
+   $GENERIC(zc) zc_o = $zc();
    loop (N) %{
-     $GENERIC(c) con=0;
-     loop (M) %{
-       if (nzai < $SIZE(NnzA) && M==am_nxt && N==an_nxt) {
-         con += $nza(NnzA=>nzai) * $b();
-         nzai = (nzai+1) % $SIZE(NnzA);
-	 an_nxt = $ixa(NdimsA=>0,NnzA=>nzai);
-	 am_nxt = $ixa(NdimsA=>1,NnzA=>nzai);
-       } else {
-         con += $missinga() * $b();
-       }
-     %}
-     $c() = con;
+     $c() = zc_o;
+   %}
+ %}
+ //
+ //-- main loop
+ loop (NnzA) %{
+   long mi = $ixa(NdimsA=>0);
+   long ni = $ixa(NdimsA=>1);
+   loop (O) %{
+     //--# c(o,n) = sum for m=1 to M [a(m,n) * b(o,m)]
+     $c(N=>ni) += $b(M=>mi) * ($nza() - $missinga());
    %}
  %}
 )),
   Doc =>
 (q{
-B<WARNING> this is probably incorrect, and needs a major overhaul.
-
 Two-dimensional matrix multiplication of a sparse index-encoded PDL
-$a(N,M) with a dense pdl $b(O,M), with output to a dense pdl $c(O,N).
+$a() with a dense pdl $b(), with output to a dense pdl $c().
 
-B<NOTE>: the sparse input PDL $a() should be passed here with 0th
-dimension "N" and 1st dimension "M", B<unlike> the semantics
-of the built-in PDL::Primitive::matmult(), for which $a() is passed as
-$a(M,N).  Additionally, $ixa() should be lexicographically vector-sorted.
+The sparse input PDL $a() should be passed here with 0th
+dimension "M" and 1st dimension "N", just as for the
+built-in PDL::Primitive::matmult().
 
-Should handle "missing" values correctly.
-If your missing values are zeroes, then ccs_matmult2d_zdd() will likely be faster.
+"Missing" values in $a() are treated as $missinga(), which shouldn't
+be BAD or inifinte, but otherwise ought to be handled correctly.
+The input pdl $zc() is used to pass the cached contribution of
+a $missinga()-row ("M") to an output column ("O"), i.e.
+
+ $zc = ((zeroes($M,1)+$missinga) x $b)->flat;
 
 $SIZE(Ndimsa) is assumed to be 2.
 }),
