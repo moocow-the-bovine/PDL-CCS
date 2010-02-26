@@ -39,3 +39,7 @@ CCS/Ufunc/t/01_ufunc.t
 CCS/Ufunc/t/common.plt
 CCS/Ops/t/00_basic.t
 CCS/Ops/t/common.plt
+CCS/MatrixOps/t/common.plt
+CCS/MatrixOps/t/00_basic.t
+CCS/MatrixOps/ccsmatops.pd
+CCS/MatrixOps/Makefile.PL
