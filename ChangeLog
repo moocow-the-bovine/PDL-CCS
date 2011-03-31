@@ -1,3 +1,6 @@
+v1.14 Wed, 30 Mar 2011 15:21:31 +0200 (moocow)
+	+ moved qsortveci() calls to vv_qsortveci() (requires PDL::VectorValued v0.04)
+
 v1.08 Thu, 16 Jul 2009 12:22:38 +0200
 	+ added CCS::Nd methods interpolate(), interpol()
 
@@ -15,13 +18,12 @@ v1.03 Wed, 20 Feb 2008 10:30:39 +0100
 	+ fixed some bugs in PDL::CCS::Nd::to_physically_indexed()
 	  - bad use of vdims for pdims (output pdl should be physically ordered)
 	  - missing value wasn't getting appended to output pdl
-	
 
 v1.02 Thu, 14 Feb 2008 12:50:11 +0100
 	+ fixed some bugs in PDL::CCS::Nd::string(), ::appendWhich() for objects with empty index pdls
 	+ fixed virtual-dimension indexing bug in PDL::CCS::Nd::indexNDi
 	  causing indexing to fail for e.g. transposed sparse matrices
-	
+
 v1.01 Tue, 24 Apr 2007 01:24:05 +0200 (moocow)
 	+ added PDL::CCS::Nd perl class for sparse Nd piddle-like structures
 	+ separated out submodules Utils, Ufunc, Ops
@@ -29,6 +31,6 @@ v1.01 Tue, 24 Apr 2007 01:24:05 +0200 (moocow)
 
 v0.03 - v0.06
 	+ various minor changes dealing with 2d pdls only
-	
+
 v0.01 Sat, 11 Jun 2005 10:32:05 +0200 (moocow)
 	+ initial version, 2d pdls only

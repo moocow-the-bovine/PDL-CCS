@@ -179,7 +179,7 @@ sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for in
     $avalsr = $avals;
   } else {
     $ixar          = $ixa->slice("$align_dim,");
-    my $ixar_sorti = $ixar->qsortveci;
+    my $ixar_sorti = $ixar->vv_qsortveci;
     $ixa           = $ixa->dice_axis(1,$ixar_sorti);
     $ixar          = $ixar->dice_axis(1,$ixar_sorti);
     $avalsr        = $avals->index($ixar_sorti);
@@ -196,7 +196,7 @@ sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for in
     $bvalsr = $bvals;
   } else {
     $ixbr          = $ixb->slice("$align_dim,");
-    my $ixbr_sorti = $ixbr->qsortveci;
+    my $ixbr_sorti = $ixbr->vv_qsortveci;
     $ixb           = $ixb->dice_axis(1,$ixbr_sorti);
     $ixbr          = $ixbr->dice_axis(1,$ixbr_sorti);
     $bvalsr        = $bvals->index($ixbr_sorti);
@@ -1049,7 +1049,7 @@ sub test_ccs_binops_mia_cv {
 
   ##-- guts: alignment
   our $ixa1      = $ixa->slice("1,");
-  our $ixa1sorti = qsortveci($ixa1);
+  our $ixa1sorti = vv_qsortveci($ixa1);
   $ixa1          = $ixa1->dice_axis(1,$ixa1sorti);
   ccs_binop_align_block_mia($ixa1,$ixb,$istate, $nzai=zeroes(long,$nnzc),$nzbi=zeroes(long,$nnzc),$ostate);
 
@@ -1080,7 +1080,7 @@ sub test_ccs_binops_mia_cv {
   our $cwhich   = $ixa->dice_axis(1,$ixa1sorti)->dice_axis(1,$nzai->index($ciwhich));
 
   ##-- re-sort output pdls
-  our $cwhichsorti = $cwhich->qsortveci;
+  our $cwhichsorti = $cwhich->vv_qsortveci;
   $cwhich          = $cwhich->dice_axis(1,$cwhichsorti);
   $nzc             = $nzc->index($cwhichsorti);
 
@@ -1485,7 +1485,7 @@ sub test_ufuncs_1 {
   our $which   = $ccs->whichND;
   our $which0  = $which->slice("(0),");
   our $which1  = $which->slice("1:-1");
-  our $whichi1 = $which1->qsortveci;
+  our $whichi1 = $which1->vv_qsortveci;
   $which1      = $which1->dice_axis(1,$whichi1);
   our $nzvals1 = $ccs->_nzvals->index($whichi1);
 
@@ -1523,7 +1523,7 @@ sub test_ufuncs_1 {
   $ba2 = $ba->pdl;
   $ba2->where($ba==0) .= $missing2;
   $bwhich  = $ba->whichND;
-  our $bwhichi1 = $bwhich->slice("-1:0,")->qsortveci;
+  our $bwhichi1 = $bwhich->slice("-1:0,")->vv_qsortveci;
   $bwhich   = $bwhich->dice_axis(1,$bwhichi1);
   $bwhich0  = $bwhich->slice("0,");
   $bwhich1  = $bwhich->slice("1:-1,");

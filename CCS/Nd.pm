@@ -163,7 +163,7 @@ sub fromWhich {
   if (!$opts{steal}) {
     ##-- not stolen: copy or sever
     if (!$opts{sorted}) {
-      my $wi   = $wnd->isempty ? PDL->null->long : $wnd->qsortveci;
+      my $wi   = $wnd->isempty ? PDL->null->long : $wnd->vv_qsortveci;
       $wnd     = $wnd->dice_axis(1,$wi);
       $nzvals  = $nzvals->index($wi);
     }
@@ -346,7 +346,7 @@ sub recode {
 ##  + clears pointers
 sub sortwhich {
   return $_[0] if ($_[0][$WHICH]->isempty);
-  my $sorti     = $_[0][$WHICH]->qsortveci;
+  my $sorti     = $_[0][$WHICH]->vv_qsortveci;
   $_[0][$WHICH] = $_[0][$WHICH]->dice_axis(1,$sorti);
   $_[0][$VALS]  = $_[0][$VALS]->index($sorti->append($_[0][$WHICH]->dim(1)));
 #
@@ -473,7 +473,7 @@ sub to_physically_indexed {
   my $ccs   = shift;
   my $which = $ccs->whichND;
   my $vals  = $ccs->whichVals;
-  my $sorti = $which->qsortveci;
+  my $sorti = $which->vv_qsortveci;
   return $ccs->shadow(
 		      pdims=>$ccs->dimpdl->abs,
 		      vdims=>$ccs->[$VDIMS]->sequence,
@@ -947,7 +947,7 @@ sub _ufuncsub {
       $vals1  = $vals;
     } else {
       $which1   = $which->slice("1:-1,");
-      my $sorti = $which1->qsortveci;
+      my $sorti = $which1->vv_qsortveci;
       $which1   = $which1->dice_axis(1,$sorti);
       $vals1    = $vals->index($sorti);
     }
@@ -1049,7 +1049,7 @@ sub _ufunc_ind_sub {
       $which1 = PDL->zeroes($P_LONG,1,$which->dim(1)); ##-- dummy
       $vals1  = $vals;
     } else {
-      my $sorti = $which->dice_axis(0, PDL->sequence($P_LONG,$which->dim(0))->rotate(-1))->qsortveci;
+      my $sorti = $which->dice_axis(0, PDL->sequence($P_LONG,$which->dim(0))->rotate(-1))->vv_qsortveci;
       $which1   = $which->slice("1:-1,")->dice_axis(1,$sorti);
       $which0   = $which->slice("(0),")->index($sorti);
       $vals1    = $vals->index($sorti);
@@ -1240,7 +1240,7 @@ sub _ccsnd_binary_op_mia {
       $avalsr = $avals;
     } else {
       $ixar          = $ixa->dice_axis(0,$ra);
-      my $ixar_sorti = $ixar->isempty ? PDL->null->long : $ixar->qsortveci;
+      my $ixar_sorti = $ixar->isempty ? PDL->null->long : $ixar->vv_qsortveci;
       $ixa           = $ixa->dice_axis(1,$ixar_sorti);
       $ixar          = $ixar->dice_axis(1,$ixar_sorti);
       $avalsr        = $avals->index($ixar_sorti);
@@ -1261,7 +1261,7 @@ sub _ccsnd_binary_op_mia {
       $bvalsr = $bvals;
     } else {
       $ixbr          = $ixb->dice_axis(0,$rb);
-      my $ixbr_sorti = $ixbr->isempty ? PDL->null->long : $ixbr->qsortveci;
+      my $ixbr_sorti = $ixbr->isempty ? PDL->null->long : $ixbr->vv_qsortveci;
       $ixb           = $ixb->dice_axis(1,$ixbr_sorti);
       $ixbr          = $ixbr->dice_axis(1,$ixbr_sorti);
       $bvalsr        = $bvals->index($ixbr_sorti);
@@ -1367,7 +1367,7 @@ sub _ccsnd_binary_op_mia {
     if ($nnzc > 0) {
       ##-- usual case: some values are non-missing
       $ixc = $ixc->slice(",0:".($nnzc-1));
-      my $ixc_sorti = $ixc->qsortveci;
+      my $ixc_sorti = $ixc->vv_qsortveci;
       $nzc          = $nzc->index($ixc_sorti)->append($zc->convert($nzc->type));
       $nzc->sever;
       $ixc          = $ixc->dice_axis(1,$ixc_sorti);
