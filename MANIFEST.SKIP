@@ -2,6 +2,7 @@
 \.svn
 \.gz$
 \.\#
+\bAttic\b
 CCS/.*\.bin$
 CCS/Old
 CCS/Ops/Ops\.(c|pm|xs)$
