@@ -1,5 +1,5 @@
 ## File: PDL::CCS::Functions.pm
-## Author: Bryan Jurish <moocow@ling.uni-potsdam.de>
+## Author: Bryan Jurish <moocow@cpan.org>
 ## Description: useful perl-level functions for PDL::CCS
 
 package PDL::CCS::Functions;

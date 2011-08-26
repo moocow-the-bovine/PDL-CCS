@@ -1,10 +1,13 @@
 ~$
+\.svn
+\.gz$
 \.\#
 CCS/.*\.bin$
 CCS/Old
 CCS/Ops/Ops\.(c|pm|xs)$
 CCS/Ufunc/Ufunc\.(c|pm|xs)$
 CCS/Utils/Utils\.(c|pm|xs)$
+CCS/MatrixOps/MatrixOps\.(c|pm|xs)$
 \bppgen.perl$
 \.save(?:\d*)$
 \.gz$
@@ -20,7 +23,7 @@ CCS/Utils/Utils\.(c|pm|xs)$
 \bgraveyard\b
 \bMakefile$
 \btestme\.perl$
-\bREADME\.pod$
+\bREADME\.(?:r?)pod$
 \.html$
 \btmp\b
 ^#Makefile#$

@@ -1,5 +1,5 @@
 ## File: PDL::CCS::Nd.pm
-## Author: Bryan Jurish <moocow@ling.uni-potsdam.de>
+## Author: Bryan Jurish <moocow@cpan.org>
 ## Description: N-dimensional CCS-encoded pseudo-PDL
 
 package PDL::CCS::Nd;
@@ -3041,7 +3041,7 @@ Many.
 
 =head1 AUTHOR
 
-Bryan Jurish E<lt>moocow@ling.uni-potsdam.deE<gt>
+Bryan Jurish E<lt>moocow@cpan.orgE<gt>
 
 =head2 Copyright Policy
 

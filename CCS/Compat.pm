@@ -1,5 +1,5 @@
 ## File: PDL::CCS::Compat.pm
-## Author: Bryan Jurish <moocow@ling.uni-potsdam.de>
+## Author: Bryan Jurish <moocow@cpan.org>
 ## Description: backwards-compatibility hacks for PDL::CCS
 
 package PDL::CCS::Compat;
@@ -994,7 +994,7 @@ Many.
 
 =head1 AUTHOR
 
-Bryan Jurish E<lt>moocow@ling.uni-potsdam.deE<gt>
+Bryan Jurish E<lt>moocow@cpan.orgE<gt>
 
 =head2 Copyright Policy
 

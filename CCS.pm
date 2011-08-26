@@ -1,5 +1,5 @@
 ## File: PDL::CCS.pm
-## Author: Bryan Jurish <jurish@uni-potsdam.de>
+## Author: Bryan Jurish <moocow@cpan.org>
 ## Description: top-level PDL::CCS (also pulls in compatibility code)
 
 package PDL::CCS;
@@ -166,7 +166,7 @@ missing values are annihilators.
 
 =head1 AUTHOR
 
-Bryan Jurish E<lt>jurish@uni-potsdam.deE<gt>
+Bryan Jurish E<lt>moocow@cpan.orgE<gt>
 
 =head2 Copyright Policy
 
