@@ -32,7 +32,7 @@ isok("transpose()", all($a==$a2));
 
 ##-- 2-3: whichND()
 ($ccols,$crows) = ccswhichND($ptr,$rowids,$nzvals);
-($acols,$arows) = whichND($a);
+($acols,$arows) = $a->whichND->xchg(0,1)->dog;
 $acoli = $acols->qsorti;
 $ccoli = $ccols->qsorti;
 isok("whichND() / cols", all($acols->index($acoli) == $ccols->index($ccoli)));

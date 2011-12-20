@@ -2,7 +2,8 @@
 # t/05_binops.t
 
 $TEST_DIR = './t';
-#use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
+#use lib qw(.. ../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging (PDL::CCS/CCS)
+#use lib qw(../.. ../../blib/lib ../../blib/arch); $TEST_DIR = '.'; # for debugging (PDL::CCS)
 
 # load common subs
 use Test;
@@ -42,7 +43,15 @@ sub test_binop {
   $missing_val = 0 if (!defined($missing_val));
   $missing_val = PDL->topdl($missing_val);
   if ($missing_val->isbad) { $a = $a->setbadif($abad); }
-  else                     { $a->where($abad) .= $missing_val; $a->badflag(0); }
+  else {
+    ##-- the .= line failes under debugger for perl<5.15.1 with:
+    ##   : Can't return a temporary from lvalue subroutine at /home/moocow/work/diss/perl/PDL-CCS/CCS/t/05_binops.t line $LINE_NUMBER
+    ##   + workaround: assgn($missing_val, $a->where($abad));
+    ##   + ... but that's a serious PITA for runtime debugging
+    ##   + see https://rt.perl.org/rt3/Public/Bug/Display.html?id=71172 for a perl patch
+    $a->where($abad) .= $missing_val;
+    $a->badflag(0);
+  }
 
   $b  = PDL->topdl($b);
   $as = $a->toccs($missing_val);

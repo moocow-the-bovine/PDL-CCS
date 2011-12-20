@@ -106,10 +106,13 @@ Decode a CCS-encoded matrix (no dataflow).
 sub ccs_decode {
   my ($aw,$nzvals,$missing,$dims,$a) = @_;
   $missing = $PDL::undefval if (!defined($missing));
-  $dims = [ map {$aw->slice("($_),")->max+1} (0..($aw->dim(0)-1))] if (!defined($dims));
+  if (!defined($dims)) {
+    barf("PDL::CCS::ccs_decode(): whichnd() is empty; you must specify \@Dims!") if ($aw->isempty);
+    $dims = [ map {$aw->slice("($_),")->max+1} (0..($aw->dim(0)-1))];
+  }
   $a    = zeroes($nzvals->type, @$dims) if (!defined($a));
   $a   .= $missing;
-  $a->indexND($aw) .= $nzvals;
+  $a->indexND($aw) .= $nzvals if (!$nzvals->isempty);
   return $a;
 }
 

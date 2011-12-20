@@ -1,4 +1,4 @@
-# -*- Mode: Perl -*-
+# -*- Mode: CPerl -*-
 # t/02_encode.t: test ccs encoding
 
 $TEST_DIR = './t';
@@ -66,7 +66,8 @@ isok("encodefulla():rowids", all($rowidsa==$want_rowids_a));
 isok("encodefulla():nzvals", all($nzvalsa==$want_nzvals_a));
 
 ##-- 13..15 : test ccsencodefull_i2d()
-($pwcols,$pwrows) = $p->whichND;
+#($pwcols,$pwrows) = $p->whichND; ##-- in pdl-2.4.9_014: WARNING - deprecated list context for whichND (may switch to scalar case soon)
+($pwcols,$pwrows) = $p->whichND->xchg(0,1)->dog;
 $pwvals           = $p->index2d($pwcols,$pwrows);
 $nnz              = $pwvals->nelem;
 ccsencodefull_i2d($pwcols,$pwrows,$pwvals,

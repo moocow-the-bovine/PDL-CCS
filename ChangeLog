@@ -1,3 +1,7 @@
+v1.15 2011-12-20 moocow
+	* [r5936] band-aided barf()ing PDL::CCS::Functions::ccs_decode()
+	  due to mismatched dimensions in empty index and value piddles
+
 v1.14 2011-03-31  moocow
 	* [r5596] CCS/Makefile.PL, CCS/Nd.pm, CCS/Version.pm,
 	  CCS/testme.perl, ChangeLog, Makefile.PL, testme.perl: + v1.14:

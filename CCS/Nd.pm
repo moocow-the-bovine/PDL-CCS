@@ -425,7 +425,7 @@ foreach my $pdltype (qw(byte short ushort long longlong float double)) {
 
 ## $dimpdl = $obj->dimpdl()
 ##  + values in $dimpdl are negative for virtual dimensions
-sub dimpdl {
+sub dimpdl :lvalue {
   my $dims  = $_[0][$VDIMS]->pdl;
   my $physi = ($_[0][$VDIMS]>=0)->which;
   $dims->index($physi) .= $_[0][$PDIMS]->index($_[0][$VDIMS]->index($physi));
