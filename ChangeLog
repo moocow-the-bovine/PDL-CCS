@@ -1,3 +1,6 @@
+v1.16 Mon, 02 Jan 2012 13:38:48 +0100 moocow
+	+ cpan-friendly distribution with pdlmaker.plm
+
 v1.15 2011-12-20 moocow
 	* [r5936] band-aided barf()ing PDL::CCS::Functions::ccs_decode()
 	  due to mismatched dimensions in empty index and value piddles

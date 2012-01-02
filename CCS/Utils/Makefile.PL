@@ -1,9 +1,10 @@
 use PDL::Core::Dev;
 use ExtUtils::MakeMaker;
 PDL::Core::Dev->import();
+require "../../pdlmaker.plm";
 
 $package = ["ccsutils.pd", 'Utils', 'PDL::CCS::Utils'];
-%hash = pdlpp_stdargs($package);
+%hash = pdlmaker_init($package);
 
 $hash{AUTHOR} = 'Bryan Jurish';
 $hash{ABSTRACT} = 'Low-level utilities for compressed storage sparse PDLs';
@@ -21,4 +22,3 @@ $hash{realclean}{FILES} .= '*~ *.tmp README.txt';
 
 WriteMakefile(%hash);
 
-sub MY::postamble { pdlpp_postamble($package); }

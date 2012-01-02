@@ -2,6 +2,7 @@ ChangeLog
 MANIFEST
 MANIFEST.SKIP
 Makefile.PL
+pdlmaker.plm
 README.txt
 README.rpod
 CCS.pm
@@ -11,11 +12,17 @@ CCS/Compat.pm
 CCS/Nd.pm
 CCS/Version.pm
 CCS/Ops/Makefile.PL
-CCS/Ops/ccsops.pd
+CCS/Ops/ccsops.pd		# CCS/Ops/Ops.pm
+CCS/Ops/Ops.pm
 CCS/Ufunc/Makefile.PL
-CCS/Ufunc/ccsufunc.pd
+CCS/Ufunc/ccsufunc.pd		# CCS/Ufunc/Ufunc.pm
+CCS/Ufunc/Ufunc.pm
 CCS/Utils/Makefile.PL
-CCS/Utils/ccsutils.pd
+CCS/Utils/ccsutils.pd		# CCS/Utils/Utils.pm
+CCS/Utils/Utils.pm
+CCS/MatrixOps/Makefile.PL
+CCS/MatrixOps/ccsmatops.pd	# CCS/MatrixOps/MatrixOps.pm
+CCS/MatrixOps/MatrixOps.pm
 t/common.plt
 t/00_basic.t
 t/01_nnz.t
@@ -44,5 +51,3 @@ CCS/Ops/t/00_basic.t
 CCS/Ops/t/common.plt
 CCS/MatrixOps/t/common.plt
 CCS/MatrixOps/t/00_basic.t
-CCS/MatrixOps/ccsmatops.pd
-CCS/MatrixOps/Makefile.PL

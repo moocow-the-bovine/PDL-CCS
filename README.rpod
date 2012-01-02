@@ -12,6 +12,8 @@ PDL::CCS - Sparse N-dimensional PDLs with Harwell-Boeing compressed column stora
 
 =item * PDL E<gt>= v2.4.2
 
+Tested version(s) 2.4.2, 2.4.3, 2.4.7_001, 2.4.9_015.
+
 =item * PDL::VectorValued E<gt>= v0.03
 
 =back

@@ -1999,7 +1999,7 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  $ccs2  = $ccs->dice_axis($vaxis,$vaxis_ix);
 
  $whichND = $ccs->whichND();
- $vals    = $ccs->whichVals();                 ##-- like $ccs->indexND($ccs->whichND), but faster
+ $vals    = $ccs->whichVals();               ##-- like $ccs->indexND($ccs->whichND), but faster
  $which   = $ccs->which()
 
  $value = $ccs->at(@index);
