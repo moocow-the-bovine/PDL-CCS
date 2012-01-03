@@ -112,7 +112,11 @@ sub ccs_decode {
   }
   $a    = zeroes($nzvals->type, @$dims) if (!defined($a));
   $a   .= $missing;
-  $a->indexND($aw) .= $nzvals if (!$nzvals->isempty);
+  #$a->indexND($aw) .= $nzvals if (!$nzvals->isempty); ##-- CPAN tests puke here with "Can't modify non-lvalue subroutine call" in 5.15.x
+  if (!$nzvals->isempty) {
+    my $tmp = $a->indexND($aw);
+    $tmp .= $nzvals;
+  }
   return $a;
 }
 
