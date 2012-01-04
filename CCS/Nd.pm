@@ -11,9 +11,13 @@ use PDL::CCS::Utils     qw(ccs_encode_pointers ccs_decode_pointer);
 use PDL::CCS::Ufunc;
 use PDL::CCS::Ops;
 use PDL::CCS::MatrixOps;
-use UNIVERSAL 'isa';
 use Carp;
 use strict;
+
+BEGIN {
+  *isa = \&UNIVERSAL::isa;
+  *can = \&UNIVERSAL::can;
+}
 
 our $VERSION = $PDL::CCS::VERSION;
 our @ISA = qw();

@@ -10,7 +10,10 @@ WriteMakefile(
 	      NAME   =>'PDL::CCS',
 	      AUTHOR => 'Bryan Jurish',
 	      ABSTRACT =>'Sparse N-dimensional PDLs with compressed column storage',
-	      VERSION_FROM => 'CCS/Version.pm',
+	      ##
+	      #VERSION_FROM => 'CCS/Version.pm',
+	      VERSION => '1.17_001',
+	      ##
 	      #PM => { (map {$_=>"\$(INST_LIBDIR)/CCS/$_"} <*.pm>), },
 	      DIR =>[
 		     'CCS',
