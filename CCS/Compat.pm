@@ -529,7 +529,8 @@ sub ccsiNDtonzi {
   $nzix              = $ind->vsearchvec($ccswnd);
   my $nzix_mask      = ($ind==$ccswnd->dice_axis(1,$nzix))->andover;
   $nzix_mask->inplace->not;
-  (my $tmp = $nzix->where($nzix_mask)) .= $missing; ##-- fix "Can't modify non-lvalue subroutine call" in 5.15.x
+  #(my $tmp = $nzix->where($nzix_mask)) .= $missing; ##-- fix "Can't modify non-lvalue subroutine call" in 5.15.x (perl bug #107366)
+  $nzix->where($nzix_mask) .= $missing;
   return $nzix;
 }
 
