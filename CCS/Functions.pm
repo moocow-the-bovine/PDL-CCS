@@ -113,7 +113,7 @@ sub ccs_decode {
   $a    = zeroes($nzvals->type, @$dims) if (!defined($a));
   $a   .= $missing;
 
-  $a->indexND($aw) .= $nzvals; ##-- CPAN tests puke here with "Can't modify non-lvalue subroutine call" in 5.15.x (perl bug #107366)
+  (my $tmp=$a->indexND($aw)) .= $nzvals; ##-- CPAN tests puke here with "Can't modify non-lvalue subroutine call" in 5.15.x (perl bug #107366)
 
   ##-- workaround for missing empty pdl support in PDL 2.4.10 release candidates (pdl bug #3462924), fixed in 2.4.9_993
   #$a->indexND($aw) .= $nzvals if (!$nzvals->isempty);
