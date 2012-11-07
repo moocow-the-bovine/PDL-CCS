@@ -1,3 +1,9 @@
+
+v1.18.0 Wed, 07 Nov 2012 13:57:26 +0100
+	+ added CCS::Functions::ccs_qsort(), CCS::Nd::qsort(), CCS::Nd::qsorti()
+	+ new qsort code requires PDL::VectorValued >= v0.06 (for enumvec())
+	+ added :lvalue attribute to selected CCS::Nd and CCS::Functions subs
+
 v1.16 Mon, 02 Jan 2012 13:38:48 +0100 moocow
 	+ cpan-friendly distribution with pdlmaker.plm
 

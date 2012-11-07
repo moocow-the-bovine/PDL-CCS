@@ -69,7 +69,7 @@ PDL::CCS::Functions - Useful perl-level functions for PDL::CCS
 
 =for sig
 
-  Signature: (int ptr(N+1); int len(N))
+  Signature: (int ptr(N+1); int [o]len(N))
 
 Get number of non-missing values for each axis value from a CCS-encoded
 offset pointer vector $ptr().
@@ -79,7 +79,7 @@ offset pointer vector $ptr().
 ;#-- emacs
 
 *PDL::ccs_pointerlen = \&ccs_pointerlen;
-sub ccs_pointerlen {
+sub ccs_pointerlen :lvalue {
   my ($ptr,$len) = @_;
   if (!defined($len)) {
     $len = $ptr->slice("1:-1") - $ptr->slice("0:-2");
@@ -107,7 +107,7 @@ Decode a CCS-encoded matrix (no dataflow).
 ;#-- emacs
 
 *PDL::ccs_decode = \&ccs_decode;
-sub ccs_decode {
+sub ccs_decode  :lvalue {
   my ($aw,$nzvals,$missing,$dims,$a) = @_;
   $missing = $PDL::undefval if (!defined($missing));
   if (!defined($dims)) {
@@ -221,7 +221,7 @@ and uses \&PDLCODE to perform underlying computation.
 *PDL::ccs_binop_vector_mia = \&ccs_binop_vector_mia;
 sub ccs_binop_vector_mia {
   my ($opName,$pdlCode) = @_;
-  return sub {
+  return sub :lvalue {
     my ($wi,$nzvals_in, $vec,$nzvals_out) = @_;
     $nzvals_out = zeroes(($nzvals_in->type > $vec->type ? $nzvals_in->type : $vec->type), $nzvals_in->nelem)
       if (!defined($nzvals_out));
