@@ -99,7 +99,7 @@ sub _max2 ($$) { $_[0]>$_[1] ? $_[0] : $_[1]; }
 ##
 sub newFromDense :lvalue {
   my $that = shift;
-  return (bless [], ref($that)||$that)->fromDense(@_);
+  return my $tmp=(bless [], ref($that)||$that)->fromDense(@_);
 }
 
 ## $obj = $obj->fromDense($denseND,$missing,$flags)
@@ -131,7 +131,7 @@ sub fromDense :lvalue {
 ##  + %options: see $obj->fromWhich()
 sub newFromWhich :lvalue {
   my $that = shift;
-  return bless([],ref($that)||$that)->fromWhich(@_);
+  return my $tmp=bless([],ref($that)||$that)->fromWhich(@_);
 }
 
 ## $obj = $obj->fromWhich($whichND,$nzvals,%options);
@@ -208,8 +208,9 @@ sub insertWhich :lvalue {
   $ccs->[$VALS]->index($nzi->index($nzi_old)) .= $vals->index($nzi_old);
 
   ##-- delegate insertion of new values to appendWhich()
-  return $ccs->sortwhich if ($nzi_new->isempty);
-  return $ccs->appendWhich($which->dice_axis(1,$nzi_new), $vals->index($nzi_new));
+  my ($tmp);
+  return $tmp=$ccs->sortwhich if ($nzi_new->isempty);
+  return $tmp=$ccs->appendWhich($which->dice_axis(1,$nzi_new), $vals->index($nzi_new));
 }
 
 ## $ccs = $ccs->appendWhich($whichND,$whichVals)
@@ -556,10 +557,11 @@ sub _whichND  :lvalue {
 ## $_nzvals = $obj->_nzvals($nzvals)
 ##  + physical storage only
 BEGIN { *_whichVals = \&_nzvals; }
-sub _nzvals  :lvalue {
+sub _nzvals :lvalue {
+  my ($tmp);
   $_[0][$VALS]=$_[1]->append($_[0][$VALS]->slice("-1")) if (@_ > 1);
-  return $_[0][$VALS]->index(PDL->null) if ($_[0][$VALS]->dim(0)<=1);
-  $_[0][$VALS]->slice("0:-2");
+  return $tmp=$_[0][$VALS]->index(PDL->null) if ($_[0][$VALS]->dim(0)<=1);
+  return $tmp=$_[0][$VALS]->slice("0:-2");
 }
 
 ## $vals = $obj->_vals()
@@ -728,7 +730,7 @@ sub xchg  :lvalue {
   my $tmp    = $dimpdl->at($_[1]);
   $dimpdl->set($_[1], $dimpdl->at($_[2]));
   $dimpdl->set($_[2], $tmp);
-  return $_[0]->reorder_pdl($dimpdl);
+  return $tmp=$_[0]->reorder_pdl($dimpdl);
 }
 
 ## $ccs2 = $ccs->mv($vDimFrom,$vDimTo)
@@ -737,19 +739,20 @@ sub mv   :lvalue {
   my $ndims = $_[0]->ndims;
   $d1 = $ndims+$d1 if ($d1 < 0);
   $d2 = $ndims+$d2 if ($d2 < 0);
-  return $_[0]->reorder($d1 < $d2
-			? ((0..($d1-1)), (($d1+1)..$d2), $d1,            (($d2+1)..($ndims-1)))
-			: ((0..($d2-1)), $d1,            ($d2..($d1-1)), (($d1+1)..($ndims-1)))
-		       );
+  return my $tmp=$_[0]->reorder($d1 < $d2
+				? ((0..($d1-1)), (($d1+1)..$d2), $d1,            (($d2+1)..($ndims-1)))
+				: ((0..($d2-1)), $d1,            ($d2..($d1-1)), (($d1+1)..($ndims-1)))
+			       );
 }
 
 ## $ccs2 = $ccs->transpose()
 ##  + always copies
 sub transpose  :lvalue {
+  my ($tmp);
   if ($_[0]->ndims==1) {
-    return $_[0]->dummy(0,1)->copy;
+    return $tmp=$_[0]->dummy(0,1)->copy;
   } else {
-    $_[0]->xchg(0,1)->copy;
+    return $tmp=$_[0]->xchg(0,1)->copy;
   }
 }
 
@@ -798,7 +801,7 @@ sub index  :lvalue {
   my @coords = $dummy->one2nd($i);
   my $ind = PDL->zeroes($P_LONG,$ccs->ndims,$i->dims);
   $ind->slice("($_),") .= $coords[$_] foreach (0..$#coords);
-  return $ccs->indexND($ind);
+  return my $tmp=$ccs->indexND($ind);
 }
 
 ## $ccs2 = $ccs->dice_axis($axis_v, $axisi)
@@ -843,7 +846,7 @@ sub dice_axis  :lvalue {
   $ccs2->[$VALS]  = $nzvals;
   ##
   ##-- sort output object (if not dicing on 0th dimension)
-  return $axis==0 ? $ccs2 : $ccs2->sortwhich();
+  return $axis==0 ? $ccs2 : (my $tmp=$ccs2->sortwhich());
 }
 
 ## $onedi = $ccs->n2oned($ndi)
@@ -964,15 +967,16 @@ sub _ufuncsub {
     ##
     ##-- get output pdl
     shift(@dims);
-    return my $tmp=$nzvals2->squeeze if (!@dims); ##-- just a scalar: return a plain PDL
+    my ($tmp);
+    return $tmp=$nzvals2->squeeze if (!@dims); ##-- just a scalar: return a plain PDL
     ##
     my $newdims = PDL->pdl($P_LONG,\@dims);
-    return $ccs->shadow(
-			pdims =>$newdims,
-			vdims =>$newdims->sequence,
-			which =>$which2,
-			vals  =>$nzvals2->append($missing->convert($nzvals2->type)),
-		       );
+    return $tmp=$ccs->shadow(
+			     pdims =>$newdims,
+			     vdims =>$newdims->sequence,
+			     which =>$which2,
+			     vals  =>$nzvals2->append($missing->convert($nzvals2->type)),
+			    );
   };
 }
 
@@ -1070,15 +1074,16 @@ sub _ufunc_ind_sub {
     my $nzi2    = $nzvals2;
     my $nzi2_ok = ($nzvals2>=0);
     $nzi2->where($nzi2_ok) .= $which0->index($nzi2->where($nzi2_ok));
-    return $nzi2->squeeze if (!@dims); ##-- just a scalar: return a plain PDL
+    my ($tmp);
+    return $tmp=$nzi2->squeeze if (!@dims); ##-- just a scalar: return a plain PDL
     ##
     my $newdims = PDL->pdl($P_LONG,\@dims);
-    return $ccs->shadow(
-			pdims =>$newdims,
-			vdims =>$newdims->sequence,
-			which =>$which2,
-			vals  =>$nzi2->append(-1),
-		       );
+    return $tmp=$ccs->shadow(
+			     pdims =>$newdims,
+			     vdims =>$newdims->sequence,
+			     which =>$which2,
+			     vals  =>$nzi2->append(-1),
+			    );
   };
 }
 
@@ -1102,13 +1107,13 @@ sub qsort  :lvalue {
   my $ccs = shift;
   my ($whichIn,$nzValsIn,$nziOut,$whichOut,$valsOut) = $ccs->_qsort();
   my $newdims = PDL->pdl($P_LONG,[$ccs->dims]);
-  return $ccs->shadow(
-		      to    => $_[0],
-		      pdims =>$newdims,
-		      vdims =>$newdims->sequence,
-		      which =>$whichOut,
-		      vals  =>$valsOut->append($ccs->missing),
-		     );
+  return my $tmp=$ccs->shadow(
+			      to    => $_[0],
+			      pdims =>$newdims,
+			      vdims =>$newdims->sequence,
+			      which =>$whichOut,
+			      vals  =>$valsOut->append($ccs->missing),
+			     );
 }
 
 ## $ccs_sortedi = $ccs->qsorti()
@@ -1117,13 +1122,13 @@ sub qsorti  :lvalue {
   my $ccs = shift;
   my ($whichIn,$nzValsIn,$nziOut,$whichOut,$valsOut) = $ccs->_qsort();
   my $newdims = PDL->pdl($P_LONG,[$ccs->dims]);
-  return $ccs->shadow(
-		      to    => $_[0],
-		      pdims =>$newdims,
-		      vdims =>$newdims->sequence,
-		      which =>$whichOut,
-		      vals  =>$whichIn->slice("(0),")->index($nziOut)->append(-1),
-		     );
+  return my $tmp=$ccs->shadow(
+			      to    => $_[0],
+			      pdims =>$newdims,
+			      vdims =>$newdims->sequence,
+			      which =>$whichOut,
+			      vals  =>$whichIn->slice("(0),")->index($nziOut)->append(-1),
+			     );
 }
 
 ##--------------------------------------------------------------
@@ -1138,7 +1143,7 @@ sub _unary_op {
       $_[0]->set_inplace(0);
       return $_[0];
     }
-    $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$pdlsub->($_[0][$VALS]));
+    return my $tmp=$_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$pdlsub->($_[0][$VALS]));
   };
 }
 
@@ -1244,8 +1249,9 @@ sub _ccsnd_binop_align_dims {
 sub _ccsnd_binary_op_mia {
   my ($opname,$pdlsub,$deftype) = @_;
 
-  return sub {
+  return sub :lvalue {
     my ($a,$b,$swap) = @_;
+    my ($tmp);
     $swap=0 if (!defined($swap));
 
     ##-- check for & dispatch scalar operations
@@ -1253,12 +1259,12 @@ sub _ccsnd_binary_op_mia {
       if ($a->is_inplace) {
 	$pdlsub->($a->[$VALS]->inplace, todense($b), $swap);
 	$a->set_inplace(0);
-	return $a->recode;
+	return $tmp=$a->recode;
       }
-      return $a->shadow(
-			which => $a->[$WHICH]->pdl,
-			vals  => $pdlsub->($a->[$VALS], todense($b), $swap),
-		       )->recode;
+      return $tmp=$a->shadow(
+			     which => $a->[$WHICH]->pdl,
+			     vals  => $pdlsub->($a->[$VALS], todense($b), $swap),
+			    )->recode;
     }
 
     ##-- convert b to CCS
@@ -1635,7 +1641,7 @@ sub rassgn  :lvalue {
 
 ## $to = $from->assgn($to)
 ##  + obeys PDL conventions
-sub assgn  :lvalue { $_[1]->rassgn($_[0]); }
+sub assgn  :lvalue { return my $tmp=$_[1]->rassgn($_[0]); }
 
 
 ##--------------------------------------------------------------
