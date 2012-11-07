@@ -734,8 +734,8 @@ sub test_nd_binop_sclr {
   #$PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX = 2;
 
   ##-- guts
-  our $cs = $ccs_op->($as,          $b,  $swap);
-  our $c  = $pdl_op->($a,  todense($b),  $swap);
+  our $cs = $ccs_op->($as,              $b,  $swap);
+  our $c  = $pdl_op->($a,  PDL::todense($b),  $swap);
 
   isok("ccs:nd:binop=${op_name},z=${missing},b=sclr($b),swap=$swap:type", $cs->type==$c->type);
   isok("ccs:nd:binop=${op_name},z=${missing},b=sclr($b),swap=$swap:vals", all(matchpdl($cs->decode,$c)));
@@ -1591,68 +1591,68 @@ sub test_ops_1 {
   ##-- test: using wrappers in PDL::CCS::Functions
   ##
   ##-- plus
-  $newvals = ccs_plus_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_plus_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:plus::xv:missing~annihilator", all(($ccs2->decode==($a+$xv))->or2($a==0,0)));
-  $newvals = ccs_plus_vector_ma($ccs->[$WHICH]->slice("(1)"), $ccs->nzvals, $yv->flat);
+  $newvals = ccs_plus_vector_mia($ccs->[$WHICH]->slice("(1)"), $ccs->_nzvals, $yv->flat);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:plus:yv:missing~annihilator", all(($ccs2->decode==($a+$yv))->or2($a==0,0)));
 
   ##-- minus
-  $newvals = ccs_minus_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_minus_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:minus::xv:missing~annihilator", all(($ccs2->decode==($a-$xv))->or2($a==0,0)));
 
   ##-- mult
-  $newvals = ccs_mult_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_mult_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:mult::xv:missing~annihilator", all($ccs2->decode==($a*$xv)));
-  $newvals = ccs_mult_vector_ma($ccs->[$WHICH]->slice("(1),"), $ccs->nzvals, $yv->flat);
+  $newvals = ccs_mult_vector_mia($ccs->[$WHICH]->slice("(1),"), $ccs->_nzvals, $yv->flat);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:mult::xv:missing~annihilator", all($ccs2->decode==($a*$yv)));
 
   ##-- divide
-  $newvals = ccs_divide_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_divide_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:divide::xv:missing~annihilator", all( $ccs2->decode==($a/$xv) ));
 
   ##-- modulo
-  $newvals = ccs_modulo_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_modulo_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:modulo::xv:missing~annihilator", all( $ccs2->decode==($a%$xv) ));
 
   ##-- power
-  $newvals = ccs_power_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_power_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:power::xv:missing~annihilator", all( $ccs2->decode==($a**$xv) ));
 
   ##---------------------------
   ## Comparisons
-  $newvals = ccs_le_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_le_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:le::xv:missing~annihilator", all( ($ccs2->decode==($a <= $xv))->or2($a==0,0) ));
 
-  $newvals = ccs_lt_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_lt_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:lt::xv:missing~annihilator", all( ($ccs2->decode==($a < $xv))->or2($a==0,0) ));
 
-  $newvals = ccs_ge_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_ge_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:ge::xv:missing~annihilator", all( ($ccs2->decode==($a >= $xv))->or2($a==0,0) ));
 
-  $newvals = ccs_gt_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_gt_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:gt::xv:missing~annihilator", all( ($ccs2->decode==($a > $xv))->or2($a==0,0) ));
 
-  $newvals = ccs_eq_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_eq_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:eq::xv:missing~annihilator", all( ($ccs2->decode==($a == $xv))->or2($a==0,0) ));
 
-  $newvals = ccs_ne_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_ne_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:ne::xv:missing~annihilator", all( ($ccs2->decode==($a != $xv))->or2($a==0,0) ));
 
-  $newvals = ccs_spaceship_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_spaceship_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:spaceship::xv:missing~annihilator", all( ($ccs2->decode==($a <=> $xv))->or2($a==0,0) ));
 
@@ -1660,23 +1660,23 @@ sub test_ops_1 {
   ## Logic / Bitwise
   our $xbv = $xv % 2;
 
-  $newvals = ccs_and2_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xbv);
+  $newvals = ccs_and2_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xbv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:and2::xv:missing~annihilator", all( $ccs2->decode==$a->and2($xbv,0) ));
 
-  $newvals = ccs_or2_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xbv);
+  $newvals = ccs_or2_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xbv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:or2::xv:missing~annihilator", all( ($ccs2->decode==($a->or2($xbv,0)))->or2($a==0,0) ));
 
-  $newvals = ccs_xor_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xbv);
+  $newvals = ccs_xor_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xbv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:xor:xv:missing~annihilator", all( ($ccs2->decode==($a->xor($xbv,0)))->or2($a==0,0) ));
 
-  $newvals = ccs_shiftleft_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_shiftleft_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:shiftleft:xv:missing~annihilator", all(  $ccs2->decode==($a << $xv) ));
 
-  $newvals = ccs_shiftright_vector_ma($ccs->[$WHICH]->slice("(0),"), $ccs->nzvals, $xv);
+  $newvals = ccs_shiftright_vector_mia($ccs->[$WHICH]->slice("(0),"), $ccs->_nzvals, $xv);
   $ccs2    = $ccs->shadow(which=>$ccs->[$WHICH], vals=>$newvals->append($ccs->missing));
   isok("ccs:shiftright:xv:missing~annihilator", all( $ccs2->decode==($a >> $xv) ));
 }
@@ -1863,7 +1863,7 @@ sub test_ccs_compat {
   isok("obj:nstored", $ccs->nstored==$a->flat->nnz);
   isok("obj:whichND", all($ccs->whichND->vv_qsortvec==$a->whichND->vv_qsortvec));
   isok("obj:missing", defined($ccs->missing));
-  isok("obj:nzvals",  all($ccs->nzvals==$a->indexND($ccs->whichND)));
+  isok("obj:nzvals",  all($ccs->_nzvals==$a->indexND($ccs->whichND)));
 
   ##-- ok, we've got a raw N+1 pointer: build compatible CCS encoded matrix
   our ($aptr0,$awi0) = ccs_encode_pointers($awhich->slice("(0),"));

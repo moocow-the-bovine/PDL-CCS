@@ -5,6 +5,7 @@
 package PDL::CCS::Functions;
 use PDL::CCS::Version;
 use PDL::CCS::Utils;
+use PDL::VectorValued;
 use PDL;
 use strict;
 
@@ -23,6 +24,9 @@ our @EXPORT_OK =
 				   qw(gt ge lt le eq ne spaceship),
 				   qw(and2 or2 xor shiftleft shiftright),
 				  )),
+   ##
+   ##-- qsort
+   qw(ccs_qsort),
   );
 our %EXPORT_TAGS =
   (
@@ -250,5 +254,123 @@ sub ccs_binop_vector_mia {
 *PDL::ccs_shiftleft_vector_mia = *ccs_shiftleft_vector_mia = ccs_binop_vector_mia('shiftleft',\&PDL::shiftleft);     ##-- <<
 *PDL::ccs_shiftright_vector_mia = *ccs_shiftright_vector_mia = ccs_binop_vector_mia('shiftright',\&PDL::shiftright); ##-- >>
 
-1; ##-- make perl happy
+##======================================================================
+## Sorting
+=pod
 
+=head1 Sorting
+
+=head2 ccs_qsort
+
+=for sig
+
+  Signature: (int whichIn(Ndims,Nnz); nzValsIn(Nnz); missing(); Dim0(); int [o]nzIxOut; int [o]whichOut; int [oca]nzValsOut)
+
+Underlying guts for PDL::CCS::Nd::qsort() and PDL::CCS::Nd::qsorti().
+Given an index pdl C<$whichIn>, a corresponding value-pdl C<$nzValsIn>, and a missing value $missing(),
+determines indices C<$whichOut> and non-missing values C<$nzValsOut> suitable
+for constructing compressed representation of the input data sorted along the 0th dimension, together
+with their primary Nnz-indices C<$nzIxOut>.
+Note that C<$nzValsOut> will be ALWAYS be returned as an index-reordering
+of C<$nzValsIn> with dataflow open; copy or sever() it yourself if required.
+
+qsort() on compressed piddles can then be implemented as:
+
+ $whichnd = $whichOut;
+ $nzvals  = $nzValsOut;
+
+and qsorti() as:
+
+ $whichnd = $whichOut;
+ $nzvals  = $whichIn->slice("(0),")->index($nzIxOut);
+
+=cut
+
+## $bool = _checkdims(\@dims1,\@dims2,$label);  ##-- match      @dims1 ~ @dims2
+## $bool = _checkdims( $pdl1,   $pdl2,$label);  ##-- match $pdl1->dims ~ $pdl2->dims
+sub _checkdims {
+  #my ($dims1,$dims2,$label) = @_;
+  #my ($pdl1,$pdl2,$label) = @_;
+  my $d0 = UNIVERSAL::isa($_[0],'PDL') ? pdl(long,$_[0]->dims) : pdl(long,$_[0]);
+  my $d1 = UNIVERSAL::isa($_[1],'PDL') ? pdl(long,$_[1]->dims) : pdl(long,$_[0]);
+  barf(__PACKAGE__ . "::_checkdims(): dimension mismatch for ".($_[2]||'pdl').": $d0!=$d1")
+    if (($d0->nelem!=$d1->nelem) || !all($d0==$d1));
+  return 1;
+}
+
+sub ccs_qsort {
+  my ($whichIn,$nzValsIn,$missing,$dim0, $nzIxOut,$whichOut) = @_;
+
+  ##-- prepare
+  $whichOut = $whichIn->zeroes if (!defined($whichOut));
+  $whichOut->reshape($whichIn->dims()) if (!$whichOut->isempty);
+  _checkdims($whichIn,$whichOut,'ccs_qsort: whichIn~whichOut');
+  ##
+  $nzIxOut = zeroes(long,$whichIn->dim(1)) if (!defined($nzIxOut));
+  $nzIxOut->reshape($whichIn->dim(1)) if ($nzIxOut->isempty);
+  _checkdims($nzValsIn,$nzIxOut,'ccs_qsort: nzValsIn~nzIxOut');
+  ##
+  $dim0 = $whichIn->slice("(0),")->max+1 if (!defined($dim0));
+
+  ##-- collect and sort base data (unsorted indices + values)
+  my $wv  = $whichIn->glue(0,$nzValsIn->slice("*1,"));
+  $wv->slice("1:-1,")->vv_qsortveci($nzIxOut);
+
+  ##-- enumerate output values, splitting enum-values around $missing()
+  $whichOut     .= $whichIn->dice_axis(1,$nzIxOut);
+  my $whichOut0  = $whichOut->slice("(0),");
+  my $whichOut1  = $whichOut->dim(0)>1 ? $whichOut->slice("1:-1,") : $whichOut0->zeroes; ##-- handle flat sorts without key indices
+  my $nzValsOut  = $nzValsIn->index($nzIxOut);
+  my ($nzii_l,$nzii_r) = (defined($missing) ? which_both($nzValsOut <= $missing) : ($nzValsOut->xvals,null));
+  #
+  #$whichOut0 .= -1; ##-- debug
+  $whichOut0->index($nzii_l) .= $whichOut1->dice_axis(1,$nzii_l)->enumvec if (!$nzii_l->isempty);
+  $whichOut0->index($nzii_r)->slice("-1:0") .= ($dim0 - 1) - $whichOut1->dice_axis(1,$nzii_r)->slice(",-1:0")->enumvec if (!$nzii_r->isempty);
+
+  ##-- all done
+  return wantarray ? ($nzIxOut,$whichOut,$nzValsOut) : $nzIxOut;
+}
+
+##======================================================================
+## Vector Operations: Generic
+
+
+##======================================================================
+## POD: footer
+=pod
+
+=head1 ACKNOWLEDGEMENTS
+
+Perl by Larry Wall.
+
+PDL by Karl Glazebrook, Tuomas J. Lukka, Christian Soeller, and others.
+
+=cut
+
+
+##---------------------------------------------------------------------
+=pod
+
+=head1 AUTHOR
+
+Bryan Jurish E<lt>moocow@cpan.orgE<gt>
+
+=head2 Copyright Policy
+
+Copyright (C) 2007-2012, Bryan Jurish. All rights reserved.
+
+This package is free software, and entirely without warranty.
+You may redistribute it and/or modify it under the same terms
+as Perl itself.
+
+=head1 SEE ALSO
+
+perl(1),
+PDL(3perl),
+PDL::CCS::Nd(3perl),
+
+
+=cut
+
+
+1; ##-- make perl happy

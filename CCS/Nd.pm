@@ -6,7 +6,7 @@ package PDL::CCS::Nd;
 use PDL::Lite;
 use PDL::VectorValued;
 use PDL::CCS::Version;
-use PDL::CCS::Functions qw(ccs_decode ccs_pointerlen);
+use PDL::CCS::Functions qw(ccs_decode ccs_pointerlen ccs_qsort);
 use PDL::CCS::Utils     qw(ccs_encode_pointers ccs_decode_pointer);
 use PDL::CCS::Ufunc;
 use PDL::CCS::Ops;
@@ -1083,6 +1083,47 @@ sub _ufunc_ind_sub {
 
 *maximum_ind = _ufunc_ind_sub('maximum_ind', PDL::CCS::Ufunc->can('ccs_accum_maximum_nz_ind'),1);
 *minimum_ind = _ufunc_ind_sub('minimum_ind', PDL::CCS::Ufunc->can('ccs_accum_minimum_nz_ind'),1);
+
+##--------------------------------------------------------------
+## Ufuncs: qsort
+
+## ($whichIn,$nzValsIn,$nziOut,$whichOut,$valsOut) = $ccs->_qsort()
+sub _qsort {
+  my $ccs = shift;
+  my $whichIn  = $ccs->whichND;
+  my $nzValsIn = $ccs->whichVals;
+  return ($whichIn,$nzValsIn,ccs_qsort($whichIn,$nzValsIn,$ccs->missing,$ccs->dim(0),@_));
+}
+
+## $ccs_sorted = $ccs->qsort()
+## $ccs_sorted = $ccs->qsort($ccs_sorted)
+sub qsort {
+  my $ccs = shift;
+  my ($whichIn,$nzValsIn,$nziOut,$whichOut,$valsOut) = $ccs->_qsort();
+  my $newdims = PDL->pdl($P_LONG,[$ccs->dims]);
+  return $ccs->shadow(
+		      to    => $_[0],
+		      pdims =>$newdims,
+		      vdims =>$newdims->sequence,
+		      which =>$whichOut,
+		      vals  =>$valsOut->append($ccs->missing),
+		     );
+}
+
+## $ccs_sortedi = $ccs->qsorti()
+## $ccs_sortedi = $ccs->qsorti($ccs_sortedi)
+sub qsorti {
+  my $ccs = shift;
+  my ($whichIn,$nzValsIn,$nziOut,$whichOut,$valsOut) = $ccs->_qsort();
+  my $newdims = PDL->pdl($P_LONG,[$ccs->dims]);
+  return $ccs->shadow(
+		      to    => $_[0],
+		      pdims =>$newdims,
+		      vdims =>$newdims->sequence,
+		      which =>$whichOut,
+		      vals  =>$whichIn->slice("(0),")->index($nziOut)->append(-1),
+		     );
+}
 
 ##--------------------------------------------------------------
 ## Unary Operations
@@ -3049,7 +3090,7 @@ Bryan Jurish E<lt>moocow@cpan.orgE<gt>
 
 =head2 Copyright Policy
 
-Copyright (C) 2007-2008, Bryan Jurish. All rights reserved.
+Copyright (C) 2007-2012, Bryan Jurish. All rights reserved.
 
 This package is free software, and entirely without warranty.
 You may redistribute it and/or modify it under the same terms

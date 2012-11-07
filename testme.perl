@@ -698,6 +698,16 @@ sub testnull_min {
 }
 #testnull_min();
 
+##---------------------------------------------------------------------
+## test: qsort
+
+sub test_ccs_qsort {
+  my @dims = (5,4);
+  my $x  = xvals(@dims) * (2*((xvals(@dims)+yvals(@dims)))-1);
+  my $xx = $x->toccs;
+  ##
+  my $xi = $x->qsorti;
+}
 
 ##---------------------------------------------------------------------
 ## DUMMY
