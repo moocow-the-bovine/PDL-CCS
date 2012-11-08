@@ -1093,41 +1093,42 @@ sub _ufunc_ind_sub {
 ##--------------------------------------------------------------
 ## Ufuncs: qsort
 
-## ($whichIn,$nzValsIn,$nziOut,$whichOut,$valsOut) = $ccs->_qsort()
+## ($which0,$nzVals0, $nzix,$nzenum, $whichOut) = $ccs->_qsort()
+## ($which0,$nzVals0, $nzix,$nzenum, $whichOut) = $ccs->_qsort([o]nzix(NNz), [o]nzenum(Nnz))
 sub _qsort {
   my $ccs = shift;
-  my $whichIn  = $ccs->whichND;
-  my $nzValsIn = $ccs->whichVals;
-  return ($whichIn,$nzValsIn,ccs_qsort($whichIn,$nzValsIn,$ccs->missing,$ccs->dim(0),@_));
+  my $which0  = $ccs->whichND;
+  my $nzvals0 = $ccs->whichVals;
+  return ($which0,$nzvals0, ccs_qsort($which0->slice("1:-1,"),$nzvals0, $ccs->missing,$ccs->dim(0), @_));
 }
 
 ## $ccs_sorted = $ccs->qsort()
 ## $ccs_sorted = $ccs->qsort($ccs_sorted)
-sub qsort  :lvalue {
+sub qsort :lvalue {
   my $ccs = shift;
-  my ($whichIn,$nzValsIn,$nziOut,$whichOut,$valsOut) = $ccs->_qsort();
+  my ($which0,$nzvals0,$nzix,$nzenum) = $ccs->_qsort();
   my $newdims = PDL->pdl($P_LONG,[$ccs->dims]);
   return my $tmp=$ccs->shadow(
 			      to    => $_[0],
 			      pdims =>$newdims,
 			      vdims =>$newdims->sequence,
-			      which =>$whichOut,
-			      vals  =>$valsOut->append($ccs->missing),
+			      which =>$nzenum->slice("*1,")->glue(0,$which0->slice("1:-1,")->dice_axis(1,$nzix)),
+			      vals  =>$nzvals0->index($nzix)->append($ccs->missing),
 			     );
 }
 
 ## $ccs_sortedi = $ccs->qsorti()
 ## $ccs_sortedi = $ccs->qsorti($ccs_sortedi)
-sub qsorti  :lvalue {
+sub qsorti :lvalue {
   my $ccs = shift;
-  my ($whichIn,$nzValsIn,$nziOut,$whichOut,$valsOut) = $ccs->_qsort();
+  my ($which0,$nzvals0,$nzix,$nzenum) = $ccs->_qsort();
   my $newdims = PDL->pdl($P_LONG,[$ccs->dims]);
   return my $tmp=$ccs->shadow(
 			      to    => $_[0],
 			      pdims =>$newdims,
 			      vdims =>$newdims->sequence,
-			      which =>$whichOut,
-			      vals  =>$whichIn->slice("(0),")->index($nziOut)->append(-1),
+			      which =>$nzenum->slice("*1,")->glue(0,$which0->slice("1:-1,")->dice_axis(1,$nzix)),
+			      vals  =>$which0->slice("(0),")->index($nzix)->append(-1),
 			     );
 }
 

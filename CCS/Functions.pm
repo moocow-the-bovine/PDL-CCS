@@ -264,25 +264,37 @@ sub ccs_binop_vector_mia {
 
 =for sig
 
-  Signature: (int whichIn(Ndims,Nnz); nzValsIn(Nnz); missing(); Dim0(); int [o]nzIxOut; int [o]whichOut; int [oca]nzValsOut)
+  Signature: (int which(Ndims,Nnz); nzvals(Nnz); missing(); Dim0(); int [o]nzix(Nnz); int [o]nzenum(Nnz))
 
 Underlying guts for PDL::CCS::Nd::qsort() and PDL::CCS::Nd::qsorti().
-Given an index pdl C<$whichIn>, a corresponding value-pdl C<$nzValsIn>, and a missing value $missing(),
-determines indices C<$whichOut> and non-missing values C<$nzValsOut> suitable
-for constructing compressed representation of the input data sorted along the 0th dimension, together
-with their primary Nnz-indices C<$nzIxOut>.
-Note that C<$nzValsOut> will be ALWAYS be returned as an index-reordering
-of C<$nzValsIn> with dataflow open; copy or sever() it yourself if required.
+Given a set of $Nnz items $i each associated with a vector-key C<$which(:,$i)>
+and a value C<$nzvals($i)>, returns a vector of $Nnz item indices C<$nzix()>
+such that C<$which(:,$nzix)> is vector-sorted in ascending order and
+C<$nzvals(:,$nzix)> are sorted in ascending order for each unique key-vector in
+C<$which()>, and an enumeration C<$nzenum()> of items for each unique key-vector
+in terms of the sorted data: C<$nzenum($j)> is the logical position of the item
+C<$nzix($j)>.
 
-qsort() on compressed piddles can then be implemented as:
+If C<$missing> and C<$Dim0> are defined,
+items C<$i=$nzix($j)> with values C<$nzvals($i) E<gt> $missing>
+will be logically enumerated at the end of the range [0,$Dim0-1]
+and there will be a gap between C<$nzenum()> values for a C<$which()>-key
+with fewer than $Dim0 instances; otherwise $nzenum() values will be
+enumerated in ascending order starting from 0.
 
- $whichnd = $whichOut;
- $nzvals  = $nzValsOut;
+For an unsorted index+value dataset C<($which0,$nzvals0)> with
+
+ ($nzix,$nzenum) = ccs_qsort($which0("1:-1,"),$nzvals0,$missing,$which0("0,")->max+1)
+
+qsort() can be implemented as:
+
+ $which  = $nzenum("*1,")->glue(0,$which0("1:-1,")->dice_axis(1,$nzix));
+ $nzvals = $nzvals0->index($nzix);
 
 and qsorti() as:
 
- $whichnd = $whichOut;
- $nzvals  = $whichIn->slice("(0),")->index($nzIxOut);
+ $which  = $nzenum("*1,")->glue(0,$which0("1:-1,")->dice_axis(1,$nzix));
+ $nzvals = $which0("(0),")->index($nzix);
 
 =cut
 
@@ -299,37 +311,46 @@ sub _checkdims {
 }
 
 sub ccs_qsort {
-  my ($whichIn,$nzValsIn,$missing,$dim0, $nzIxOut,$whichOut) = @_;
+  my ($which,$nzvals, $missing,$dim0, $nzix,$nzenum) = @_;
 
-  ##-- prepare
-  $whichOut = $whichIn->zeroes if (!defined($whichOut));
-  $whichOut->reshape($whichIn->dims()) if (!$whichOut->isempty);
-  _checkdims($whichIn,$whichOut,'ccs_qsort: whichIn~whichOut');
+  ##-- prepare: $nzix
+  $nzix = zeroes(long,$nzvals->dims) if (!defined($nzix));
+  $nzix->reshape($nzvals) if ($nzix->isempty);
+  _checkdims($nzvals,$nzix,'ccs_qsort: nzvals~nzix');
   ##
-  $nzIxOut = zeroes(long,$whichIn->dim(1)) if (!defined($nzIxOut));
-  $nzIxOut->reshape($whichIn->dim(1)) if ($nzIxOut->isempty);
-  _checkdims($nzValsIn,$nzIxOut,'ccs_qsort: nzValsIn~nzIxOut');
-  ##
-  $dim0 = $whichIn->slice("(0),")->max+1 if (!defined($dim0));
+  ##-- prepare: $nzenum
+  $nzenum = zeroes(long,$nzvals->dims) if (!defined($nzenum));
+  $nzenum->reshape($nzvals) if ($nzenum->isempty);
+  _checkdims($nzenum,$nzvals,'ccs_qsort: nzvals~nzenum');
 
   ##-- collect and sort base data (unsorted indices + values)
-  my $wv  = $whichIn->glue(0,$nzValsIn->slice("*1,"));
-  $wv->slice("1:-1,")->vv_qsortveci($nzIxOut);
+  my $vdata = $which->glue(0,$nzvals->slice("*1,"));
+  $vdata->vv_qsortveci($nzix);
 
-  ##-- enumerate output values, splitting enum-values around $missing()
-  $whichOut     .= $whichIn->dice_axis(1,$nzIxOut);
-  my $whichOut0  = $whichOut->slice("(0),");
-  my $whichOut1  = $whichOut->dim(0)>1 ? $whichOut->slice("1:-1,") : $whichOut0->zeroes; ##-- handle flat sorts without key indices
-  my $nzValsOut  = $nzValsIn->index($nzIxOut);
-  my ($nzii_l,$nzii_r) = (defined($missing) ? which_both($nzValsOut <= $missing) : ($nzValsOut->xvals,null));
-  #
-  #$whichOut0 .= -1; ##-- debug
-  $whichOut0->index($nzii_l) .= $whichOut1->dice_axis(1,$nzii_l)->enumvec if (!$nzii_l->isempty);
-  $whichOut0->index($nzii_r)->slice("-1:0") .= ($dim0 - 1) - $whichOut1->dice_axis(1,$nzii_r)->slice(",-1:0")->enumvec if (!$nzii_r->isempty);
+  ##-- get logical enumeration
+  if (!defined($missing) || !defined($dim0)) {
+    ##-- ... flat enumeration
+    $which->dice_axis(1,$nzix)->enumvec($nzenum);
+  } else {
+    ##-- ... we have $missing and $dim0: split enumeration around $missing()
+    my $whichx  = $which->dice_axis(1,$nzix);
+    my $nzvalsx = $nzvals->index($nzix);
+    my ($nzii_l,$nzii_r) = which_both($nzvalsx <= $missing);
+    #$nzenum .= -1; ##-- debug
+    $whichx->dice_axis(1,$nzii_l)->enumvec($nzenum->index($nzii_l)) if (!$nzii_l->isempty); ##-- enum: <=$missing
+    if (!$nzii_r->isempty) {
+      ##-- enum: >$missing
+      my $nzenum_r = $nzenum->index($nzii_r);
+      $whichx->dice_axis(1,$nzii_r)->slice(",-1:0")->enumvec($nzenum_r->slice("-1:0"));
+      $nzenum_r *= -1;
+      $nzenum_r += ($dim0-1);
+    }
+  }
 
   ##-- all done
-  return wantarray ? ($nzIxOut,$whichOut,$nzValsOut) : $nzIxOut;
+  return wantarray ? ($nzix,$nzenum) : $nzix;
 }
+
 
 ##======================================================================
 ## Vector Operations: Generic

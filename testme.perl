@@ -1,4 +1,4 @@
-#!/usr/bin/perl -wd
+#!/usr/bin/perl -w
 
 use lib qw(. ./blib/lib ./blib/arch);
 use PDL;

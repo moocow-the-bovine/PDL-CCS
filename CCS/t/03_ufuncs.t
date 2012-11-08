@@ -2,7 +2,8 @@
 # t/03_ufuncs.t
 
 $TEST_DIR = './t';
-#use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
+#use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging, with build from PDL-CCS/CCS/
+#use lib qw(../../blib/lib ../../blib/arch); $TEST_DIR = '.'; # for debugging, with build from PDL-CCS/
 
 # load common subs
 use Test;
