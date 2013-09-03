@@ -433,7 +433,7 @@ foreach my $pdltype (qw(byte short ushort long longlong float double)) {
 sub dimpdl :lvalue {
   my $dims  = $_[0][$VDIMS]->pdl;
   my $physi = ($_[0][$VDIMS]>=0)->which;
-  $dims->index($physi) .= $_[0][$PDIMS]->index($_[0][$VDIMS]->index($physi));
+  (my $tmp=$dims->index($physi)) .= $_[0][$PDIMS]->index($_[0][$VDIMS]->index($physi));
   return $dims;
 }
 
@@ -784,15 +784,15 @@ sub indexNDi  :lvalue {
   my $foundi       = $ndi->vsearchvec($ccs->[$WHICH]);
   my $foundi_mask  = ($ndi==$ccs->[$WHICH]->dice_axis(1,$foundi))->andover;
   $foundi_mask->inplace->not;
-  $foundi->where($foundi_mask) .= $ccs->[$WHICH]->dim(1);
+  (my $tmp=$foundi->where($foundi_mask)) .= $ccs->[$WHICH]->dim(1);
   return $foundi;
 }
 
 ## $vals = $ccs->indexND($ndi)
-sub indexND  :lvalue { $_[0][$VALS]->index($_[0]->indexNDi($_[1])); }
+sub indexND  :lvalue { my $tmp=$_[0][$VALS]->index($_[0]->indexNDi($_[1])); }
 
 ## $vals = $ccs->index2d($xi,$yi)
-sub index2d  :lvalue { $_[0]->indexND($_[1]->cat($_[2])->xchg(0,1)); }
+sub index2d  :lvalue { my $tmp=$_[0]->indexND($_[1]->cat($_[2])->xchg(0,1)); }
 
 ## $vals = $ccs->index($flati)
 sub index  :lvalue {
@@ -800,8 +800,9 @@ sub index  :lvalue {
   my $dummy  = PDL->pdl(0)->slice(join(',', map {"*$_"} $ccs->dims));
   my @coords = $dummy->one2nd($i);
   my $ind = PDL->zeroes($P_LONG,$ccs->ndims,$i->dims);
-  $ind->slice("($_),") .= $coords[$_] foreach (0..$#coords);
-  return my $tmp=$ccs->indexND($ind);
+  my ($tmp);
+  ($tmp=$ind->slice("($_),")) .= $coords[$_] foreach (0..$#coords);
+  return $tmp=$ccs->indexND($ind);
 }
 
 ## $ccs2 = $ccs->dice_axis($axis_v, $axisi)
@@ -836,7 +837,7 @@ sub dice_axis  :lvalue {
   my $nzix   = $pi2nzi->index($pi2nzix);
   my $which  = $ccs->[$WHICH]->dice_axis(1,$nzix);
   $which->sever;
-  $which->slice("($axis),") .= $ptrix if (!$which->isempty); ##-- isempty() fix: v1.12
+  (my $tmp=$which->slice("($axis),")) .= $ptrix if (!$which->isempty); ##-- isempty() fix: v1.12
   my $nzvals = $ccs->[$VALS]->index($nzix->append($ccs->[$WHICH]->dim(1)));
   ##
   ##-- construct output object
@@ -846,7 +847,7 @@ sub dice_axis  :lvalue {
   $ccs2->[$VALS]  = $nzvals;
   ##
   ##-- sort output object (if not dicing on 0th dimension)
-  return $axis==0 ? $ccs2 : (my $tmp=$ccs2->sortwhich());
+  return $axis==0 ? $ccs2 : ($tmp=$ccs2->sortwhich());
 }
 
 ## $onedi = $ccs->n2oned($ndi)
@@ -879,7 +880,7 @@ sub whichND  :lvalue {
   my $nvperp = $ccs->_ccs_nvperp;
   my $nv     = $ccs->nstored_v;
   $wnd = PDL->zeroes($P_LONG, $ccs->ndims, $nv);
-  $wnd->dice_axis(0,$vpi)->flat .= $ccs->[$WHICH]->slice(",*$nvperp,")->flat;
+  (my $tmp=$wnd->dice_axis(0,$vpi)->flat) .= $ccs->[$WHICH]->slice(",*$nvperp,")->flat;
   my $nzi    = PDL->sequence($P_LONG,$nv);
   my @vdims    = $ccs->[$VDIMS]->list;
   my ($vdimi,);
@@ -915,7 +916,7 @@ sub set {
   if ( ($foundi==$_[0][$WHICH]->dim(1))->any ) {
     carp(ref($_[0]).": cannot set() a missing value!")
   } else {
-    $_[0][$VALS]->index($foundi) .= $_[$#_];
+    (my $tmp=$_[0][$VALS]->index($foundi)) .= $_[$#_];
   }
   return $_[0];
 }
@@ -1073,8 +1074,8 @@ sub _ufunc_ind_sub {
     shift(@dims);
     my $nzi2    = $nzvals2;
     my $nzi2_ok = ($nzvals2>=0);
-    $nzi2->where($nzi2_ok) .= $which0->index($nzi2->where($nzi2_ok));
     my ($tmp);
+    ($tmp=$nzi2->where($nzi2_ok)) .= $which0->index($nzi2->where($nzi2_ok));
     return $tmp=$nzi2->squeeze if (!@dims); ##-- just a scalar: return a plain PDL
     ##
     my $newdims = PDL->pdl($P_LONG,\@dims);
@@ -1384,15 +1385,15 @@ sub _ccsnd_binary_op_mia {
 	  $ixc_blk = $ixc->slice(",$nnzc_slice_blk");
 	  if (!$apcp->isempty) {
 	    $ixa_blk = $ixa->dice_axis(1,$nzai_blk->index($ciwhich_blk));
-	    $ixc_blk->dice_axis(0,$apcp->slice("(1),")) .= $ixa_blk->dice_axis(0,$apcp->slice("(0),"));
+	    ($tmp=$ixc_blk->dice_axis(0,$apcp->slice("(1),"))) .= $ixa_blk->dice_axis(0,$apcp->slice("(0),"));
 	  }
 	  if (!$bpcp->isempty) {
 	    $ixb_blk = $ixb->dice_axis(1,$nzbi_blk->index($ciwhich_blk));
-	    $ixc_blk->dice_axis(0,$bpcp->slice("(1),")) .= $ixb_blk->dice_axis(0,$bpcp->slice("(0),"));
+	    ($tmp=$ixc_blk->dice_axis(0,$bpcp->slice("(1),"))) .= $ixb_blk->dice_axis(0,$bpcp->slice("(0),"));
 	  }
 
 	  ##-- construct block output pdls: nzc
-	  $nzc->slice($nnzc_slice_blk) .= $nzc_blk;
+	  ($tmp=$nzc->slice($nnzc_slice_blk)) .= $nzc_blk;
 	}
       }
 
@@ -1408,7 +1409,7 @@ sub _ccsnd_binary_op_mia {
 	$ixc = $ixc->reshape($ixc->dim(0), $ixc->dim(1)+$nzai->dim(0));
 	$nzc = $nzc->reshape($nzc->dim(0)+$nzai->dim(0));
 
-	$istate .= $ostate;
+	($tmp=$istate) .= $ostate;
 	$istate->set(4, $nzci_cur);
 	$istate->set(5, $nzci_nxt);
       }
@@ -1623,7 +1624,7 @@ sub rassgn  :lvalue {
   my ($to,$from) = @_;
   if (!ref($from) || $from->nelem==1) {
     ##-- assignment from a scalar: treat the Nd object as a mask of available values
-    $to->[$VALS] .= todense($from);
+    (my $tmp=$to->[$VALS]) .= todense($from);
     return $to;
   }
   if (isa($from,__PACKAGE__)) {
