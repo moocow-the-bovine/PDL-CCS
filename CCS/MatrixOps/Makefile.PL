@@ -9,7 +9,7 @@ $package = ["ccsmatops.pd", 'MatrixOps', 'PDL::CCS::MatrixOps'];
 $hash{AUTHOR} = 'Bryan Jurish';
 $hash{ABSTRACT} = 'Low-level matrix operations for compressed storage sparse PDLs';
 $hash{VERSION_FROM} = '../Version.pm';
-$hash{PREREQ_PM}{PDL} = '2.4.2'; ##-- ensure PDL-ability
+$hash{PREREQ_PM}{PDL} = $hash{CONFIGURE_REQUIRES}{PDL} = 0;
 push(@{$hash{LIBS}}, '-lm');
 $hash{DIR} = [];
 #$hash{INC} .= '';

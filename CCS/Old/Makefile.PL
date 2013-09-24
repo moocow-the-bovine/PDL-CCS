@@ -7,7 +7,7 @@ $package = ["Old.pd", 'Old', 'PDL::CCS::Old'];
 
 $hash{AUTHOR} = 'Bryan Jurish';
 $hash{ABSTRACT} = 'Compressed Column Storage for 2d PDLs';
-$hash{PREREQ_PM}{PDL} = '2.4.2'; ##-- ensure PDL-ability
+$hash{PREREQ_PM}{PDL} = $hash{CONFIGURE_REQUIRES}{PDL} = 0;
 push(@{$hash{LIBS}}, '-lm');
 $hash{DIR} = [];
 #$hash{INC} .= '';

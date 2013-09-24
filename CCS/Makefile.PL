@@ -14,7 +14,11 @@ WriteMakefile(
 		     'MatrixOps',
 		    ], ##-- debug#2
 	      PREREQ_PM => {
-			    PDL => '2.4.2',
-			    'PDL::VectorValued' => undef, #'0.04',
+			    'PDL' => 0,
+			    'PDL::VectorValued' => 0, #'0.04',
 			   },
+	      CONFIGURE_REQUIRES => {
+				     'PDL'=>0,
+				     'ExtUtils::MakeMaker'=>0,
+				    },
 	     );

@@ -5,6 +5,7 @@
 \bAttic\b
 CCS/.*\.bin$
 CCS/Old
+CCS/Config.pm
 CCS/Ops/Ops\.(c|pm|xs)$
 CCS/Ufunc/Ufunc\.(c|pm|xs)$
 CCS/Utils/Utils\.(c|pm|xs)$

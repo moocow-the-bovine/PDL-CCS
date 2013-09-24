@@ -2,6 +2,11 @@ use ExtUtils::MakeMaker;
 require "pdlmaker.plm";
 pdlmaker_init();
 
+##-- read in user variables
+do "Config.PL";
+die "$0: reading 'Config.PL' failed: $@" if ($@);
+
+
 ##-- put 'realclean_files' in a variable: avoid MakeMaker puking with:
 ##     ERROR from evaluation of .../ccsutils/Makefile.PL:
 ##     Modification of a read-only value attempted at /usr/share/perl/5.8/Carp/Heavy.pm line 45.
@@ -20,7 +25,11 @@ WriteMakefile(
 		    ],
 	      realclean=>{ FILES=>$realclean_files, },
 	      PREREQ_PM => {
-			    'PDL' => '2.4.2',
-			    'PDL::VectorValued' => '0.06', #0.06
+			    'PDL' => 0, #'2.4.2',
+			    'PDL::VectorValued' => 0, #0.06
 			   },
+	      CONFIGURE_REQUIRES => {
+				     'PDL' => 0,
+				     'ExtUtils::MakeMaker'=>0,
+				    },
 	     );
