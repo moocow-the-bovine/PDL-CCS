@@ -4,6 +4,7 @@
 
 package PDL::CCS::Functions;
 use PDL::CCS::Version;
+use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Utils;
 use PDL::VectorValued;
 use PDL;
@@ -69,7 +70,7 @@ PDL::CCS::Functions - Useful perl-level functions for PDL::CCS
 
 =for sig
 
-  Signature: (int ptr(N+1); int [o]len(N))
+  Signature: (indx ptr(N+1); indx [o]len(N))
 
 Get number of non-missing values for each axis value from a CCS-encoded
 offset pointer vector $ptr().
@@ -98,7 +99,7 @@ sub ccs_pointerlen :lvalue {
 
 =for sig
 
-  Signature: (int whichnd(Ndims,Nnz); nzvals(Nnz); missing(); \@Dims; [o]a(@Dims))
+  Signature: (indx whichnd(Ndims,Nnz); nzvals(Nnz); missing(); \@Dims; [o]a(@Dims))
 
 Decode a CCS-encoded matrix (no dataflow).
 
@@ -169,7 +170,7 @@ so you might want to re-encode your compressed data after applying the operation
 
 =for sig
 
-  Signature: (int whichDimV(Nnz); nzvals(Nnz); vec(V); [o]nzvals_out(Nnz))
+  Signature: (indx whichDimV(Nnz); nzvals(Nnz); vec(V); [o]nzvals_out(Nnz))
 
 A number of row- and column-vector operations may be performed directly
 on encoded Nd-PDLs, without the need for decoding to a (potentially huge)
@@ -264,7 +265,7 @@ sub ccs_binop_vector_mia {
 
 =for sig
 
-  Signature: (int which(Ndims,Nnz); nzvals(Nnz); missing(); Dim0(); int [o]nzix(Nnz); int [o]nzenum(Nnz))
+  Signature: (indx which(Ndims,Nnz); nzvals(Nnz); missing(); Dim0(); indx [o]nzix(Nnz); indx [o]nzenum(Nnz))
 
 Underlying guts for PDL::CCS::Nd::qsort() and PDL::CCS::Nd::qsorti().
 Given a set of $Nnz items $i each associated with a vector-key C<$which(:,$i)>
@@ -303,8 +304,8 @@ and qsorti() as:
 sub _checkdims {
   #my ($dims1,$dims2,$label) = @_;
   #my ($pdl1,$pdl2,$label) = @_;
-  my $d0 = UNIVERSAL::isa($_[0],'PDL') ? pdl(long,$_[0]->dims) : pdl(long,$_[0]);
-  my $d1 = UNIVERSAL::isa($_[1],'PDL') ? pdl(long,$_[1]->dims) : pdl(long,$_[0]);
+  my $d0 = UNIVERSAL::isa($_[0],'PDL') ? pdl(ccs_indx(),$_[0]->dims) : pdl(ccs_indx(),$_[0]);
+  my $d1 = UNIVERSAL::isa($_[1],'PDL') ? pdl(ccs_indx(),$_[1]->dims) : pdl(ccs_indx(),$_[0]);
   barf(__PACKAGE__ . "::_checkdims(): dimension mismatch for ".($_[2]||'pdl').": $d0!=$d1")
     if (($d0->nelem!=$d1->nelem) || !all($d0==$d1));
   return 1;
@@ -314,12 +315,12 @@ sub ccs_qsort {
   my ($which,$nzvals, $missing,$dim0, $nzix,$nzenum) = @_;
 
   ##-- prepare: $nzix
-  $nzix = zeroes(long,$nzvals->dims) if (!defined($nzix));
+  $nzix = zeroes(ccs_indx(),$nzvals->dims) if (!defined($nzix));
   $nzix->reshape($nzvals) if ($nzix->isempty);
   _checkdims($nzvals,$nzix,'ccs_qsort: nzvals~nzix');
   ##
   ##-- prepare: $nzenum
-  $nzenum = zeroes(long,$nzvals->dims) if (!defined($nzenum));
+  $nzenum = zeroes(ccs_indx(),$nzvals->dims) if (!defined($nzenum));
   $nzenum->reshape($nzvals) if ($nzenum->isempty);
   _checkdims($nzenum,$nzvals,'ccs_qsort: nzvals~nzenum');
 

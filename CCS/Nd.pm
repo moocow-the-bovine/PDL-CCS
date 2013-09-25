@@ -6,6 +6,7 @@ package PDL::CCS::Nd;
 use PDL::Lite;
 use PDL::VectorValued;
 use PDL::CCS::Version;
+use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Functions qw(ccs_decode ccs_pointerlen ccs_qsort);
 use PDL::CCS::Utils     qw(ccs_encode_pointers ccs_decode_pointer);
 use PDL::CCS::Ufunc;
@@ -71,6 +72,7 @@ our $CCSND_FLAGS_DEFAULT  = 0; ##-- default flags
 ##-- pdl constants
 our $P_BYTE = PDL::byte();
 our $P_LONG = PDL::long();
+our $P_INDX = ccs_indx();
 
 sub _min2 ($$) { $_[0]<$_[1] ? $_[0] : $_[1]; }
 sub _max2 ($$) { $_[0]>$_[1] ? $_[0] : $_[1]; }
@@ -82,12 +84,12 @@ sub _max2 ($$) { $_[0]>$_[1] ? $_[0] : $_[1]; }
 ## $obj = $class_or_obj->newFromDense($denseND,$missing);
 ## $obj = $class_or_obj->newFromDense($denseND,$missing,$flags);
 ##  + object structure: ARRAY
-##     $PDIMS   => $pdims,     ##-- pdl(long,$NPdims)     : physical dimension sizes : $pdim_i => $dimSize_i
-##     $VDIMS   => $vdims,     ##-- pdl(long,$NVdims)     : virtual dimension sizes
+##     $PDIMS   => $pdims,     ##-- pdl(indx,$NPdims)     : physical dimension sizes : $pdim_i => $dimSize_i
+##     $VDIMS   => $vdims,     ##-- pdl(indx,$NVdims)     : virtual dimension sizes
 ##                             ##     + $vdim_i => / -$vdimSize_i   if $vdim_i is dummy
 ##                             ##                  \  $pdim_i       otherwise
 ##                             ##     + s.t. $whichND_logical_physical = $whichND->dice_axis(0,$vdims->where($vdims>=0));
-##     $WHICH   => $whichND,   ##-- pdl(long,$NPdims,$Nnz) ~ $dense_orig->whichND
+##     $WHICH   => $whichND,   ##-- pdl(indx,$NPdims,$Nnz) ~ $dense_orig->whichND
 ##                             ##   + guaranteed to be sorted as for qsortvec() specs
 ##                             ##   + NOT changed by dimension-shuffling transformations
 ##     $VALS    => $vals,      ##-- pdl( ?  ,$Nnz+1)      ~ $dense->where($dense)->append($missing)
@@ -116,7 +118,7 @@ sub fromDense :lvalue {
   my $pwhichND = ($missing->isbad ? $p->isgood() : ($p != $missing))->whichND->vv_qsortvec;
   my $pnz  = $p->indexND($pwhichND)->append($missing);
   $pnz->sever;                       ##-- always sever nzvals ?
-  my $pdims = PDL->pdl($P_LONG,[$p->dims]);
+  my $pdims = PDL->pdl($P_INDX,[$p->dims]);
   $obj->[$PDIMS]   = $pdims;
   $obj->[$VDIMS]   = $pdims->isempty ? $pdims->pdl : $pdims->sequence;
   $obj->[$WHICH]   = $pwhichND;
@@ -157,7 +159,7 @@ sub fromWhich :lvalue {
 	       ? $opts{pdims}
 	       : (defined($opts{dims})
 		  ? $opts{dims}
-		  : PDL->pdl($P_LONG, [($wnd->xchg(0,1)->maximum+1)->list]) ));
+		  : PDL->pdl($P_INDX, [($wnd->xchg(0,1)->maximum+1)->list]) ));
   my $vdims = (defined($opts{vdims})
 	       ? $opts{vdims}
 	       : (defined($opts{xdims})
@@ -167,7 +169,7 @@ sub fromWhich :lvalue {
   if (!$opts{steal}) {
     ##-- not stolen: copy or sever
     if (!$opts{sorted}) {
-      my $wi   = $wnd->isempty ? PDL->null->long : $wnd->vv_qsortveci;
+      my $wi   = $wnd->isempty ? PDL->null->ccs_indx() : $wnd->vv_qsortveci;
       $wnd     = $wnd->dice_axis(1,$wi);
       $nzvals  = $nzvals->index($wi);
     }
@@ -361,7 +363,7 @@ sub sortwhich  :lvalue {
 #  }
 #--/DANGEROUS: pointer copy
 #
-  @{$_[0][$PTRS]} = qw() if (! ($sorti==PDL->sequence($P_LONG,$sorti->dims))->all );
+  @{$_[0][$PTRS]} = qw() if (! ($sorti==PDL->sequence($P_INDX,$sorti->dims))->all );
   return $_[0];
 }
 
@@ -424,7 +426,8 @@ sub _pdltype_sub {
   my $pdltype = shift;
   return sub { return $pdltype if (!@_); convert(@_,$pdltype); };
 }
-foreach my $pdltype (qw(byte short ushort long longlong float double)) {
+foreach my $pdltype (map {$_->{convertfunc}} values %PDL::Types::typehash) {
+  #qw(byte short ushort long longlong indx float double)
   eval "*${pdltype} = _pdltype_sub(PDL::${pdltype}());";
 }
 
@@ -694,7 +697,7 @@ foreach my $badsub (qw(setnantobad setbadtonan setbadtoval setvaltobad)) {
 ## $ccs = $ccs->setdims_p(@dims)
 ##  + sets physical dimensions
 *setdims = \&setdims_p;
-sub setdims_p { $_[0][$PDIMS] = PDL->pdl($P_LONG,@_[1..$#_]); }
+sub setdims_p { $_[0][$PDIMS] = PDL->pdl($P_INDX,@_[1..$#_]); }
 
 ## $ccs2 = $ccs->dummy($vdim_index)
 ## $ccs2 = $ccs->dummy($vdim_index, $vdim_size)
@@ -709,7 +712,7 @@ sub dummy  :lvalue {
   }
   splice(@vdims,$vdimi,0,-$vdimsize);
   my $ccs2 = $ccs->copyShallow;
-  $ccs2->[$VDIMS] = PDL->pdl($P_LONG,\@vdims);
+  $ccs2->[$VDIMS] = PDL->pdl($P_INDX,\@vdims);
   return $ccs2;
 }
 
@@ -722,11 +725,11 @@ sub reorder_pdl  :lvalue {
 }
 
 ## $ccs2 = $ccs->reorder(@vdim_list)
-sub reorder  :lvalue { $_[0]->reorder_pdl(PDL->pdl($P_LONG,@_[1..$#_])); }
+sub reorder  :lvalue { $_[0]->reorder_pdl(PDL->pdl($P_INDX,@_[1..$#_])); }
 
 ## $ccs2 = $ccs->xchg($vdim1,$vdim2)
 sub xchg  :lvalue {
-  my $dimpdl = PDL->sequence($P_LONG,$_[0]->ndims);
+  my $dimpdl = PDL->sequence($P_INDX,$_[0]->ndims);
   my $tmp    = $dimpdl->at($_[1]);
   $dimpdl->set($_[1], $dimpdl->at($_[2]));
   $dimpdl->set($_[2], $tmp);
@@ -799,7 +802,7 @@ sub index  :lvalue {
   my ($ccs,$i) = @_;
   my $dummy  = PDL->pdl(0)->slice(join(',', map {"*$_"} $ccs->dims));
   my @coords = $dummy->one2nd($i);
-  my $ind = PDL->zeroes($P_LONG,$ccs->ndims,$i->dims);
+  my $ind = PDL->zeroes($P_INDX,$ccs->ndims,$i->dims);
   my ($tmp);
   ($tmp=$ind->slice("($_),")) .= $coords[$_] foreach (0..$#coords);
   return $tmp=$ccs->indexND($ind);
@@ -853,7 +856,7 @@ sub dice_axis  :lvalue {
 ## $onedi = $ccs->n2oned($ndi)
 ##  + returns a pseudo-index
 sub n2oned  :lvalue {
-  my $dimsizes = PDL->pdl($P_LONG,1)->append($_[0]->dimpdl->abs)->slice("0:-2")->cumuprodover;
+  my $dimsizes = PDL->pdl($P_INDX,1)->append($_[0]->dimpdl->abs)->slice("0:-2")->cumuprodover;
   return my $tmp=($_[1] * $dimsizes)->sumover;
 }
 
@@ -879,9 +882,9 @@ sub whichND  :lvalue {
   my $ccs = shift;
   my $nvperp = $ccs->_ccs_nvperp;
   my $nv     = $ccs->nstored_v;
-  $wnd = PDL->zeroes($P_LONG, $ccs->ndims, $nv);
+  $wnd = PDL->zeroes($P_INDX, $ccs->ndims, $nv);
   (my $tmp=$wnd->dice_axis(0,$vpi)->flat) .= $ccs->[$WHICH]->slice(",*$nvperp,")->flat;
-  my $nzi    = PDL->sequence($P_LONG,$nv);
+  my $nzi    = PDL->sequence($P_INDX,$nv);
   my @vdims    = $ccs->[$VDIMS]->list;
   my ($vdimi,);
   foreach (grep {$vdims[$#vdims-$_]<0} (0..$#vdims)) {
@@ -908,11 +911,11 @@ sub whichVals  :lvalue {
 sub which  :lvalue { $_[0]->n2oned(scalar $_[0]->whichND); }
 
 ## $val = $ccs->at(@index)
-sub at { $_[0]->indexND(PDL->pdl($P_LONG,@_[1..$#_]))->sclr; }
+sub at { $_[0]->indexND(PDL->pdl($P_INDX,@_[1..$#_]))->sclr; }
 
 ## $val = $ccs->set(@index,$value)
 sub set {
-  my $foundi = $_[0]->indexNDi(PDL->pdl($P_LONG,@_[1..($#_-1)]));
+  my $foundi = $_[0]->indexNDi(PDL->pdl($P_INDX,@_[1..($#_-1)]));
   if ( ($foundi==$_[0][$WHICH]->dim(1))->any ) {
     carp(ref($_[0]).": cannot set() a missing value!")
   } else {
@@ -926,12 +929,12 @@ sub set {
 
 ## $missing_mask = $ccs->ismissing()
 sub ismissing  :lvalue {
-  $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$_[0]->_nzvals->zeroes->long->append(1));
+  $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$_[0]->_nzvals->zeroes->ccs_indx->append(1));
 }
 
 ## $nonmissing_mask = $ccs->ispresent()
 sub ispresent  :lvalue {
-  $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$_[0]->_nzvals->ones->long->append(0));
+  $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$_[0]->_nzvals->ones->ccs_indx->append(0));
 }
 
 ##--------------------------------------------------------------
@@ -952,7 +955,7 @@ sub _ufuncsub {
     my ($which1,$vals1);
     if ($which->dim(0) <= 1) {
       ##-- flat sum
-      $which1 = PDL->zeroes($P_LONG,1,$which->dim(1)); ##-- dummy
+      $which1 = PDL->zeroes($P_INDX,1,$which->dim(1)); ##-- dummy
       $vals1  = $vals;
     } else {
       $which1   = $which->slice("1:-1,");
@@ -971,7 +974,7 @@ sub _ufuncsub {
     my ($tmp);
     return $tmp=$nzvals2->squeeze if (!@dims); ##-- just a scalar: return a plain PDL
     ##
-    my $newdims = PDL->pdl($P_LONG,\@dims);
+    my $newdims = PDL->pdl($P_INDX,\@dims);
     return $tmp=$ccs->shadow(
 			     pdims =>$newdims,
 			     vdims =>$newdims->sequence,
@@ -1056,10 +1059,10 @@ sub _ufunc_ind_sub {
     if ($which->dim(0) <= 1) {
       ##-- flat sum
       $which0 = $which->slice("(0),");
-      $which1 = PDL->zeroes($P_LONG,1,$which->dim(1)); ##-- dummy
+      $which1 = PDL->zeroes($P_INDX,1,$which->dim(1)); ##-- dummy
       $vals1  = $vals;
     } else {
-      my $sorti = $which->dice_axis(0, PDL->sequence($P_LONG,$which->dim(0))->rotate(-1))->vv_qsortveci;
+      my $sorti = $which->dice_axis(0, PDL->sequence($P_INDX,$which->dim(0))->rotate(-1))->vv_qsortveci;
       $which1   = $which->slice("1:-1,")->dice_axis(1,$sorti);
       $which0   = $which->slice("(0),")->index($sorti);
       $vals1    = $vals->index($sorti);
@@ -1078,7 +1081,7 @@ sub _ufunc_ind_sub {
     ($tmp=$nzi2->where($nzi2_ok)) .= $which0->index($nzi2->where($nzi2_ok));
     return $tmp=$nzi2->squeeze if (!@dims); ##-- just a scalar: return a plain PDL
     ##
-    my $newdims = PDL->pdl($P_LONG,\@dims);
+    my $newdims = PDL->pdl($P_INDX,\@dims);
     return $tmp=$ccs->shadow(
 			     pdims =>$newdims,
 			     vdims =>$newdims->sequence,
@@ -1108,7 +1111,7 @@ sub _qsort {
 sub qsort :lvalue {
   my $ccs = shift;
   my ($which0,$nzvals0,$nzix,$nzenum) = $ccs->_qsort();
-  my $newdims = PDL->pdl($P_LONG,[$ccs->dims]);
+  my $newdims = PDL->pdl($P_INDX,[$ccs->dims]);
   return my $tmp=$ccs->shadow(
 			      to    => $_[0],
 			      pdims =>$newdims,
@@ -1123,7 +1126,7 @@ sub qsort :lvalue {
 sub qsorti :lvalue {
   my $ccs = shift;
   my ($which0,$nzvals0,$nzix,$nzenum) = $ccs->_qsort();
-  my $newdims = PDL->pdl($P_LONG,[$ccs->dims]);
+  my $newdims = PDL->pdl($P_INDX,[$ccs->dims]);
   return my $tmp=$ccs->shadow(
 			      to    => $_[0],
 			      pdims =>$newdims,
@@ -1159,11 +1162,11 @@ foreach my $unop (qw(bitnot sqrt abs sin cos not exp log log10))
 
 ## ($rdpdl,$pdimsc,$vdimsc,$apcp,$bpcp) = _ccsnd_binop_align_dims($pdimsa,$vdimsa, $pdimsb,$vdimsb, $opname)
 #  + returns:
-##     $rdpdl  : (long,2,$nrdims) : [ [$vdimai,$vdimbi], ...] s.t. $vdimai should align with $vdimbi
-##     $pdimsc : (long,$ndimsc)   : physical dim-size pdl for CCS output $c()
-##     $vdimsc : (long,$ndimsc)   : virtual dim-size pdl for CCS output $c()
-##     $apcp   : (long,2,$nac)    : [ [$apdimi,$cpdimi], ... ] s.t. $cpdimi aligns 1-1 with $apdimi
-##     $bpcp   : (long,2,$nbc)    : [ [$bpdimi,$cpdimi], ... ] s.t. $cpdimi aligns 1-1 with $bpdimi
+##     $rdpdl  : (indx,2,$nrdims) : [ [$vdimai,$vdimbi], ...] s.t. $vdimai should align with $vdimbi
+##     $pdimsc : (indx,$ndimsc)   : physical dim-size pdl for CCS output $c()
+##     $vdimsc : (indx,$ndimsc)   : virtual dim-size pdl for CCS output $c()
+##     $apcp   : (indx,2,$nac)    : [ [$apdimi,$cpdimi], ... ] s.t. $cpdimi aligns 1-1 with $apdimi
+##     $bpcp   : (indx,2,$nbc)    : [ [$bpdimi,$cpdimi], ... ] s.t. $cpdimi aligns 1-1 with $bpdimi
 sub _ccsnd_binop_align_dims {
   my ($pdimsa,$vdimsa,$pdimsb,$vdimsb, $opname) = @_;
   $opname = '_ccsnd_binop_relevant_dims' if (!defined($opname));
@@ -1193,7 +1196,7 @@ sub _ccsnd_binop_align_dims {
     ##-- dims match: only align if both are physical
     push(@rdims, [$vdima,$vdimb]) if ($vdima>=0 && $vdimb>=0);
   }
-  my $rdpdl = PDL->pdl($P_LONG,\@rdims);
+  my $rdpdl = PDL->pdl($P_INDX,\@rdims);
 
   ##-- get output dimension sources
   my @_cdsrc = qw(); ##-- ( $a_or_b_for_dim0, ... )
@@ -1211,7 +1214,7 @@ sub _ccsnd_binop_align_dims {
     elsif ($vdimb>=0) { push(@_cdsrc, 1); }                        ##-- a:v, b:p --> c:p[b]
     else              { push(@_cdsrc, $dimsza>=$dimszb ? 0 : 1); } ##-- a:v, b:v --> c:v[max2(sz(a),sz(b))]
   }
-  my $_cdsrcp = PDL->pdl($P_LONG,@_cdsrc);
+  my $_cdsrcp = PDL->pdl($P_INDX,@_cdsrc);
 
   ##-- get c() dimension pdls
   my @pdimsc = qw();
@@ -1235,10 +1238,10 @@ sub _ccsnd_binop_align_dims {
       }
     }
   }
-  my $pdimsc = PDL->pdl($P_LONG,\@pdimsc);
-  my $vdimsc = PDL->pdl($P_LONG,\@vdimsc);
-  my $apcp   = PDL->pdl($P_LONG,\@apcp);
-  my $bpcp   = PDL->pdl($P_LONG,\@bpcp);
+  my $pdimsc = PDL->pdl($P_INDX,\@pdimsc);
+  my $vdimsc = PDL->pdl($P_INDX,\@vdimsc);
+  my $apcp   = PDL->pdl($P_INDX,\@apcp);
+  my $bpcp   = PDL->pdl($P_INDX,\@bpcp);
 
   return ($rdpdl,$pdimsc,$vdimsc,$apcp,$bpcp);
 }
@@ -1286,15 +1289,15 @@ sub _ccsnd_binary_op_mia {
     my ($ixar,$avalsr);
     if ( $rdpdl->isempty ) {
       ##-- a: no relevant dims: align all pairs using a pseudo-dimension
-      $ixar   = PDL->zeroes($P_LONG, 1,$nixa);
+      $ixar   = PDL->zeroes($P_INDX, 1,$nixa);
       $avalsr = $avals;
-    } elsif ( ($ra==PDL->sequence($P_LONG,$nrdims))->all ) {
+    } elsif ( ($ra==PDL->sequence($P_INDX,$nrdims))->all ) {
       ##-- a: relevant dims are a prefix of physical dims, e.g. pre-sorted
       $ixar   = $nrdims==$ixa->dim(0) ? $ixa : $ixa->slice("0:".($nrdims-1));
       $avalsr = $avals;
     } else {
       $ixar          = $ixa->dice_axis(0,$ra);
-      my $ixar_sorti = $ixar->isempty ? PDL->null->long : $ixar->vv_qsortveci;
+      my $ixar_sorti = $ixar->isempty ? PDL->null->ccs_indx() : $ixar->vv_qsortveci;
       $ixa           = $ixa->dice_axis(1,$ixar_sorti);
       $ixar          = $ixar->dice_axis(1,$ixar_sorti);
       $avalsr        = $avals->index($ixar_sorti);
@@ -1307,15 +1310,15 @@ sub _ccsnd_binary_op_mia {
     my ($ixbr,$bvalsr);
     if ( $rdpdl->isempty ) {
       ##-- b: no relevant dims: align all pairs using a pseudo-dimension
-      $ixbr   = PDL->zeroes($P_LONG, 1,$nixb);
+      $ixbr   = PDL->zeroes($P_INDX, 1,$nixb);
       $bvalsr = $bvals;
-    } elsif ( ($rb==PDL->sequence($P_LONG,$nrdims))->all ) {
+    } elsif ( ($rb==PDL->sequence($P_INDX,$nrdims))->all ) {
       ##-- b: relevant dims are a prefix of physical dims, e.g. pre-sorted
       $ixbr   = $nrdims==$ixb->dim(0) ? $ixb : $ixb->slice("0:".($nrdims-1));
       $bvalsr = $bvals;
     } else {
       $ixbr          = $ixb->dice_axis(0,$rb);
-      my $ixbr_sorti = $ixbr->isempty ? PDL->null->long : $ixbr->vv_qsortveci;
+      my $ixbr_sorti = $ixbr->isempty ? PDL->null->ccs_indx() : $ixbr->vv_qsortveci;
       $ixb           = $ixb->dice_axis(1,$ixbr_sorti);
       $ixbr          = $ixbr->dice_axis(1,$ixbr_sorti);
       $bvalsr        = $bvals->index($ixbr_sorti);
@@ -1326,19 +1329,19 @@ sub _ccsnd_binary_op_mia {
     my $blksz  = $nixa > $nixb ? $nixa : $nixb;
     $blksz     = $BINOP_BLOCKSIZE_MIN if ($BINOP_BLOCKSIZE_MIN && $blksz < $BINOP_BLOCKSIZE_MIN);
     $blksz     = $BINOP_BLOCKSIZE_MAX if ($BINOP_BLOCKSIZE_MAX && $blksz > $BINOP_BLOCKSIZE_MAX);
-    my $istate = PDL->zeroes($P_LONG,7); ##-- [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
+    my $istate = PDL->zeroes($P_INDX,7); ##-- [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
     my $ostate = $istate->pdl;
 
     ##-- initialize: output vectors
-    my $nzai   = PDL->zeroes($P_LONG,$blksz);
-    my $nzbi   = PDL->zeroes($P_LONG,$blksz);
+    my $nzai   = PDL->zeroes($P_INDX,$blksz);
+    my $nzbi   = PDL->zeroes($P_INDX,$blksz);
     my $nzc    = PDL->zeroes((defined($deftype)
 			      ? $deftype
 			      : ($avals->type > $bvals->type
 				 ? $avals->type
 				 : $bvals->type)),
 			     $blksz);
-    my $ixc    = PDL->zeroes($P_LONG, $pdimsc->nelem, $blksz);
+    my $ixc    = PDL->zeroes($P_INDX, $pdimsc->nelem, $blksz);
     my $nnzc   = 0;
     my $zc     = $pdlsub->($avals->slice("-1"), $bvals->slice("-1"), $swap)->convert($nzc->type);
     my $nanismissing = ($a->[$FLAGS]&$CCSND_NAN_IS_MISSING);
@@ -1474,7 +1477,7 @@ sub _ccsnd_parse_signature {
     ($type,$flags) = ('','');
 
     ##-- check for type
-    if ($_ =~ s/^\s*(byte|short|ushort|int|long|longlong|float|double)\s*//) {
+    if ($_ =~ s/^\s*(byte|short|ushort|int|long|longlong|indx|float|double)\s*//) {
       $type = $1;
     }
 

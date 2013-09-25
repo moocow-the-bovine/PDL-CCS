@@ -2,7 +2,7 @@
 ## Author: Bryan Jurish
 ## Description: set version for PDL::CCS
 
-package PDL::CCS;
-our $VERSION='1.18.2';
+package PDL::CCS::Version;
+our $VERSION = $PDL::CCS::VERSION = '1.19.0';
 
 1; ##-- make perl happy

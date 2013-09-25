@@ -45,6 +45,13 @@ EOPM
 pp_addhdr(<<'EOH');
 EOH
 
+##------------------------------------------------------
+## index datatype
+require "../Config.pm";
+our $INDX = $PDL::CCS::Config::ccsConfig{INDX_SIG};
+pp_addpm( $PDL::CCS::Config::ccsConfig{INDX_FUNCDEF} );
+pp_addhdr( $PDL::CCS::Config::ccsConfig{INDX_TYPEDEF} );
+
 
 ##======================================================================
 ## C Utilities
@@ -65,7 +72,7 @@ vvpp_def
   ('ccs_matmult2d_sdd',
    Pars => ("\n    "
 	    .join("\n    ",
-		  'int ixa(NdimsA,NnzA); nza(NnzA); missinga();', ## a(M,N) (M~i, N~x): formerly here as a(N,M)
+		  "$INDX ixa(NdimsA,NnzA); nza(NnzA); missinga();", ## a(M,N) (M~i, N~x): formerly here as a(N,M)
 		  'b(O,M);',                                      ## b(O,M) (O~z, M~i)
 		  'zc(O);',                                       ## zc(O)
 		  '[o]c(O,N)',                                    ## c(O,N) (O~z, N~x)
@@ -82,8 +89,8 @@ vvpp_def
  //
  //-- main loop
  loop (NnzA) %{
-   long mi = $ixa(NdimsA=>0);
-   long ni = $ixa(NdimsA=>1);
+   CCS_Indx mi = $ixa(NdimsA=>0);
+   CCS_Indx ni = $ixa(NdimsA=>1);
    loop (O) %{
      //--# c(o,n) = sum for m=1 to M [a(m,n) * b(o,m)]
      $c(N=>ni) += $b(M=>mi) * ($nza() - $missinga());
@@ -116,7 +123,7 @@ vvpp_def
   ('ccs_matmult2d_zdd',
    Pars => ("\n    "
 	    .join("\n    ",
-		  'int ixa(Ndimsa,NnzA); nza(NnzA);', ## a(M,N) (M~i, N~x)
+		  "$INDX ixa(Ndimsa,NnzA); nza(NnzA);", ## a(M,N) (M~i, N~x)
 		  'b(O,M);',                          ## b(O,M) (O~z, M~i)
 		  '[o]c(O,N)',                        ## c(O,N) (O~z, N~x)
 		  '')),
@@ -131,8 +138,8 @@ vvpp_def
  //
  //-- main loop over CCS-encoded a()
  loop (NnzA) %{
-   long Mi = $ixa(Ndimsa=>0);
-   long Ni = $ixa(Ndimsa=>1);
+   CCS_Indx Mi = $ixa(Ndimsa=>0);
+   CCS_Indx Ni = $ixa(Ndimsa=>1);
    loop (O) %{
      $c(N=>Ni) += $nza() * $b(M=>Mi);
    %}

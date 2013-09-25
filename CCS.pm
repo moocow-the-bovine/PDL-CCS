@@ -5,6 +5,7 @@
 package PDL::CCS;
 use PDL;
 use PDL::CCS::Version;
+use PDL::CCS::Config;
 use PDL::CCS::Compat;
 use PDL::CCS::Functions;
 use PDL::CCS::Utils;
@@ -18,6 +19,7 @@ our $VERSION = $PDL::CCS::VERSION;
 our @ISA = ('PDL::Exporter');
 our @EXPORT_OK =
   (
+   @PDL::CCS::Config::EXPORT_OK,
    @PDL::CCS::Compat::EXPORT_OK,
    @PDL::CCS::Functions::EXPORT_OK,
    @PDL::CCS::Utils::EXPORT_OK,
@@ -29,6 +31,7 @@ our @EXPORT_OK =
 our %EXPORT_TAGS =
   (
    Func => [
+	    @{$PDL::CCS::Config::EXPORT_TAGS{Func}},
 	    @{$PDL::CCS::Compat::EXPORT_TAGS{Func}},
 	    @{$PDL::CCS::Functions::EXPORT_TAGS{Func}},
 	    @{$PDL::CCS::Utils::EXPORT_TAGS{Func}},
@@ -81,36 +84,36 @@ submodules.  See the documentation for the individual modules for details.
 
 =over 4
 
-=item PDL::CCS::Nd
+=item L<PDL::CCS::Nd|PDL::CCS::Nd>
 
 Perl class for representing large sparse N-dimensional numeric structures
 using sorted index vector-vectors and a flat vector of non-missing values.
 Supports a subset of the perl-side PDL API.
 
-=item PDL::CCS::Compat
+=item L<PDL::CCS::Compat|PDL::CCS::Compat>
 
 Backwards-compatibility module for Harwell-Boeing compressed column storage.
 
-=item PDL::CCS::Functions
+=item L<PDL::CCS::Functions|PDL::CCS::Functions>
 
 Some useful generic pure-perl functions for dealing directly with
 CCS-, CRS-, and index-encoded PDLs.
 
-=item PDL::CCS::Utils
+=item L<PDL::CCS::Utils|PDL::CCS::Utils>
 
 Low-level generic PDL::PP utilities for Harwell-Boeing encoding and decoding
 "pointers" along arbitrary dimensions of a sparse PDL given an index list.
 
-=item PDL::CCS::Ops
+=item L<PDL::CCS::Ops|PDL::CCS::Ops>
 
 Low-level generic PDL::PP utilities for blockwise alignment of pairs
 of sparse index-encoded PDLs, useful for implementing binary operations.
 
-=item PDL::CCS::Ufunc
+=item L<PDL::CCS::Ufunc|PDL::CCS::Ufunc>
 
 Various low-level ufunc (accumulator) utilities for index-encoded PDLs.
 
-=item PDL::CCS::MatrixOps
+=item L<PDL::CCS::MatrixOps|PDL::CCS::MatrixOps>
 
 Low-level generic PDL::PP utilities for matrix operations
 on index-encoded PDLs.

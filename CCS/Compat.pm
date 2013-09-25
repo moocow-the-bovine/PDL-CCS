@@ -6,6 +6,7 @@ package PDL::CCS::Compat;
 use PDL;
 use PDL::VectorValued;
 use PDL::CCS::Version;
+use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Functions;
 use PDL::CCS::Utils;
 use PDL::CCS::Ufunc;
@@ -150,9 +151,9 @@ PDL::CCS::Compat - Backwards-compatibility module for PDL::CCS
 
 =for sig
 
-  Signature: (int awhich(2,Nnz); avals(Nnz);
-              int $N; int $M;
-              int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz))
+  Signature: (indx awhich(2,Nnz); avals(Nnz);
+              indx $N; indx $M;
+              indx [o]ptr(N); indx [o]rowids(Nnz); [o]nzvals(Nnz))
 
 Generic wrapper for backwards-compatible ccsencode() variants.
 
@@ -189,7 +190,7 @@ sub PDL::ccs_encode_compat {
 
 =for sig
 
-  Signature: (a(N,M); int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz))
+  Signature: (a(N,M); indx [o]ptr(N); indx [o]rowids(Nnz); [o]nzvals(Nnz))
 
 Encodes matrix $a() in compressed column format, interpreting zeroes
 as "missing" values.
@@ -220,7 +221,7 @@ sub ccsencode_nz {
 
 =for sig
 
-  Signature: (a(N,M); eps(); int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz))
+  Signature: (a(N,M); eps(); indx [o]ptr(N); indx [o]rowids(Nnz); [o]nzvals(Nnz))
 
 Encodes matrix $a() in CCS format interpreting approximate zeroes as "missing" values.
 This function is just like ccsencode_nz(), but uses the tolerance parameter
@@ -253,7 +254,7 @@ sub ccsencode_naz {
 
 =for sig
 
-  Signature: (a(N,M); int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals(Nnz))
+  Signature: (a(N,M); indx [o]ptr(N); indx [o]rowids(Nnz); [o]nzvals(Nnz))
 
 Encodes matrix $a() in CCS format interpreting BAD values
 as "missing".  Requires bad-value support built into PDL.
@@ -284,7 +285,7 @@ sub ccsencode_g {
 
 =for sig
 
-  Signature: (int ix(Nnz); nzvals(Nnz); int $N; int [o]ptr(N); int [o]rowids(Nnz); [o]nzvals_enc(Nnz))
+  Signature: (indx ix(Nnz); nzvals(Nnz); indx $N; int [o]ptr(N); indx [o]rowids(Nnz); [o]nzvals_enc(Nnz))
 
 General-purpose CCS encoding method for flat indices.
 Encodes values $nzvals() from flat-index locations $ix() into a CCS matrix ($ptr(), $rowids(), $nzvals_enc()).
@@ -318,13 +319,13 @@ sub ccsencode_i {
 =for sig
 
   Signature: (
-              int  xvals(Nnz)       ;
-              int  yvals(Nnz)       ;
-                  nzvals(Nnz)       ;
-              int       $N          ; ##-- optional
-              int [o]ptr(N)         ;
-              int [o]rowids(Nnz)    ;
-                  [o]nzvals_enc(Nnz);
+              indx    xvals(Nnz)     ;
+              indx    yvals(Nnz)     ;
+                      nzvals(Nnz)    ;
+              indx    $N             ; ##-- optional
+              indx [o]ptr(N)         ;
+              indx [o]rowids(Nnz)    ;
+                   [o]nzvals_enc(Nnz);
              )
 
 General-purpose encoding method.
@@ -367,10 +368,10 @@ sub ccsencode_i2d {
 =for sig
 
   Signature: (
-              int    ptr    (N)  ;
-              int    rowids (Nnz);
+              indx   ptr    (N)  ;
+              indx   rowids (Nnz);
                      nzvals (Nnz);
-              int    xvals  (I)  ; # default=sequence($N)
+              indx   xvals  (I)  ; # default=sequence($N)
                      missing()   ; # default=0
                      M      ()   ; # default=rowids->max+1
                   [o]cols   (I,M); # default=new
@@ -389,16 +390,16 @@ following two calls are equivalent (modulo data flow):
 
 
 *PDL::_ccsdecodecols = \&_ccsdecodecols;
-#Pars => 'int ptr(N); int rowids(Nnz); nzvals(Nnz); int col_ix(I); missing(); [o]cols(I,M);',
+#Pars => 'indx ptr(N); indx rowids(Nnz); nzvals(Nnz); indx col_ix(I); missing(); [o]cols(I,M);',
 sub _ccsdecodecols {
   ccsdecodecols(@_[0,1,2], $_[3],$_[4], undef, $_[5]);
 }
 *PDL::ccsdecodecols = \&ccsdecodecols;
 sub ccsdecodecols {
   my ($ptr,$rowids,$nzvals, $coli,$missing,$M, $cols) = @_;
-  $coli    = sequence(long,$ptr->dim(0)) if (!defined($coli));
-  $coli    = pdl(long,$coli)             if (!ref($coli));
-  my $ptr1 = zeroes(long,$ptr->nelem+1);
+  $coli    = sequence(ccs_indx,$ptr->dim(0)) if (!defined($coli));
+  $coli    = pdl(ccs_indx,$coli)             if (!ref($coli));
+  my $ptr1 = zeroes(ccs_indx,$ptr->nelem+1);
   $ptr1->slice("0:-2") .= $ptr;
   $ptr1->set(-1 => $nzvals->nelem);
   $M = $rowids->max+1 if (!defined($M));
@@ -422,7 +423,7 @@ sub ccsdecodecols {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); $M; [o]dense(N,M))
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals(Nnz); $M; [o]dense(N,M))
 
 Decodes compressed column format vectors $ptr(), $rowids(), and $nzvals()
 into dense output matrix $a().
@@ -435,7 +436,7 @@ In such cases, you might prefer to call ccsdecodecols() directly.
 
 =cut
 
-*PDL::ccsdecodefull = \&ccsdecodefull; ##-- (int ptr(N); int rowids(Nnz); nzvals(Nnz); [o]dense(N,M))
+*PDL::ccsdecodefull = \&ccsdecodefull; ##-- (indx ptr(N); indx rowids(Nnz); nzvals(Nnz); [o]dense(N,M))
 sub ccsdecodefull { ccsdecodecols(@_[0,1,2], undef,0,undef, @_[3..$#_]); }
 
 *PDL::ccsdecode = \&ccsdecode;
@@ -463,7 +464,7 @@ sub ccsdecode {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); $M; [o]dense(N,M))
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals(Nnz); $M; [o]dense(N,M))
 
 Convenience method.
 Like ccsdecode() but sets "missing" values to BAD.
@@ -510,7 +511,7 @@ sub ccsdecode_g {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); int ind(2,I); int missing(); int [o]nzix(I))
+  Signature: (indx ptr(N); indx rowids(Nnz); indx ind(2,I); indx missing(); indx [o]nzix(I))
 
 =head2 ccsiNDtonzi
 
@@ -543,7 +544,7 @@ sub ccsiNDtonzi {
 
 =for sig
 
-  Signaure: (int ptr(N); int rowids(Nnz); int col_ix(I); int row_ix(I); int missing(); int [o]nzix(I))
+  Signaure: (indx ptr(N); indx rowids(Nnz); indx col_ix(I); indx row_ix(I); indx missing(); indx [o]nzix(I))
 
 Convert 2d index values $col_ix() and $row_ix() appropriate for a dense matrix (N,M)
 into indices $nzix() appropriate for the $rowids() and/or $nzvals() components
@@ -566,7 +567,7 @@ sub ccsi2dtonzi {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); int ix(I); int missing(); int [o]nzix(I))
+  Signature: (indx ptr(N); indx rowids(Nnz); indx ix(I); indx missing(); indx [o]nzix(I))
 
 =head2 ccsitonzi
 
@@ -600,7 +601,7 @@ sub ccsitonzi {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int [o]which_cols(Nnz); int [o]which_rows(Nnz)',
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals(Nnz); indx [o]which_cols(Nnz); indx [o]which_rows(Nnz)',
 
 In scalar context, returns concatenation of $which_cols() and $which_rows(),
 similar to the builtin whichND().  Note however that ccswhichND() may return
@@ -616,10 +617,10 @@ sub ccswhichND {
   my ($ptr,$rowids,$nzvals, $which_cols,$which_rows) = @_;
   my ($ptrnzi);
   ($which_cols,$ptrnzi) = ccs_decode_pointer($ptr->append($rowids->nelem),
-					     sequence(long, $ptr->nelem),
+					     sequence(ccs_indx, $ptr->nelem),
 					     $which_cols
 					    );
-  $which_rows  = zeroes(long, $rowids->nelem) if (!defined($which_rows));
+  $which_rows  = zeroes(ccs_indx, $rowids->nelem) if (!defined($which_rows));
   $which_rows .= $rowids->index($ptrnzi);
   return wantarray ? ($which_cols,$which_rows) : $which_cols->cat($which_rows)->xchg(0,1);
 }
@@ -632,7 +633,7 @@ sub ccswhichND {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int [o]which(Nnz); int [t]wcols(Nnz)',
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals(Nnz); indx [o]which(Nnz); indx [t]wcols(Nnz)',
 
 Convenience method.
 Calls ccswhichfull(), and scales the output PDLs to correspond to a flat enumeration.
@@ -645,8 +646,8 @@ Use the qsort() method if you need sorted output.
 sub ccswhich {
   my ($ptr,$rowids,$nzvals, $which, $wcols) = @_;
   my $nnz = $rowids->dim(0);
-  $which = zeroes(long,$nnz) if (!defined($which));
-  $wcols = zeroes(long,$nnz) if (!defined($wcols));
+  $which = zeroes(ccs_indx,$nnz) if (!defined($which));
+  $wcols = zeroes(ccs_indx,$nnz) if (!defined($wcols));
   ccswhichfull($ptr,$rowids,$nzvals, $wcols,$which);
   $which *= $ptr->dim(0);
   $which += $wcols;
@@ -662,7 +663,7 @@ sub ccswhich {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int [o]ptrT(M); int [o]rowidsT(Nnz); [o]nzvalsT(Nnz)',
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals(Nnz); indx [o]ptrT(M); indx [o]rowidsT(Nnz); [o]nzvalsT(Nnz)',
 
 Transpose a compressed matrix.
 
@@ -697,7 +698,7 @@ sub ccstranspose {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int xvals(I); int yvals(I); missing(); [o]ixvals(I))
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals(Nnz); indx xvals(I); indx yvals(I); missing(); [o]ixvals(I))
 
 Lookup values in a CCS-encoded PDL by 2d source index (no dataflow).
 Pretty much like ccsi2dtonzi(), but returns values instead of indices.
@@ -734,7 +735,7 @@ sub ccsget2d {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals(Nnz); int ix(I); missing(); [o]ixvals(I))
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals(Nnz); indx ix(I); missing(); [o]ixvals(I))
 
 Lookup values in a CCS-encoded PDL by flat source index (no dataflow).
 Pretty much like ccsitonzi(), but returns values instead of indices.
@@ -780,7 +781,7 @@ sub ccsget {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals_in(Nnz);  colvec(M);  [o]nzvals_out(Nnz))
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals_in(Nnz);  colvec(M);  [o]nzvals_out(Nnz))
 
 Column-vector operation ${OP} on CCS-encoded PDL.
 
@@ -836,7 +837,7 @@ foreach my $op (@ccs_binops) {
 
 =for sig
 
-  Signature: (int ptr(N); int rowids(Nnz); nzvals_in(Nnz);  rowvec(N);  [o]nzvals_out(Nnz))
+  Signature: (indx ptr(N); indx rowids(Nnz); nzvals_in(Nnz);  rowvec(N);  [o]nzvals_out(Nnz))
 
 Row-vector operation ${OP} on CCS-encoded PDL.
 Should do something like the following (without decoding the CCS matrix):

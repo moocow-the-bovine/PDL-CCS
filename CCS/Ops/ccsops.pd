@@ -45,6 +45,13 @@ EOPM
 pp_addhdr(<<'EOH');
 EOH
 
+##------------------------------------------------------
+## index datatype
+require "../Config.pm";
+our $INDX = $PDL::CCS::Config::ccsConfig{INDX_SIG};
+pp_addpm( $PDL::CCS::Config::ccsConfig{INDX_FUNCDEF} );
+pp_addhdr( $PDL::CCS::Config::ccsConfig{INDX_TYPEDEF} );
+
 
 ##======================================================================
 ## C Utilities
@@ -64,14 +71,15 @@ vvpp_def
   ('ccs_binop_align_block_mia',
    Pars => ("\n    "
 	    .join("\n    ",
-		  'int ixa(Ndims,NnzA); int ixb(Ndims,NnzB); int    istate(State);',
-		  'int [o]nzai(NnzC);   int [o]nzbi(NnzC);   int [o]ostate(State);',
+		  "$INDX\ ixa(Ndims,NnzA); $INDX\ ixb(Ndims,NnzB); $INDX\    istate(State);",
+		  "$INDX\ [o]nzai(NnzC);   $INDX\ [o]nzbi(NnzC);   $INDX\ [o]ostate(State);",
 		  '')),
    Code =>
 (q(
- long sizeNnzA=$SIZE(NnzA), sizeNnzB=$SIZE(NnzB), sizeNnzC=$SIZE(NnzC);
- long nnzai=0, nnzbi=0,nnzbi0, nnzci=0, nnzai_nxt=0,nnzbi_nxt=0,nnzci_nxt=0;
- int cmpme1,cmpme2, cmpval=0;
+ CCS_Indx sizeNnzA=$SIZE(NnzA), sizeNnzB=$SIZE(NnzB), sizeNnzC=$SIZE(NnzC);
+ CCS_Indx nnzai=0, nnzbi=0,nnzbi0, nnzci=0, nnzai_nxt=0,nnzbi_nxt=0,nnzci_nxt=0;
+ CCS_Indx cmpme1,cmpme2;
+ int cmpval=0;
  //
  //-- initialize: parse istate() [ nnzai,nnzai_nxt, nnzbi,nnzbi_nxt, nnzci,nnzci_nxt, cmpval ]
  if ($SIZE(State) >= 7) {

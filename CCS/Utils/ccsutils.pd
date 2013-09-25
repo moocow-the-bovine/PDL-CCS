@@ -6,14 +6,14 @@
 
 use PDL::VectorValued::Dev;
 require "../Version.pm";
-our $VERSION = $PDL::CCS::VERSION;
+our $VERSION   = $PDL::CCS::VERSION;
 pp_setversion($VERSION);
 
 ##------------------------------------------------------
 ## pm headers
 pp_addpm({At=>'Top'},<<'EOPM');
 
-#use PDL::CCS::Version;
+#use PDL::CCS::Config;
 use strict;
 
 =pod
@@ -44,6 +44,13 @@ EOPM
 ## Includes / defines
 pp_addhdr(<<'EOH');
 EOH
+
+##------------------------------------------------------
+## index datatype
+require "../Config.pm";
+our $INDX = $PDL::CCS::Config::ccsConfig{INDX_SIG};
+pp_addpm( $PDL::CCS::Config::ccsConfig{INDX_FUNCDEF} );
+pp_addhdr( $PDL::CCS::Config::ccsConfig{INDX_TYPEDEF} );
 
 
 ##======================================================================
@@ -159,15 +166,15 @@ EOPM
 ## ccs_encode_pointers() : get encoded pointer & index translation PDL
 pp_def
   ('ccs_encode_pointers',
-   Pars => 'int ix(Nnz); int N(); int [o]ptr(Nplus1); int [o]ixix(Nnz);',
+   Pars => "$INDX\ ix(Nnz); $INDX\ N(); $INDX\ [o]ptr(Nplus1); $INDX\ [o]ixix(Nnz);",
    PMCode=>
 (q{
  sub PDL::ccs_encode_pointers {
    my ($ix,$N,$ptr,$ixix) = @_;
    barf("Usage: ccs_encode_pointers(ix(Nnz), N(), [o]ptr(N), [o]ixix(Nnz)") if (!defined($ix));
    $N    = $ix->max()+1                               if (!defined($N));
-   $ptr = PDL->zeroes(PDL::long(), $N+1)              if (!defined($ptr));
-   $ixix = PDL->zeroes(PDL::long(), $ix->dim(0))      if (!defined($ixix));
+   $ptr = PDL->zeroes(ccs_indx(), $N+1)              if (!defined($ptr));
+   $ixix = PDL->zeroes(ccs_indx(), $ix->dim(0))      if (!defined($ixix));
    &PDL::_ccs_encode_pointers_int($ix,$N,$ptr,$ixix);
    return ($ptr,$ixix);
  }
@@ -175,7 +182,7 @@ pp_def
    Code =>
 (q(
  /*-- Local variables --*/
- long ixval, ixval_next, ixval_prev, nzi, nzj, sizeN=$SIZE(Nplus1)-1, sizeNnz=$SIZE(Nnz);
+ CCS_Indx ixval, ixval_next, ixval_prev, nzi, nzj, sizeN=$SIZE(Nplus1)-1, sizeNnz=$SIZE(Nnz);
  //
  /*-- Count number of NZs in each column; store in ptr[N=>ixval] --*/
  loop (Nplus1) %{ $ptr()=0; %}
@@ -236,7 +243,7 @@ EOPM
 ## ccs_decode_pointer() : decode a CCS-encoded pointer
 pp_def
   ('ccs_decode_pointer',
-   Pars => 'int ptr(Nplus1); int proj(Nproj); int [o]projix(NnzProj); int [o]nzix(NnzProj)',
+   Pars => "$INDX ptr(Nplus1); $INDX proj(Nproj); $INDX\ [o]projix(NnzProj); $INDX\ [o]nzix(NnzProj)",
    PMCode=>
 (q{
  sub PDL::ccs_decode_pointer {
@@ -245,14 +252,14 @@ pp_def
      if (!defined($ptr));
    my ($nnzproj);
    if (!defined($proj)) {
-     $proj    = PDL->sequence(PDL::long(), $ptr->dim(0)-1);
+     $proj    = PDL->sequence(ccs_indx(), $ptr->dim(0)-1);
      $nnzproj = $ptr->at(-1);
    }
    if (!defined($projix) || !defined($nzix)) {
      $nnzproj = ($ptr->index($proj+1)-$ptr->index($proj))->sum if (!defined($nnzproj));
      return (null,null) if (!$nnzproj);
-     $projix  = PDL->zeroes(PDL::long(), $nnzproj) if (!defined($projix));
-     $nzix    = PDL->zeroes(PDL::long(), $nnzproj) if (!defined($nzix));
+     $projix  = PDL->zeroes(ccs_indx(), $nnzproj) if (!defined($projix));
+     $nzix    = PDL->zeroes(ccs_indx(), $nnzproj) if (!defined($nzix));
    }
    &PDL::_ccs_decode_pointer_int($ptr,$proj,$projix,$nzix);
    return ($projix,$nzix);
@@ -261,7 +268,7 @@ pp_def
    Code =>
 (q(
  /*-- Local variables --*/
- long ni,ni_next, nzi,nzi_next, ixi=0, sizeNproj=$SIZE(Nproj), sizeNnzProj=$SIZE(NnzProj);
+ CCS_Indx ni,ni_next, nzi,nzi_next, ixi=0, sizeNproj=$SIZE(Nproj), sizeNnzProj=$SIZE(NnzProj);
  loop (Nproj) %{
    ni         = $proj();
    ni_next    = ni+1;
@@ -288,7 +295,7 @@ EOD
 ## _ccs_dump_ix()
 ##  + prints a text dump of an index
 pp_def('ccs_dump_which',
-       Pars => 'int which(Ndims,Nnz)',
+       Pars => "$INDX which(Ndims,Nnz)",
        OtherPars => 'SV *HANDLE; char *fmt; char *fsep; char *rsep',
        PMCode=>
 (q{
@@ -303,7 +310,7 @@ pp_def('ccs_dump_which',
 }),
    Code =>
 (q(
- long dimi, sizeNdims=$SIZE(Ndims);
+ CCS_Indx dimi, sizeNdims=$SIZE(Ndims);
  char *fmt_str  = $COMP(fmt);
  char *fsep_str = $COMP(fsep);
  char *rsep_str = $COMP(rsep);

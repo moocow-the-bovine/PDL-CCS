@@ -1,3 +1,5 @@
+v1.19.0 Wed, 25 Sep 2013 12:13:27 +0200 moocow
+	+ added (optional) support for 64-bit indices via PDL_Indx (requires PDL >= v2.007)
 
 v1.18.0 Wed, 07 Nov 2012 13:57:26 +0100
 	+ added CCS::Functions::ccs_qsort(), CCS::Nd::qsort(), CCS::Nd::qsorti()
