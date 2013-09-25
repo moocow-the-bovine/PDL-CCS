@@ -14,7 +14,7 @@ PDL::CCS - Sparse N-dimensional PDLs with Harwell-Boeing compressed column stora
 
 Tested version(s) 2.4.2, 2.4.3, 2.4.7_001, 2.4.9_015.
 
-=item * PDL::VectorValued E<gt>= v0.03
+=item * PDL::VectorValued E<gt>= v0.07001
 
 =back
 
@@ -47,7 +47,7 @@ Bryan Jurish E<lt>moocow@cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2005-2011 by Bryan Jurish.  All rights reserved.
+Copyright (c) 2005-2013 by Bryan Jurish.  All rights reserved.
 
 This package is free software, and entirely without warranty.
 You may redistribute it and/or modify it under the same terms
