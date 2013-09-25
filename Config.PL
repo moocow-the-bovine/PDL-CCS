@@ -1,8 +1,8 @@
 ## File: PDL-CCS/Config.PL
 ## Description: user variables for PDL::CCS package
 
-##-- load cache
-if (-e "./CCS/Config.pm") {
+##-- load cached values?
+if (0 && -e "./CCS/Config.pm") {
   require "./CCS/Config.pm";
   if ($@) {
     warn("$0: could not load cache data from './CCS/Config.pm': $@");

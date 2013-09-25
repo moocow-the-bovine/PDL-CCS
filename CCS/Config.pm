@@ -6,7 +6,7 @@ our @ISA = qw(Exporter);
 our (%ccsConfig);
 our @EXPORT      = qw(ccs_indx);
 our @EXPORT_OK   = ('%ccsConfig', 'ccs_indx');
-our %EXPORT_TAGS = (config=>['%ccsConfig'], default=>\@EXPORT, all=>\@EXPORT_OK);
+our %EXPORT_TAGS = (config=>['%ccsConfig'], Func=>\@Export, default=>\@EXPORT, all=>\@EXPORT_OK);
 
 %ccsConfig = (
                'INDX_SIG' => 'indx',
