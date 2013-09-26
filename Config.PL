@@ -18,8 +18,7 @@ sub cprompt {
   my ($key, $msg, $default)=@_;
   return $cconfig{$key} if (defined($cconfig{$key}));
   $default = '' if (!defined($default));
-  print STDERR "<Config.PL> $msg [$default] ? ";
-  my $answer = <STDIN>;
+  my $answer = ExtUtils::MakeMaker::prompt("<Config.PL> $msg [$default] ? ");
   chomp($answer);
   return $cconfig{$key} = ($answer eq '' ? $default : $answer);
 }
