@@ -253,7 +253,7 @@ sub appendWhich :lvalue {
 *PDL::toccs = \&toccs;
 sub toccs :lvalue {
   return $_[0] if (isa($_[0],__PACKAGE__));
-  return __PACKAGE__->newFromDense(@_)
+  return my $tmp=__PACKAGE__->newFromDense(@_);
 }
 
 ## $ccs = $ccs->copy()
@@ -402,7 +402,7 @@ sub decode  :lvalue {
 
 ## $dense = $ccs_or_dense->todense()
 *PDL::todense = \&todense;
-sub todense  :lvalue { isa($_[0],__PACKAGE__) ? $_[0]->decode(@_[1..$#_]) : $_[0]; }
+sub todense  :lvalue { isa($_[0],__PACKAGE__) ? (my $tmp=$_[0]->decode(@_[1..$#_])) : $_[0]; }
 
 ##--------------------------------------------------------------
 ## PDL API: Basic Properties
