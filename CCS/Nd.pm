@@ -1247,12 +1247,12 @@ sub _ccsnd_binop_align_dims {
 }
 
 ##-- OLD (but still used)
-## \&code = _ccsnd_binary_op_mia($opName, \&pdlSub, $defType)
+## \&code = _ccsnd_binary_op_mia($opName, \&pdlSub, $defType, $noSwap)
 ##  + returns code for wrapping a builtin PDL binary operation \&pdlSub under the name "$opName"
 ##  + $opName is just used for error reporting
 ##  + $defType (if specified) is the default output type of the operation (e.g. PDL::long())
 sub _ccsnd_binary_op_mia {
-  my ($opname,$pdlsub,$deftype) = @_;
+  my ($opname,$pdlsub,$deftype,$noSwap) = @_;
 
   return sub :lvalue {
     my ($a,$b,$swap) = @_;
@@ -1262,13 +1262,13 @@ sub _ccsnd_binary_op_mia {
     ##-- check for & dispatch scalar operations
     if (!ref($b) || $b->nelem==1) {
       if ($a->is_inplace) {
-	$pdlsub->($a->[$VALS]->inplace, todense($b), $swap);
+	$pdlsub->($a->[$VALS]->inplace, todense($b), ($noSwap ? qw() : $swap));
 	$a->set_inplace(0);
 	return $tmp=$a->recode;
       }
       return $tmp=$a->shadow(
 			     which => $a->[$WHICH]->pdl,
-			     vals  => $pdlsub->($a->[$VALS], todense($b), $swap),
+			     vals  => $pdlsub->($a->[$VALS], todense($b), ($noSwap ? qw() : $swap))
 			    )->recode;
     }
 
@@ -1343,7 +1343,7 @@ sub _ccsnd_binary_op_mia {
 			     $blksz);
     my $ixc    = PDL->zeroes($P_INDX, $pdimsc->nelem, $blksz);
     my $nnzc   = 0;
-    my $zc     = $pdlsub->($avals->slice("-1"), $bvals->slice("-1"), $swap)->convert($nzc->type);
+    my $zc     = $pdlsub->($avals->slice("-1"), $bvals->slice("-1"), ($noSwap ? qw() : $swap))->convert($nzc->type);
     my $nanismissing = ($a->[$FLAGS]&$CCSND_NAN_IS_MISSING);
     my $badismissing = ($a->[$FLAGS]&$CCSND_BAD_IS_MISSING);
     $zc              = $zc->setnantobad() if ($nanismissing && $badismissing);
@@ -1370,7 +1370,7 @@ sub _ccsnd_binary_op_mia {
 	$blk_slice = "${nzci_prv}:${nzci_max}";
 	$nzai_blk  = $nzai->slice($blk_slice);
 	$nzbi_blk  = $nzbi->slice($blk_slice);
-	$nzc_blk   = $pdlsub->($avalsr->index($nzai_blk), $bvalsr->index($nzbi_blk), $swap);
+	$nzc_blk   = $pdlsub->($avalsr->index($nzai_blk), $bvalsr->index($nzbi_blk), ($noSwap ? qw() : $swap));
 
 	##-- get indices of non-$missing c() values
 	$cimask_blk   = $zc_isbad || $nzc_blk->badflag ? $nzc_blk->isgood : ($nzc_blk!=$zc);
@@ -1605,7 +1605,7 @@ foreach my $binop (
     eval "*${binop} = *${binop}_mia = _ccsnd_binary_op_mia('${binop}',PDL->can('${binop}'));";
   }
 
-*pow = *pow_mia = _ccsnd_binary_op_mia('power',PDL->can('pow'));
+*pow = *pow_mia = _ccsnd_binary_op_mia('power',PDL->can('pow'),undef,1);
 
 ##-- integer-only operations
 foreach my $intop (
