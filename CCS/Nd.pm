@@ -418,7 +418,7 @@ sub convert  :lvalue {
     $_[0][$FLAGS] &= ~$CCSND_INPLACE;
     return $_[0];
   }
-  $_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$_[0][$VALS]->convert($_[1]));
+  return my $tmp=$_[0]->shadow(which=>$_[0][$WHICH]->pdl, vals=>$_[0][$VALS]->convert($_[1]));
 }
 
 ## byte,short,ushort,long,double,...
