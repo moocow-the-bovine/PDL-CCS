@@ -883,13 +883,15 @@ sub whichND  :lvalue {
   my $nvperp = $ccs->_ccs_nvperp;
   my $nv     = $ccs->nstored_v;
   $wnd = PDL->zeroes($P_INDX, $ccs->ndims, $nv);
-  (my $tmp=$wnd->dice_axis(0,$vpi)->flat) .= $ccs->[$WHICH]->slice(",*$nvperp,")->flat;
-  my $nzi    = PDL->sequence($P_INDX,$nv);
-  my @vdims    = $ccs->[$VDIMS]->list;
-  my ($vdimi,);
-  foreach (grep {$vdims[$#vdims-$_]<0} (0..$#vdims)) {
-    $vdimi = $#vdims-$_;
-    $nzi->modulo(-$vdims[$vdimi], $wnd->slice("($vdimi),"), 0);
+  (my $tmp=$wnd->dice_axis(0,$vpi)->flat) .= $ccs->[$WHICH]->dummy(1,$nvperp)->flat;
+  if (!$wnd->isempty) {
+    my $nzi    = PDL->sequence($P_INDX,$nv);
+    my @vdims  = $ccs->[$VDIMS]->list;
+    my ($vdimi);
+    foreach (grep {$vdims[$#vdims-$_]<0} (0..$#vdims)) {
+      $vdimi = $#vdims-$_;
+      $nzi->modulo(-$vdims[$vdimi], $wnd->slice("($vdimi),"), 0);
+    }
   }
   return wantarray ? $wnd->xchg(0,1)->dog : $wnd;
 }
