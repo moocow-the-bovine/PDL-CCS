@@ -313,7 +313,7 @@ sub shadow  :lvalue {
 ##  + recodes object, removing any missing values from $nzvals
 sub recode  :lvalue {
   my $ccs = shift;
-  my $nz = $ccs->[$VALS]->slice("0:-2");
+  my $nz = $ccs->_nzvals;
   my $z  = $ccs->[$VALS]->slice("-1");
 
   ##-- get mask of "real" non-zero values
@@ -1011,16 +1011,16 @@ sub average_nz  :lvalue {
 #  return ($ccs->sumover + (-$ccs->nnz+$ccs->dim(0))*$missing) / $ccs->dim(0);
 #}
 
-sub sum   { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->sum   + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
-sub dsum  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->dsum  + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
-sub prod  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->prod  * ($z->isgood ? ($z->sclr ** $_[0]->nmissing) : 1); }
-sub dprod { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->dprod * ($z->isgood ? ($z->sclr ** $_[0]->nmissing) : 1); }
+sub sum   { my $z=$_[0]->missing; $_[0]->_nzvals->sum  + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
+sub dsum  { my $z=$_[0]->missing; $_[0]->_nzvals->dsum + ($z->isgood ? ($z->sclr *  $_[0]->nmissing) : 0); }
+sub prod  { my $z=$_[0]->missing; $_[0]->_nzvals->prod  * ($z->isgood ? ($z->sclr ** $_[0]->nmissing) : 1); }
+sub dprod { my $z=$_[0]->missing; $_[0]->_nzvals->dprod * ($z->isgood ? ($z->sclr ** $_[0]->nmissing) : 1); }
 sub min   { $_[0][$VALS]->min; }
 sub max   { $_[0][$VALS]->max; }
 sub minmax { $_[0][$VALS]->minmax; }
 
-sub nbad  { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->nbad   + ($z->isbad  ? $_[0]->nmissing : 0); }
-sub ngood { my $z=$_[0]->missing; $_[0][$VALS]->slice("0:-2")->ngood  + ($z->isgood ? $_[0]->nmissing : 0); }
+sub nbad  { my $z=$_[0]->missing; $_[0]->_nzvals->nbad   + ($z->isbad  ? $_[0]->nmissing : 0); }
+sub ngood { my $z=$_[0]->missing; $_[0]->_nzvals->ngood  + ($z->isgood ? $_[0]->nmissing : 0); }
 
 sub any { $_[0][$VALS]->any; }
 sub all { $_[0][$VALS]->all; }
@@ -1028,9 +1028,9 @@ sub all { $_[0][$VALS]->all; }
 
 sub avg   {
   my $z=$_[0]->missing;
-  return ($_[0][$VALS]->slice("0:-2")->sum + ($_[0]->nelem-$_[0]->_nnz)*$z->sclr) / $_[0]->nelem;
+  return ($_[0]->_nzvals->sum + ($_[0]->nelem-$_[0]->_nnz)*$z->sclr) / $_[0]->nelem;
 }
-sub avg_nz   { $_[0][$VALS]->slice("0:-2")->avg; }
+sub avg_nz   { $_[0]->_nzvals->avg; }
 
 sub isbad {
   my ($a,$out) = @_;
