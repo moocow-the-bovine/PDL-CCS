@@ -1,3 +1,9 @@
+v1.20.2 Wed, 05 Nov 2014 13:24:55 +0100 moocow
+	+ more empty-piddle fixes for PDL-v2.4.11 (kaskade / debian wheezy)
+
+v1.20.1 Wed, 05 Nov 2014 10:41:19 +0100 moocow
+	+ improved handling of empty pdls in PDL::CCS::Nd
+
 v1.19.1 Thu, 26 Sep 2013 08:57:11 +0200 moocow
 	+ use ExtUtils::MakeMaker::prompt() for configuration questions; fixes RT #88972
 
