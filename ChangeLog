@@ -1,3 +1,6 @@
+v1.21.0 Mon, 16 Mar 2015 13:22:34 +0100 moocow
+	+ added PDL::IO::FastRaw wrappers (incl mapfraw) for PDL::CCS::Nd objects
+
 v1.20.2 Wed, 05 Nov 2014 13:24:55 +0100 moocow
 	+ more empty-piddle fixes for PDL-v2.4.11 (kaskade / debian wheezy)
 
