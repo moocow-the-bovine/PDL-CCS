@@ -1,22 +1,15 @@
 use ExtUtils::MakeMaker;
-require "../pdlmaker.plm";
+require "../../pdlmaker.plm";
 pdlmaker_init();
 
 WriteMakefile(
-	      NAME=>'PDL::CCS::Nd',
-	      VERSION_FROM => 'Version.pm',
+	      NAME=>'PDL::CCS::IO::FastRaw',
+	      VERSION_FROM => '../Version.pm',
 	      #PM => { (map {$_=>"\$(INST_LIBDIR)/CCS/$_"} <*.pm>), },
-	      DIR =>[
-		     #'Old',
-		     'Utils',
-		     'Ufunc',
-		     'Ops',
-		     'MatrixOps',
-		     'IO',
-		    ], ##-- debug#2
+	      DIR =>[],
 	      PREREQ_PM => {
 			    'PDL' => 0,
-			    'PDL::VectorValued' => 0, #'0.04',
+			    #'PDL::VectorValued' => 0, #'0.04',
 			   },
 	      CONFIGURE_REQUIRES => {
 				     'PDL'=>0,

@@ -1,4 +1,6 @@
 ~$
+^nullbarf.perl$
+\bMYMETA.yml\b
 \.svn
 \.gz$
 \.\#

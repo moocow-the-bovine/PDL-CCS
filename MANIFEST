@@ -11,6 +11,7 @@ CCS/Makefile.PL
 CCS/Functions.pm
 CCS/Compat.pm
 CCS/Config.pm
+CCS/IO/Makefile.PL
 CCS/IO/FastRaw.pm
 CCS/Nd.pm
 CCS/Version.pm
