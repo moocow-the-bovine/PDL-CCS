@@ -274,10 +274,10 @@ sub top_sumover {
 ##---------------------------------------------------------------------
 package PDL::CCS::Obj;
 use PDL::Lite;
-use UNIVERSAL 'isa';
 
 BEGIN {
   our @ISA = qw(PDL);
+  *isa = \&UNIVERSAL::isa;
   our $DIMS   = 0;
   our $MISSING = 1;
   our $PTR    = 2;
@@ -708,6 +708,32 @@ sub test_ccs_qsort {
   ##
   my $xi = $x->qsorti;
 }
+
+##---------------------------------------------------------------------
+## test: io
+
+use PDL::CCS::IO::FastRaw;
+sub test_io_fraw {
+  my $a = sequence(4,3);
+  my ($tmp);
+  ($tmp=$a->where($a%2)) .= 0;
+
+  my $ccs = $a->toccs;
+  $ccs->writefraw("a.raw")
+    or die("writefraw a.raw failed: $!");
+
+  my $ccs2 = PDL::CCS::Nd->readfraw("a.raw");
+  all($ccs2->decode==$ccs->decode)
+    or die("readfraw a.raw inconsistent");
+
+  my $ccs3 = PDL::CCS::Nd->mapfraw("a.raw",{ReadOnly=>1,Creat=>0,Trunc=>0});
+  all($ccs3->decode==$ccs->decode)
+    or die("mapfraw a.raw inconsistent");
+
+  exit 0;
+}
+test_io_fraw();
+
 
 ##---------------------------------------------------------------------
 ## DUMMY

@@ -13,6 +13,7 @@ use PDL::CCS::Ufunc;
 use PDL::CCS::Ops;
 use PDL::CCS::MatrixOps;
 use PDL::CCS::Nd;
+use PDL::CCS::IO::FastRaw;
 use strict;
 
 our $VERSION = $PDL::CCS::VERSION;
@@ -27,6 +28,7 @@ our @EXPORT_OK =
    @PDL::CCS::Ops::EXPORT_OK,
    @PDL::CCS::MatrixOps::EXPORT_OK,
    @PDL::CCS::Nd::EXPORT_OK,
+   @PDL::CCS::IO::FastRaw::EXPORT_OK,
   );
 our %EXPORT_TAGS =
   (
@@ -39,6 +41,7 @@ our %EXPORT_TAGS =
 	    @{$PDL::CCS::Ops::EXPORT_TAGS{Func}},
 	    @{$PDL::CCS::MatrixOps::EXPORT_TAGS{Func}},
 	    @{$PDL::CCS::Nd::EXPORT_TAGS{Func}},
+	    @{$PDL::CCS::IO::FastRaw::EXPORT_TAGS{Func}},
 	   ],               ##-- respect PDL conventions (hopefully)
   );
 our @EXPORT = @{$EXPORT_TAGS{Func}};
@@ -118,6 +121,10 @@ Various low-level ufunc (accumulator) utilities for index-encoded PDLs.
 Low-level generic PDL::PP utilities for matrix operations
 on index-encoded PDLs.
 
+=item L<PDL::CCS::IO::FastRaw|PDL::CCS::IO::FastRaw>
+
+PDL::IO::FastRaw wrappers for PDL::CCS::Nd objects.
+
 =back
 
 =cut
@@ -173,7 +180,7 @@ Bryan Jurish E<lt>moocow@cpan.orgE<gt>
 
 =head2 Copyright Policy
 
-Copyright (C) 2005-2013 by Bryan Jurish. All rights reserved.
+Copyright (C) 2005-2015 by Bryan Jurish. All rights reserved.
 
 This package is free software, and entirely without warranty.
 You may redistribute it and/or modify it under the same terms
