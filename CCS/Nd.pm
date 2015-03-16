@@ -153,18 +153,14 @@ sub fromWhich :lvalue {
 		 : ($nzvals->badflag
 		    ? PDL->pdl($nzvals->type,0)->setvaltobad(0)
 		    : PDL->pdl($nzvals->type,0)));
-  $opts{pdims} = $opts{dims}  if (!defined($opts{pdims}) && defined($opts{dims}));
-  $opts{vdims} = $opts{xdims} if (!defined($opts{vdims}) && defined($opts{xdims}));
-  my $pdims = (defined($opts{pdims})
-	       ? $opts{pdims}
-	       : (defined($opts{dims})
-		  ? $opts{dims}
-		  : PDL->pdl($P_INDX, [($wnd->xchg(0,1)->maximum+1)->list]) ));
-  my $vdims = (defined($opts{vdims})
-	       ? $opts{vdims}
-	       : (defined($opts{xdims})
-		  ? $opts{xdims}
-		  : $pdims->sequence));
+
+  ##-- get dims
+  my $pdims = $opts{pdims} // $opts{dims} // PDL->pdl($P_INDX, [($wnd->xchg(0,1)->maximum+1)->list]);
+  $pdims    = PDL->pdl($P_INDX, $pdims) if (!UNIVERSAL::isa($pdims,'PDL'));
+
+  my $vdims = $opts{vdims} // $opts{xdims} // $pdims->sequence;
+  $vdims    = PDL->pdl($P_INDX, $vdims) if (!UNIVERSAL::isa($vdims,'PDL'));
+
   ##-- maybe sort & copy
   if (!$opts{steal}) {
     ##-- not stolen: copy or sever
@@ -176,6 +172,8 @@ sub fromWhich :lvalue {
     $wnd->sever;                         ##-- sever (~ copy)
     $nzvals = $nzvals->append($missing); ##-- copy (b/c append)
   }
+
+  ##-- setup and return
   $obj->[$PDIMS]   = $pdims;
   $obj->[$VDIMS]   = $vdims;
   $obj->[$WHICH]   = $wnd;
