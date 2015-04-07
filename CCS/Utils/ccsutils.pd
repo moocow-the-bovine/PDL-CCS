@@ -171,7 +171,7 @@ pp_def
 (q{
  sub PDL::ccs_encode_pointers {
    my ($ix,$N,$ptr,$ixix) = @_;
-   barf("Usage: ccs_encode_pointers(ix(Nnz), N(), [o]ptr(N), [o]ixix(Nnz)") if (!defined($ix));
+   barf("Usage: ccs_encode_pointers(ix(Nnz), N(), [o]ptr(N+1), [o]ixix(Nnz)") if (!defined($ix));
    $N    = $ix->max()+1                               if (!defined($N));
    $ptr = PDL->zeroes(ccs_indx(), $N+1)              if (!defined($ptr));
    $ixix = PDL->zeroes(ccs_indx(), $ix->dim(0))      if (!defined($ixix));
