@@ -593,6 +593,17 @@ sub ptr {
 ##  + physical dimensions ONLY
 sub getptr { ccs_encode_pointers($_[0][$WHICH]->slice("($_[1]),"), $_[0][$PDIMS]->index($_[1])); }
 
+## ($ptr,$pi2nzi) = $obj->setptr($dim_p, $ptr,$pi2nzi );
+##  + low-level: set pointer for $dim_p
+sub setptr {
+  if (UNIVERSAL::isa($_[2],'ARRAY')) {
+    $_[0][$PTRS][$_[1]] = $_[2];
+  } else {
+    $_[0][$PTRS][$_[1]] = [$_[2],$_[3]];
+  }
+  return $_[0]->ptr($_[1]);
+}
+
 ## $obj = $obj->clearptrs()
 sub clearptrs  :lvalue { @{$_[0][$PTRS]}=qw(); }
 
@@ -2174,8 +2185,9 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  $vals_phys    = $ccs->_vals();                 ##-- get/set phsically indexed values
  $vals_phys    = $ccs->_vals($vals_phys);
 
- ($ptr,$ptrix) = $ccs->ptr($pdimi);             ##-- get Harwell-Boeing pointer
+ ($ptr,$ptrix) = $ccs->ptr($pdimi);             ##-- get a Harwell-Boeing pointer
  ($ptr,$ptrix) = $ccs->getptr($pdimi);
+ ($ptr,$ptrix) = $ccs->setptr($pdimi,$p,$pix);  ##-- ... or set one
  $ccs->clearptrs();                             ##-- ... or clear all
 
  $flags = $ccs->flags();                        ##-- get/set object-local flags
@@ -3102,7 +3114,7 @@ Bryan Jurish E<lt>moocow@cpan.orgE<gt>
 
 =head2 Copyright Policy
 
-Copyright (C) 2007-2013, Bryan Jurish. All rights reserved.
+Copyright (C) 2007-2015, Bryan Jurish. All rights reserved.
 
 This package is free software, and entirely without warranty.
 You may redistribute it and/or modify it under the same terms
