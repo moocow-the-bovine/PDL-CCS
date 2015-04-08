@@ -49,7 +49,7 @@ sub test_ccs_pointer {
 
 ##---------------------------------------------------------------------
 ## test: ccs: xindex2d
-sub test_ccs_index2d {
+sub test_ccs_xindex2d {
   test_ccs_data();
   our $awhich = $a->whichND()->vv_qsortvec;
   our $avals  = $a->indexND($awhich);
@@ -79,7 +79,35 @@ sub test_ccs_index2d {
   isok("ccs_xindex2d:rand:nelem", $abi->nelem==$abi0->nelem);
   isok("ccs_xindex2d:rand:vals",  all($abi==$abi0));
 }
-#test_ccs_index2d();
+test_ccs_xindex2d();
+
+##---------------------------------------------------------------------
+## test: ccs: xindex2d (test2)
+use PDL::IO::FastRaw;
+sub test_ccs_index2d_2 {
+  my %mopts = (ReadOnly=>1, Creat=>0);
+  my $which = mapfraw("x2d-which.pdl", \%mopts);
+  my $ai    = mapfraw("x2d-a.pdl", \%mopts);
+  my $bi    = mapfraw("x2d-b.pdl", \%mopts);
+
+  ##-- get "proper" values via vsearchvec
+  my $wnd = $ai->slice("*1,")->cat($bi)->clump(2)->xchg(0,1);
+  my $abi0      = $wnd->vsearchvec($which);
+  my $abi0_mask = ($wnd==$which->dice_axis(1,$abi0))->andover;
+  $abi0         = $abi0->where($abi0_mask);
+
+  ##-- xindex2d
+  print "xindex2d(which(".join(',',$which->dims)."); ai(".join(',',$ai->dims)."); bi(".join(',',$bi->dims).")\n";
+  #print STDERR "Press ENTER to continue: "; $_=<STDIN>;
+  my $abi  = ccs_xindex2d($which,$ai,$bi);
+
+  ##-- check
+  isok("ccs_xindex2d:2:nelem", $abi->nelem == $abi0->nelem);
+  isok("ccs_xindex2d:2:vals",  all($abi==$abi0));
+
+  exit 0;
+}
+#test_ccs_index2d_2();
 
 ##---------------------------------------------------------------------
 ## bench: ccs_xindex2d
@@ -126,7 +154,7 @@ sub bench_ccs_index2d {
   # vsearchvec 1674/s         --       -75%
   # xindex2d   6698/s       300%         --
 }
-bench_ccs_index2d(@ARGV); exit 0;
+#bench_ccs_index2d(@ARGV); exit 0;
 
 ##---------------------------------------------------------------------
 ## DUMMY

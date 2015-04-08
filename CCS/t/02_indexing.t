@@ -11,7 +11,7 @@ use PDL;
 use PDL::CCS::Nd;
 use PDL::VectorValued;
 
-BEGIN { plan tests=>18, todo=>[]; }
+BEGIN { plan tests=>21, todo=>[]; }
 
 ##--------------------------------------------------------------
 ## missing==0
@@ -60,6 +60,18 @@ isok("post-mv(0,1):decode",      all($ccs->decode==$a));
 ##-- 17..18: mv(1,0)
 isok("mv(1,0)",                  all($ccs->mv(1,0)->decode==$a->mv(1,0)));
 isok("post-mv(1,0):decode",      all($ccs->decode==$a));
+
+##-- 19..21: xsubset2d
+my $ai = pdl(long, [1,2,4]);
+my $bi = pdl(long, [2,4]);
+my $wnd = $ai->slice("*1,")->cat($bi)->clump(2)->xchg(0,1);
+my $abi      = $wnd->vsearchvec($ccs->_whichND);
+my $abi_mask = ($wnd==$ccs->_whichND->dice_axis(1,$abi))->andover;
+$abi         = $abi->where($abi_mask);
+my $absub = $ccs->xsubset2d($ai,$bi);
+isok("xsubset2d:defined", defined($absub));
+isok("xsubset2d:which",   all($absub->_whichND == $ccs->_whichND->dice_axis(1,$abi)));
+isok("xsubset2d:missing", all($absub->missing==$ccs->missing));
 
 print "\n";
 # end of t/*.t

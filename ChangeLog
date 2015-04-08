@@ -1,3 +1,6 @@
+v1.22.1 Wed, 08 Apr 2015 16:09:43 +0200
+	+ fixed ccs_xindex2d() utility and added CCS::Nd::xsubset2d() wrapper
+
 v1.22.0 Wed, 08 Apr 2015 13:49:14 +0200
 	+ added ccs_xindex2d() utility function: fast Cartesian product indexing of sparse 2d matrices
 

@@ -313,7 +313,7 @@ vvpp_def('ccs_xindex2d',
 (q{
  sub PDL::ccs_xindex2d {
    my ($which,$a,$b,$ab,$nab) = @_;
-   barf("Usage: ccs_xindex2d(which(2,Nnz), a(Na), b(Nb) [o]nab(), [o]ab(Nab)")
+   barf("Usage: ccs_xindex2d(which(2,Nnz), a(Na), b(Nb), [o]nab(), [o]ab(Nab)")
      if ((grep {!defined($_)} @_[0..2]) || $which->ndims != 2 || $which->dim(0) < 2);
    $nab = $ab->dim(0) if (defined($ab) && !defined($nab));
    $nab = ($a->nelem*$b->nelem)  if (!defined($nab));
@@ -330,25 +330,45 @@ long a_min=0, a_max=$SIZE(Nnz);
 long a_lb, a_ub, a_ubmax=a_max;
 long b_min, b_max, b_lb;
 CCS_Indx abi = 0;
+/*-- DEBUG
+ long size_nnz = $SIZE(Nnz);
+ long size_na  = $SIZE(Na);
+ long size_nb  = $SIZE(Nb);
+ long size_nab = $SIZE(Nab);
+ printf("Nnz=%d, Na=%d [%d:%d], Nb=%d [%d:%d], Nab=%d\n", size_nnz, size_na,$a(Na=>0),$a(Na=>size_na-1), size_nb,$b(Nb=>0),$b(Nb=>size_nb-1), size_nab);
+*/
 loop (Na) %{
   a_ubmax = a_max;
   $LB('$a()',   '$which(Ndims=>0,Nnz=>$_)', 'a_min','a_max',   'a_lb',ubmaxvar=>'a_ubmax');
+  //printf("a:LB(a=%d,min=%d,max=%d)=%d --> %d (ubmax=%d)\n", $a(),a_min,a_max,a_lb, $which(Ndims=>0,Nnz=>a_lb), a_ubmax); fflush(stdout);
   if ($which(Ndims=>0,Nnz=>a_lb) != $a()) { a_min=a_lb; continue; }
   //
   $LB('$a()+1', '$which(Ndims=>0,Nnz=>$_)', 'a_lb' ,'a_ubmax', 'a_ub');
   if ($which(Ndims=>0,Nnz=>a_ub) <= $a()) ++a_ub;
+  //printf("a:UB(a=%d,min=%d,max=%d)=%d --> %d\n", $a(),a_lb,a_ubmax,a_ub, $which(Ndims=>0,Nnz=>a_ub)); fflush(stdout);
   //
   b_min = a_lb;
   b_max = a_ub;
   loop (Nb) %{
+    if (b_min >= b_max) break;
+    //printf("+ b:LB(a=%d,b=%d,min=%d,max=%d)=", $a(),$b(),b_min,b_max); fflush(stdout);
     $LB('$b()', '$which(Ndims=>1,Nnz=>$_)', 'b_min','b_max', 'b_lb');
-    if ($which(Ndims=>1,Nnz=>b_lb) == $b()) { $ab(Nab=>abi) = b_lb; ++abi; ++b_lb; }
+    //printf("%d --> %d", b_lb, $which(Ndims=>1,Nnz=>b_lb));
+    if ($which(Ndims=>1,Nnz=>b_lb) == $b()) {
+      //printf(" *[%d]", abi); fflush(stdout);
+      $ab(Nab=>abi) = b_lb;
+      ++abi;
+      ++b_lb;
+      if (abi >= $SIZE(Nab)) break;
+    }
     b_min = b_lb;
+    //printf("\n"); fflush(stdout);
   %}
+  if (abi >= $SIZE(Nab)) break;
   if (a_ub < a_max) a_min = a_ub;
 %}
 $nab() = abi;
-for ( ; abi < $SIZE(Nnz); ++abi) {
+for ( ; abi < $SIZE(Nab); ++abi) {
   $ab(Nab=>abi) = -1;
 }
 )),

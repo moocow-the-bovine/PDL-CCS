@@ -806,6 +806,19 @@ sub indexND  :lvalue { my $tmp=$_[0][$VALS]->index($_[0]->indexNDi($_[1])); }
 ## $vals = $ccs->index2d($xi,$yi)
 sub index2d  :lvalue { my $tmp=$_[0]->indexND($_[1]->cat($_[2])->xchg(0,1)); }
 
+## $subset = $ccs->xsubset2d($xi,$yi)
+##  + returns a subset CCS object for all index-pairs in $xi,$yi
+##  + caller object must be a ccs-encoded 2d matrix
+##  + returned object should participate in dataflow
+sub xsubset2d :lvalue {
+  my ($ccs,$xi,$yi) = @_;
+  $ccs->make_physically_indexed;
+  my $nzi = $ccs->[$WHICH]->ccs_xindex2d($xi,$yi);
+  my $subset = $ccs->shadow(which=>$ccs->[$WHICH]->dice_axis(1,$nzi),
+			    vals =>$ccs->[$VALS]->index($nzi->append($ccs->_nnz)));
+  return $subset;
+}
+
 ## $vals = $ccs->index($flati)
 sub index  :lvalue {
   my ($ccs,$i) = @_;
@@ -919,7 +932,7 @@ sub whichVals  :lvalue {
 
 ## $which = $obj->which()
 ##  + not guaranteed to be returned in any meaningful order
-sub which  :lvalue { $_[0]->n2oned(scalar $_[0]->whichND); }
+sub which  :lvalue { my $tmp=$_[0]->n2oned(scalar $_[0]->whichND); }
 
 ## $val = $ccs->at(@index)
 sub at { $_[0]->indexND(PDL->pdl($P_INDX,@_[1..$#_]))->sclr; }
