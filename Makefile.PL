@@ -25,7 +25,7 @@ WriteMakefile(
 	      realclean=>{ FILES=>$realclean_files, },
 	      PREREQ_PM => {
 			    'PDL' => 0, #'2.4.2',
-			    'PDL::VectorValued::Version' => '0.07001',
+			    'PDL::VectorValued::Version' => '0.09001',
 			   },
 	      CONFIGURE_REQUIRES => {
 				     'PDL' => 0,
