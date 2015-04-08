@@ -291,8 +291,98 @@ If unspecified, $proj() defaults to:
 EOD
   );
 
+##======================================================================
+## Indexing
+##======================================================================
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head1 Indexing Utilities
+
+=cut
+
+EOPM
+
 ##------------------------------------------------------
-## _ccs_dump_ix()
+## ccs_xindex2d()
+##  + Cartesian-product index
+vvpp_def('ccs_xindex2d',
+	 Pars => "which(Ndims,Nnz); a(Na); b(Nb); [o]ab(Nab); [o]nab()",
+   PMCode=>
+(q{
+ sub PDL::ccs_xindex2d {
+   my ($which,$a,$b,$ab,$nab) = @_;
+   barf("Usage: ccs_xindex2d(which(2,Nnz), a(Na), b(Nb) [o]nab(), [o]ab(Nab)")
+     if ((grep {!defined($_)} @_[0..2]) || $which->ndims != 2 || $which->dim(0) < 2);
+   $nab = $ab->dim(0) if (defined($ab) && !defined($nab));
+   $nab = ($a->nelem*$b->nelem)  if (!defined($nab));
+   $nab = pdl($which->type,$nab) if (!ref($nab));
+   $ab = PDL->zeroes($which->type, $nab->sclr) if (!defined($ab));
+   &PDL::_ccs_xindex2d_int($which,$a,$b,$ab,$nab);
+   return ($ab,$nab) if (wantarray);
+   return $ab->reshape($nab->sclr);
+ }
+}),
+	 Code =>
+(q(
+long a_min=0, a_max=$SIZE(Nnz);
+long a_lb, a_ub, a_ubmax=a_max;
+long b_min, b_max, b_lb;
+PDL_Indx abi = 0;
+loop (Na) %{
+  a_ubmax = a_max;
+  $LB('$a()',   '$which(Ndims=>0,Nnz=>$_)', 'a_min','a_max',   'a_lb',ubmaxvar=>'a_ubmax');
+  if ($which(Ndims=>0,Nnz=>a_lb) != $a()) { a_min=a_lb; continue; }
+  //
+  $LB('$a()+1', '$which(Ndims=>0,Nnz=>$_)', 'a_lb' ,'a_ubmax', 'a_ub');
+  if ($which(Ndims=>0,Nnz=>a_ub) <= $a()) ++a_ub;
+  //
+  b_min = a_lb;
+  b_max = a_ub;
+  loop (Nb) %{
+    $LB('$b()', '$which(Ndims=>1,Nnz=>$_)', 'b_min','b_max', 'b_lb');
+    if ($which(Ndims=>1,Nnz=>b_lb) == $b()) { $ab(Nab=>abi) = b_lb; ++abi; ++b_lb; }
+    b_min = b_lb;
+  %}
+  if (a_ub < a_max) a_min = a_ub;
+%}
+$nab() = abi;
+for ( ; abi < $SIZE(Nnz); ++abi) {
+  $ab(Nab=>abi) = -1;
+}
+)),
+  Doc=><<'EOD'
+
+Compute indices along dimension C<NNz> of $which() corresponding to any combination
+of values in the Cartesian product of $a() and $b().  Appropriate for indexing a
+2d sparse encoded PDL with non-missing entries at $which() via the ND-index piddle
+$a->slice("*1,")->cat($b)->clump(2)->xchg(0,1), i.e. all pairs $ai,$bi with $ai in $a()
+and $bi in $b().  $a() and $b() values must be be sorted in ascending order
+
+In list context, returns a list ($ab,$nab), where $nab() is the number of indices found,
+and $ab are those C<Nnz> indices.  In scalar context, trims the output vector $ab() to $nab()
+elements.
+
+EOD
+  );
+
+
+##======================================================================
+## Debugging
+##======================================================================
+pp_addpm(<<'EOPM');
+
+=pod
+
+=head1 Debugging Utilities
+
+=cut
+
+EOPM
+
+##------------------------------------------------------
+## ccs_dump_which()
 ##  + prints a text dump of an index
 pp_def('ccs_dump_which',
        Pars => "$INDX which(Ndims,Nnz)",

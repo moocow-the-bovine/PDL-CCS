@@ -1,3 +1,6 @@
+v1.22.0 Wed, 08 Apr 2015 13:49:14 +0200
+	+ added ccs_xindex2d() utility function: fast Cartesian product indexing of sparse 2d matrices
+
 v1.21.0 Mon, 16 Mar 2015 13:22:34 +0100 moocow
 	+ added PDL::IO::FastRaw wrappers (incl mapfraw) for PDL::CCS::Nd objects
 	+ PDL::CCS::Nd->fromWhich() now accepts ARRAY-refs for 'pdims' and 'vdims' options
