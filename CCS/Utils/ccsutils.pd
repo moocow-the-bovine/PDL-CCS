@@ -329,7 +329,7 @@ vvpp_def('ccs_xindex2d',
 long a_min=0, a_max=$SIZE(Nnz);
 long a_lb, a_ub, a_ubmax=a_max;
 long b_min, b_max, b_lb;
-PDL_Indx abi = 0;
+CCS_Indx abi = 0;
 loop (Na) %{
   a_ubmax = a_max;
   $LB('$a()',   '$which(Ndims=>0,Nnz=>$_)', 'a_min','a_max',   'a_lb',ubmaxvar=>'a_ubmax');
