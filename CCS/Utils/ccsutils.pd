@@ -316,8 +316,8 @@ vvpp_def('ccs_xindex2d',
    barf("Usage: ccs_xindex2d(which(2,Nnz), a(Na), b(Nb), [o]nab(), [o]ab(Nab)")
      if ((grep {!defined($_)} @_[0..2]) || $which->ndims != 2 || $which->dim(0) < 2);
    $nab = $ab->dim(0) if (defined($ab) && !defined($nab));
-   $nab = ($a->nelem*$b->nelem)  if (!defined($nab));
-   $nab = pdl($which->type,$nab) if (!ref($nab));
+   $nab = pdl($which->type, [$a->nelem*$b->nelem,$which->dim(1)])->minimum if (!defined($nab));
+   $nab = pdl($which->type, $nab) if (!ref($nab));
    $ab = PDL->zeroes($which->type, $nab->sclr) if (!defined($ab));
    &PDL::_ccs_xindex2d_int($which,$a,$b,$ab,$nab);
    return ($ab,$nab) if (wantarray);
