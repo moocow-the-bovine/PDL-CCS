@@ -605,7 +605,16 @@ sub setptr {
 }
 
 ## $obj = $obj->clearptrs()
-sub clearptrs  :lvalue { @{$_[0][$PTRS]}=qw(); }
+sub clearptrs :lvalue { @{$_[0][$PTRS]}=qw(); return $_[0]; }
+
+## $obj = $obj->clearptr($dim_p)
+##  + low-level: clear pointer(s) for $dim_p
+sub clearptr :lvalue {
+  my ($ccs,$dim) = @_;
+  return $ccs->clearptrs() if (!defined($dim));
+  $ccs->[$PTRS][$dim] = undef;
+  return $ccs;
+}
 
 ## $flags = $obj->flags()
 ## $flags = $obj->flags($flags)
@@ -2201,6 +2210,7 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  ($ptr,$ptrix) = $ccs->ptr($pdimi);             ##-- get a Harwell-Boeing pointer
  ($ptr,$ptrix) = $ccs->getptr($pdimi);
  ($ptr,$ptrix) = $ccs->setptr($pdimi,$p,$pix);  ##-- ... or set one
+ $ccs->clearptr($pdimi);                        ##-- ... or clear one
  $ccs->clearptrs();                             ##-- ... or clear all
 
  $flags = $ccs->flags();                        ##-- get/set object-local flags
@@ -3026,6 +3036,10 @@ $pdimi defaults to zero.  If $pdimi is zero, then it should hold that:
 =item getptr($pdimi)
 
 Guts for ptr().  Does not check $PTRS and does not cache anything.
+
+=item clearptr($pdimi)
+
+Clears any cached Harwell-Boeing pointers for physically indexed dimension $pdimi.
 
 =item clearptrs()
 

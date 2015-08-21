@@ -1,4 +1,7 @@
-v1.22.1 Wed, 08 Apr 2015 16:09:43 +0200
+v1.22.2 Tue, 18 Aug 2015 13:04:09 +0200 moocow
+	+ added clearptr($pdimi) method
+
+v1.22.1 Wed, 08 Apr 2015 16:09:43 +0200 moocow
 	+ fixed ccs_xindex2d() utility and added CCS::Nd::xsubset2d() wrapper
 
 v1.22.0 Wed, 08 Apr 2015 13:49:14 +0200
