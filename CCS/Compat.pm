@@ -206,7 +206,8 @@ Allocates output vectors if required.
   = \&ccsencode_nz;
 sub ccsencode_nz {
   #my ($a,$ptr,$rowids,$nzvals) = @_;
-  my $a  = shift->clump(-2);
+  my $a  = shift;
+  $a     = $a->clump(1+$a->ndims-2); ##-- clump(-2) broken in PDL-2.0.14
   my $aw = $a->whichND;
   return ccs_encode_compat($aw, $a->indexND($aw), $a->dims, @_);
 }
@@ -238,8 +239,9 @@ Allocates output vectors if required.
   = \&ccsencode_naz;
 sub ccsencode_naz {
   #my ($a,$eps,$ptr,$rowids,$nzvals) = @_;
-  my $a   = shift->clump(-2);
+  my $a   = shift;
   my $eps = shift;
+  $a      = $a->clump(1+$a->ndims-2); ##-- clump(-2) is broken in PDL-2.014
   my $aw  = $a->approx(0,$eps)->inplace->not->whichND;          ##-- FIXME: optimize
   return ccs_encode_compat($aw, $a->indexND($aw), $a->dims, @_);
 }
@@ -270,7 +272,8 @@ Allocates output vectors if required.
   = \&ccsencode_g;
 sub ccsencode_g {
   #my ($a,$ptr,$rowids,$nzvals) = @_;
-  my $a     = shift->clump(-2);
+  my $a     = shift;
+  $a        = $a->clump(1+$a->ndims-2);  ##-- clump(-2) is broken in PDL-v2.014
   my $amask = zeroes(byte,$a->dims);
   $a->isgood($amask);
   my $aw    = $amask->whichND;
