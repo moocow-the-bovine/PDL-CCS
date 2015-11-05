@@ -10,7 +10,7 @@ our %EXPORT_TAGS = (config=>['%ccsConfig'], Func=>\@Export, default=>\@EXPORT, a
 
 %ccsConfig = (
                'USE_PDL_INDX' => 1,
-               'INDX_FUNCDEF' => '*ccs_indx = \\&PDL::indx; ##-- typecasting for CCS indices
+               'INDX_TYPEDEF' => 'typedef PDL_Indx CCS_Indx;  /**< typedef for CCS indices */
 ',
                'INT_TYPE_CHRS' => [
                                     'B',
@@ -20,11 +20,6 @@ our %EXPORT_TAGS = (config=>['%ccsConfig'], Func=>\@Export, default=>\@EXPORT, a
                                     'S',
                                     'U'
                                   ],
-               'INDX_TYPEDEF' => 'typedef PDL_Indx CCS_Indx;  /**< typedef for CCS indices */
-',
-               'INDX_SIG' => 'indx',
-               'INDX_CTYPE' => 'PDL_Indx',
-               'INDX_FUNC' => 'indx',
                'INT_TYPE_KEYS' => [
                                     'PDL_B',
                                     'PDL_IND',
@@ -32,7 +27,12 @@ our %EXPORT_TAGS = (config=>['%ccsConfig'], Func=>\@Export, default=>\@EXPORT, a
                                     'PDL_LL',
                                     'PDL_S',
                                     'PDL_US'
-                                  ]
+                                  ],
+               'INDX_FUNC' => 'indx',
+               'INDX_CTYPE' => 'PDL_Indx',
+               'INDX_SIG' => 'indx',
+               'INDX_FUNCDEF' => '*ccs_indx = \\&PDL::indx; ##-- typecasting for CCS indices
+'
              );
 
 *PDL::ccs_indx = *ccs_indx = \&PDL::indx; ##-- typecasting for CCS indices
