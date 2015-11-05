@@ -1,6 +1,8 @@
 v1.22.3 Thu, 05 Nov 2015 10:43:54 +0100 moocow
 	+ workaround for clump(-N) bug in PDL-v2.014: compute non-negative clump() arguments in CCS/Compat.pm
-	+ see RT bug #108472; PDL bug https://sourceforge.net/p/pdl/bugs/406/
+	  - see RT bug #108472; PDL bug https://sourceforge.net/p/pdl/bugs/406/
+	+ workaround for reshape() bug in CCS/t/05_binops.t, CCS/t/06_matops.t : getting ugly realloc errors without it
+	  - see RT bug #107829
 
 v1.22.2 Tue, 18 Aug 2015 13:04:09 +0200 moocow
 	+ added clearptr($pdimi) method

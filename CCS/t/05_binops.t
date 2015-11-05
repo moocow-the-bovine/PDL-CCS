@@ -126,7 +126,7 @@ my @binops = (			##-- *20
 our ($BAD);
 
 ##-- Block 1 : mat * mat
-$b = $a->flat->rotate(1)->reshape($a->dims);
+$b = $a->flat->rotate(1)->pdl->reshape($a->dims); ##-- extra pdl() before reshape() avoids realloc() crashes in PDL-2.0.14
 foreach $missing (0,127,$BAD) {   ##-- *3
   foreach $swap (0,1) {           ##-- *2
     foreach $op (@binops) {       ##-- *NBINOPS
