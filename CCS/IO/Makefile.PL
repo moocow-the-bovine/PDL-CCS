@@ -10,7 +10,6 @@ WriteMakefile(
 	      DIR =>[],
 	      PREREQ_PM => {
 			    'PDL' => 0,
-			    #'PDL::VectorValued' => 0, #'0.04',
 			   },
 	      CONFIGURE_REQUIRES => {
 				     'PDL'=>0,
