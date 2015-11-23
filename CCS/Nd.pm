@@ -1,11 +1,10 @@
-## File: PDL::CCS::Nd.pm
+# File: PDL::CCS::Nd.pm
 ## Author: Bryan Jurish <moocow@cpan.org>
 ## Description: N-dimensional CCS-encoded pseudo-PDL
 
 package PDL::CCS::Nd;
 use PDL::Lite;
 use PDL::VectorValued;
-use PDL::CCS::Version;
 use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Functions qw(ccs_decode ccs_pointerlen ccs_qsort);
 use PDL::CCS::Utils     qw(ccs_encode_pointers ccs_decode_pointer);
@@ -20,7 +19,7 @@ BEGIN {
   *can = \&UNIVERSAL::can;
 }
 
-our $VERSION = $PDL::CCS::VERSION;
+our $VERSION = '1.22.5'; ##-- update with perl-reversion from Perl::Version module
 our @ISA = qw();
 our %EXPORT_TAGS =
   (

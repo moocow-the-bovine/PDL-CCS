@@ -4,7 +4,8 @@ pdlmaker_init();
 
 WriteMakefile(
 	      NAME=>'PDL::CCS::IO::FastRaw',
-	      VERSION_FROM => '../Version.pm',
+	      VERSION_FROM => '../../CCS.pm',
+	      LICENSE => 'perl',
 	      #PM => { (map {$_=>"\$(INST_LIBDIR)/CCS/$_"} <*.pm>), },
 	      DIR =>[],
 	      PREREQ_PM => {

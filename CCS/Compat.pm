@@ -5,7 +5,6 @@
 package PDL::CCS::Compat;
 use PDL;
 use PDL::VectorValued;
-use PDL::CCS::Version;
 use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Functions;
 use PDL::CCS::Utils;
@@ -13,7 +12,7 @@ use PDL::CCS::Ufunc;
 use PDL::CCS::Ops;
 use strict;
 
-our $VERSION = $PDL::CCS::VERSION;
+our $VERSION = '1.22.5'; ##-- update with perl-reversion from Perl::Version module
 our @ISA = ('PDL::Exporter');
 our @ccs_binops = (qw(plus minus mult divide modulo power),
 		   qw(gt ge lt le eq ne spaceship),

@@ -3,14 +3,13 @@
 ## Description: useful perl-level functions for PDL::CCS
 
 package PDL::CCS::Functions;
-use PDL::CCS::Version;
 use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Utils;
 use PDL::VectorValued;
 use PDL;
 use strict;
 
-our $VERSION = $PDL::CCS::VERSION;
+our $VERSION = '1.22.5'; ##-- update with perl-reversion from Perl::Version module
 our @ISA = ('PDL::Exporter');
 our @EXPORT_OK =
   (

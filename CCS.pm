@@ -4,7 +4,6 @@
 
 package PDL::CCS;
 use PDL;
-use PDL::CCS::Version;
 use PDL::CCS::Config;
 use PDL::CCS::Compat;
 use PDL::CCS::Functions;
@@ -16,7 +15,7 @@ use PDL::CCS::Nd;
 use PDL::CCS::IO::FastRaw;
 use strict;
 
-our $VERSION = $PDL::CCS::VERSION;
+our $VERSION = '1.22.5'; ##-- update with perl-reversion from Perl::Version module
 our @ISA = ('PDL::Exporter');
 our @EXPORT_OK =
   (

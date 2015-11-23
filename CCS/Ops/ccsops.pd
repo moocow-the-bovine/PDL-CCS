@@ -5,8 +5,7 @@
 ##======================================================================
 
 use PDL::VectorValued::Dev;
-require "../Version.pm";
-our $VERSION = $PDL::CCS::VERSION;
+my $VERSION = '1.22.5'; ##-- update with perl-reversion from Perl::Version module
 pp_setversion($VERSION);
 
 ##------------------------------------------------------
