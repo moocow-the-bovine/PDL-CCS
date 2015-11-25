@@ -1,3 +1,7 @@
+v1.22.6 Wed, 25 Nov 2015 16:27:24 +0100 moocow
+	+ added CCS::IO::FITS and CCS::IO::MatrixMarket
+	+ added CCS::IO tests
+
 v1.22.5 Mon, 23 Nov 2015 12:34:25 +0100 moocow
 	+ no real joy with Makefile.PL workaround (UNKNOWN results are still pretty wonky)
 	+ updating PDL::VectorValued to use shared $VERSION via perl-reversion script from module Perl::Version

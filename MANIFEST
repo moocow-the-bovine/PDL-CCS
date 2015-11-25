@@ -13,6 +13,8 @@ CCS/Compat.pm
 CCS/Config.pm
 CCS/IO/Makefile.PL
 CCS/IO/FastRaw.pm
+CCS/IO/FITS.pm
+CCS/IO/MatrixMarket.pm
 CCS/Nd.pm
 CCS/Version.pm
 CCS/Ops/Makefile.PL
@@ -43,6 +45,8 @@ CCS/t/04_unops.t
 CCS/t/05_binops.t
 CCS/t/06_matops.t
 CCS/t/common.plt
+CCS/IO/t/00_basic.t
+CCS/IO/t/01_io.t
 CCS/Utils/t/00_basic.t
 CCS/Utils/t/01_nnz.t
 CCS/Utils/t/02_encode.t

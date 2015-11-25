@@ -4,21 +4,29 @@
 
 package PDL::CCS::IO::FastRaw;
 use PDL::CCS::Version;
+use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Nd;
 use PDL;
 use PDL::IO::FastRaw;
 use Carp qw(confess);
 use strict;
 
-our $VERSION = $PDL::CCS::VERSION;
+our $VERSION = '1.22.6';
 our @ISA = ('PDL::Exporter');
 our @EXPORT_OK =
   (
    qw(ccs_writefraw ccs_readfraw ccs_mapfraw),
+   qw(_ccsio_open _ccsio_close),
+   qw(_ccsio_read_header _ccsio_parse_header),
+   qw(_ccsio_write_header _ccsio_generate_header),
   );
 our %EXPORT_TAGS =
   (
    Func => [@EXPORT_OK],               ##-- respect PDL conventions (hopefully)
+   intern => [qw(_ccsio_open _ccsio_close),
+	      qw(_ccsio_read_header _ccsio_parse_header),
+	      qw(_ccsio_write_header _ccsio_generate_header),
+	     ],
   );
 
 
@@ -68,39 +76,73 @@ sub _ccsio_opts_nz {
   return $opts;
 }
 
-## \%header = _ccsio_read_header($hfile)
+## $fh_or_undef = _ccsio_open($filename_or_handle,$mode)
+sub _ccsio_open {
+  my ($file,$mode) = @_;
+  return $file if (ref($file));
+  $mode = '<' if (!defined($mode));
+  open(my $fh, $mode, $file);
+  return $fh;
+}
+
+## $fh_or_undef = _ccsio_close($filename_or_handle,$fh)
+sub _ccsio_close {
+  my ($file,$fh) = @_;
+  return 1 if (ref($file)); ##-- don't close if we got a handle
+  return close($fh);
+}
+
+
+## \%header = _ccsio_read_header( $hfile)
 sub _ccsio_read_header {
   my $hFile = shift;
-  open(my $hfh, "<$hFile")
+  my $hfh = _ccsio_open($hFile,'<')
     or confess("_ccsio_read_header(): open failed for header-file $hFile: $!");
   binmode($hfh,':raw');
-  my ($magic,$pdims,$vdims,$flags) = map {chomp;$_} <$hfh>;
-  close($hfh)
+  my @hlines = <$hfh>;
+  _ccsio_close($hFile,$hfh)
     or confess("_ccsio_read_header(): close failed for header-file $hFile: $!");
+  return _ccsio_parse_header(\@hlines);
+}
+
+## \%header = _ccsio_parse_header(\@hlines)
+sub _ccsio_parse_header {
+  my $hlines = shift;
+  my ($magic,$pdims,$vdims,$flags,$iotype) = map {chomp;$_} @$hlines;
   return {
 	  magic=>$magic,
-	  pdims=>pdl(long,[split(' ',$pdims)]),
-	  vdims=>pdl(long,[split(' ',$vdims)]),
-	  flags=>$flags,
+	  (defined($pdims) && $pdims ne '' ? (pdims=>pdl(ccs_indx,[split(' ',$pdims)])) : qw()),
+	  (defined($vdims) && $vdims ne '' ? (vdims=>pdl(ccs_indx,[split(' ',$vdims)])) : qw()),
+	  (defined($flags) && $flags ne '' ? (flags=>$flags) : qw()),
+	  (defined($iotype) && $iotype ne ''  ? (iotype=>$iotype) : qw()), ##-- added in v1.22.6
 	 };
 }
 
-## $bool = _ccsio_write_header(\%header, $hfile)
+## $bool = _ccsio_write_header(\%header,  $hfile)
+## $bool = _ccsio_write_header(\%header, \@hlines)
 sub _ccsio_write_header {
   my ($header,$hFile) = @_;
-  open(my $hfh, ">$hFile")
-    or confess("_ccsio_read_header(): open failed for header-file $hFile: $!");
+  my $hfh = _ccsio_open($hFile,'>')
+    or confess("_ccsio_write_header(): open failed for header-file $hFile: $!");
   binmode($hfh,':raw');
   local $, = '';
-  print $hfh
-    (($header->{magic}//''), "\n",
-     join(' ', $header->{pdims}->list), "\n",
-     join(' ', $header->{vdims}->list), "\n",
-     ($header->{flags} // $PDL::CCS::Nd::CCSND_FLAGS_DEFAULT), "\n",
-    );
-  close($hfh)
+  print $hfh @{_ccsio_generate_header($header)};
+  _ccsio_close($hFile,$hfh)
     or confess("_ccsio_write_header(): close failed for header-file $hFile: $!");
   return 1;
+}
+
+## \@header_lines = _ccsio_generate_header(\%header)
+sub _ccsio_generate_header {
+  my $header = shift;
+  return [
+	  map {"$_\n"}
+	  (defined($header->{magic} ? $header->{magic} : '')),
+	  (defined($header->{pdims}) ? (join(' ', $header->{pdims}->list)) : ''),
+	  (defined($header->{vdims}) ? (join(' ', $header->{vdims}->list)) : ''),
+	  (defined($header->{flags}) ? $header->{flags} : $PDL::CCS::Nd::CCSND_FLAGS_DEFAULT),
+	  (defined($header->{iotype}) ? $header->{iotype} : $PDL::IO::Misc::deftype),
+	 ];
 }
 
 
@@ -181,12 +223,12 @@ Options %opts:
 *PDL::ccs_readfraw = *PDL::CCS::Nd::readfraw = \&ccs_readfraw;
 sub ccs_readfraw {
   shift if (UNIVERSAL::isa($_[0],'PDL') || UNIVERSAL::isa($_[0],'PDL::CCS::Nd'));
-  my ($fname,$opts) = @_;
+  my ($file,$opts) = @_;
 
   ##-- get filenames
-  my $hFile  = $opts->{Header} // "$fname.hdr";
-  my $ixFile = $opts->{ixFile} // "$fname.ix";
-  my $nzFile = $opts->{nzFile} // "$fname.nz";
+  my $hFile  = $opts->{Header} // "$file.hdr";
+  my $ixFile = $opts->{ixFile} // "$file.ix";
+  my $nzFile = $opts->{nzFile} // "$file.nz";
 
   ##-- read header
   my $header = _ccsio_read_header($hFile)
@@ -247,12 +289,12 @@ Component options in %opts, for ${c} in qw(ix nz):
 *PDL::ccs_mapfraw = *PDL::CCS::Nd::mapfraw = \&ccs_mapfraw;
 sub ccs_mapfraw {
   shift if (UNIVERSAL::isa($_[0],'PDL') || UNIVERSAL::isa($_[0],'PDL::CCS::Nd'));
-  my ($fname,$opts) = @_;
+  my ($file,$opts) = @_;
 
   ##-- get filenames
-  my $hFile  = $opts->{Header} // "$fname.hdr";
-  my $ixFile = $opts->{ixFile} // "$fname.ix";
-  my $nzFile = $opts->{nzFile} // "$fname.nz";
+  my $hFile  = $opts->{Header} // "$file.hdr";
+  my $ixFile = $opts->{ixFile} // "$file.ix";
+  my $nzFile = $opts->{nzFile} // "$file.nz";
 
   ##-- get ccs header
   my $header = {
@@ -265,9 +307,9 @@ sub ccs_mapfraw {
       or confess("ccs_mapfraw(): failed to read header-file $hFile: $!");
     $header->{$_} //= $hdr->{$_} foreach (keys %$hdr);
   }
-  $header->{pdims} = PDL->topdl(long,$header->{pdims}) if (!ref($header->{pdims}));
+  $header->{pdims} = PDL->topdl(ccs_indx,$header->{pdims}) if (!ref($header->{pdims}));
   $header->{vdims} = $header->{pdims}->sequence if (!defined($header->{vdims}));
-  $header->{vdims} = PDL->topdl(long,$header->{vdims}) if (!ref($header->{vdims}));
+  $header->{vdims} = PDL->topdl(ccs_indx,$header->{vdims}) if (!ref($header->{vdims}));
 
   ##-- get component options
   my %defaults = (map {($_=>$opts->{$_})} grep {exists($opts->{$_})} qw(Creat Trunc ReadOnly));
@@ -326,6 +368,7 @@ perl(1),
 PDL(3perl),
 PDL::IO::FastRaw(3perl),
 PDL::CCS::Nd(3perl),
+...
 
 =cut
 

@@ -4,6 +4,8 @@
 ## + example call:
 ##    ./reversion.sh -bump -dryrun
 
-exec perl-reversion "$@" ./CCS.pm ./CCS/*.pm ./CCS/IO/FastRaw.pm ./CCS/*/*.pd
+pmfiles=(./CCS.pm `find CCS \( -name '*.pd' -o -name '*.pm' \) -print`)
+
+exec perl-reversion "$@" "${pmfiles[@]}"
 
 
