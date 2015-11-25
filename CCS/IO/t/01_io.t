@@ -2,7 +2,7 @@
 $TEST_DIR = './t';
 #use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
 
-use Test::More tests=>(3+16);
+use Test::More tests=>(4+20);
 use PDL;
 use PDL::CCS;
 
@@ -10,6 +10,7 @@ BEGIN {
   use_ok('PDL::CCS::IO::FastRaw');
   use_ok('PDL::CCS::IO::FITS');
   use_ok('PDL::CCS::IO::MatrixMarket');
+  use_ok('PDL::CCS::IO::LDAC');
   $| = 1;
 }
 
@@ -62,3 +63,6 @@ iotest($ccs, 'ccs.mm', qw(readmm writemm));
 
 ##-- 13..16 : mm/dense
 iotest($a, 'dense.mm', qw(readmm writemm));
+
+##-- 17..20 : ldac
+iotest($a, 'ccs.ldac', qw(readldac writeldac));

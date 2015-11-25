@@ -1,6 +1,6 @@
 ## File: PDL::CCS::IO::MatrixMarket.pm
 ## Author: Bryan Jurish <moocow@cpan.org>
-## Description: PDL::IO::FastRaw wrappers for PDL::CCS::Nd
+## Description: MatrixMarket I/O wrappers for PDL::CCS::Nd
 
 package PDL::CCS::IO::MatrixMarket;
 use PDL::CCS::Version;
@@ -236,7 +236,7 @@ sub ccs_readmm {
 
   ##-- read data: indices
   my $offset = tell($fh);
-  my $ix = PDL->rcols($fh, [0,1], { IGNORE=>qr{^%}, TYPES=>[indx] });
+  my $ix = PDL->rcols($fh, [0,1], { IGNORE=>qr{^%}, TYPES=>[ccs_indx] });
   $ix   -= $opts->{start} if ($opts->{start} != 0);
   $ix    = $ix->xchg(0,1);
 
