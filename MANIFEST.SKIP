@@ -1,4 +1,6 @@
 ~$
+^PDL$
+^PDL-CCS-
 ^nullbarf.perl$
 \bMYMETA\.
 \.svn
@@ -12,6 +14,7 @@ CCS/Ops/Ops\.(c|pm|xs)$
 CCS/Ufunc/Ufunc\.(c|pm|xs)$
 CCS/Utils/Utils\.(c|pm|xs)$
 CCS/MatrixOps/MatrixOps\.(c|pm|xs)$
+CCS/IO/t/(?:ccs|dense)\.
 \bppgen.perl$
 \.save(?:\d*)$
 \.gz$
@@ -31,3 +34,4 @@ CCS/MatrixOps/MatrixOps\.(c|pm|xs)$
 \.html$
 \btmp\b
 ^#Makefile#$
+^reversion.sh$
