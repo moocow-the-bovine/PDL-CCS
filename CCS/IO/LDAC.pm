@@ -91,7 +91,8 @@ sub ccs_writeldac {
   $opts{header} = 1 if (!defined($opts{header}));
 
   ##-- sanity check(s)
-  confess("ccs_writeldac(): input matrix must be 2d!") if ($ccs->ndims != 2);
+  confess("ccs_writeldac(): input matrix must be physically indexed 2d!")
+    if ($ccs->pdims->nelem != 2);
 
   ##-- open output file
   my $fh = _ccsio_open($file,'>')
@@ -152,7 +153,7 @@ Options %opts:
  header => $bool,    ##-- do/don't try to read header data from the output file (default=do)
  type => $type,      ##-- value datatype (default: from header or $PDL::IO::Misc::deftype)
  transpose => $bool, ##-- generate a (Term x Document) matrix (default=don't)
- sorted => $bool,    ##-- assume input is lexicographically sorted (only if not transposted; default=don't)
+ sorted => $bool,    ##-- assume input is lexicographically sorted (only if not transposed; default=don't)
 
 =cut
 

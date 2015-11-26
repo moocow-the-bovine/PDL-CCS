@@ -2,16 +2,18 @@
 $TEST_DIR = './t';
 #use lib qw(.. ../../.. ../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
 
-use Test::More tests=>(5+(9*6));
+use Test::More tests=>(6+(11*6));
 use PDL;
 use PDL::CCS;
 
 BEGIN {
+  ##-- use: 6
   use_ok('PDL::CCS::IO::Common');
   use_ok('PDL::CCS::IO::FastRaw');
   use_ok('PDL::CCS::IO::FITS');
   use_ok('PDL::CCS::IO::MatrixMarket');
   use_ok('PDL::CCS::IO::LDAC');
+  use_ok('PDL::CCS::IO::PETSc');
   $| = 1;
 }
 
@@ -75,4 +77,10 @@ do {
   iotest($ccs, 'ccs.ldac0', qw(readldac writeldac), {header=>0});		##-- ldac: natural, no-header
   iotest($ccs, 'ccs.ldact', qw(readldac writeldac), {transpose=>1});		##-- ldac: transposed
   iotest($ccs, 'ccs.ldact0', qw(readldac writeldac), {header=>0,transpose=>1});	##-- ldac: transposed, no-header
-}
+};
+
+##-- x10-x11: petsc
+do {
+  iotest($ccs, 'ccs.petsc',  qw(rpetsc wpetsc));		##-- petsc: bin
+  iotest($ccs, 'ccs.petscb', qw(rpetsc wpetsc), {ioblock=>2});	##-- petsc: bin, with block i/o
+};
