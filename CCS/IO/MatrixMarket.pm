@@ -6,9 +6,9 @@ package PDL::CCS::IO::MatrixMarket;
 use PDL::CCS::Version;
 use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Nd;
-use PDL::CCS::IO::FastRaw qw(:intern); ##-- for _ccsio_generate_header(), _ccsio_parse_header()
+use PDL::CCS::IO::Common qw(:intern); ##-- for e.g. _ccsio_header_lines(), _ccsio_parse_header()
 use PDL;
-use PDL::IO::Misc;	   ##-- for rcols(), wcols()
+use PDL::IO::Misc;	   ##-- for rcols(), wcols(), $PDL::IO::Misc::deftype
 use Fcntl qw(:seek);	   ##-- for rewinding
 use Carp qw(confess);
 use strict;
@@ -78,14 +78,16 @@ Write a L<PDL::CCS::Nd|PDL::CCS::Nd> object as a MatrixMarket sparse coordinate 
 Options %opts:
 
  start  => $i,      ##-- index of first element (like perl $[); default=1 for MatrixMarket compatibility
+ header => $bool,   ##-- write embedded PDL::CCS::Nd header? (default=do)
 
 =cut
 
 *PDL::ccs_writemm = *PDL::CCS::Nd::writemm = \&ccs_writemm;
 sub ccs_writemm {
   my ($ccs,$file,$opts) = @_;
-  $opts = {} if (!defined($opts));
-  $opts->{start} = 1 if (!defined($opts->{start}));
+  my %opts =%{$opts||{}};
+  $opts{start} = 1 if (!defined($opts{start}));
+  $opts{header} = 1 if (!defined($opts{header}));
 
   ##-- write MatrixMarket magic header
   my $fh = _ccsio_open($file,'>')
@@ -94,16 +96,17 @@ sub ccs_writemm {
   local $,='';
   print $fh "$MMAGIC\n";
 
-  ##-- write ccs administrative header to output file
-  my $hlines =  _ccsio_generate_header({magic=>(ref($ccs)." $VERSION"), pdims=>$ccs->pdims, vdims=>$ccs->vdims, flags=>$ccs->flags});
-  print $fh map {("%", __PACKAGE__, " $_")} @$hlines;
+  ##-- write ccs header to output file
+  if ($opts{header}) {
+    print $fh map {("%", __PACKAGE__, " $_")} @{_ccsio_header_lines($ccs)};
+  }
 
   ##-- write mm dimensions to output file
   print $fh join(' ', '',$ccs->pdims->list,$ccs->_nnz_p), "\n";
 
   ##-- write mm data to output file
   my $ix = $ccs->_whichND;
-  $ix    = ($ix+$opts->{start}) if ($opts->{start} != 0);
+  $ix    = ($ix+$opts{start}) if ($opts{start} != 0);
   wcols($ix->xchg(0,1), $ccs->_nzvals, $fh)
     or confess("ccs_writemm(): failed to write data to '$file': $!");
 
@@ -177,6 +180,7 @@ using L<PDL::IO::Misc::rcols()|PDL::IO::Misc/rcols()>.
 Options %opts:
 
  start  => $i,      ##-- index of first element (like perl $[); default=1 for MatrixMarket compatibility
+ header => $bool,   ##-- attempt to read embedded CCS header from file (default=do)
  sorted => $bool,   ##-- assume input data is sorted (default=0)
  nomagic => $bool,  ##-- don't check for matrix market magic header (default:do)
 
@@ -186,38 +190,39 @@ Options %opts:
 sub ccs_readmm {
   shift if (UNIVERSAL::isa($_[0],'PDL') || UNIVERSAL::isa($_[0],'PDL::CCS::Nd'));
   my ($file,$opts) = @_;
-  $opts = {} if (!defined($opts));
-  $opts->{start} = 1 if (!defined($opts->{start}));
+  my %opts = %{$opts||{}};
+  $opts{start} = 1 if (!defined($opts{start}));
+  $opts{header} = 1 if (!defined($opts{header}));
 
   ##-- open input file
   my $fh = _ccsio_open($file,'<')
     or confess("ccs_readmm(): open failed for input file '$file': $!");
 
   ##-- get matrix market magic header
-  if (!$opts->{nomagic}) {
+  if (!$opts{nomagic}) {
     my $mmagic = <$fh>; chomp($mmagic);
     if ($mmagic eq $DMAGIC) {
       ##-- dense input file, read as dense PDL
       _ccsio_close($file,$fh);
-      return readmm($file,{%$opts,nomagic=>1});
+      return readmm($file,{%opts,nomagic=>1});
     }
     elsif ($mmagic ne $MMAGIC) {
       confess("ccs_readmm(): bad magic header line in input file, should be '$MMAGIC'");
     }
   }
 
-  ##-- scan initial comments for CCS header
+  ##-- scan initial comments, extracting CCS header
   my @hlines = qw();
   while (defined($_=<$fh>)) {
     chomp;
     if (/^%(\S+) (.*)$/) {
-      push(@hlines,$2) if (substr($_,1,length(__PACKAGE__)) eq __PACKAGE__);
+      push(@hlines,$2) if ($opts{header} && substr($_,1,length(__PACKAGE__)) eq __PACKAGE__);
     } elsif (!/^%/) {
       last;
     }
   }
-  ##-- parse embedded CCS header
-  my $header = _ccsio_parse_header(\@hlines);
+  ##-- parse embedded CCS header if requested
+  my $header = _ccsio_parse_header($opts{header} ? \@hlines : []);
 
   ##-- we now have 1st non-comment line in $_: scan for mm dimension list
   while ($_ =~ /^\s*$/) {
@@ -237,7 +242,7 @@ sub ccs_readmm {
   ##-- read data: indices
   my $offset = tell($fh);
   my $ix = PDL->rcols($fh, [0,1], { IGNORE=>qr{^%}, TYPES=>[ccs_indx] });
-  $ix   -= $opts->{start} if ($opts->{start} != 0);
+  $ix   -= $opts{start} if ($opts{start} != 0);
   $ix    = $ix->xchg(0,1);
 
   ##-- read data: values
@@ -258,8 +263,8 @@ sub ccs_readmm {
 				    pdims=>$header->{pdims},
 				    vdims=>$header->{vdims},
 				    flags=>$header->{flags},
-				    sorted=>$opts->{sorted},
-				    steal=>$opts->{sorted});
+				    sorted=>$opts{sorted},
+				    steal=>1);
 }
 
 
@@ -284,19 +289,19 @@ Options %opts:
 sub readmm {
   shift if (UNIVERSAL::isa($_[0],'PDL') || UNIVERSAL::isa($_[0],'PDL::CCS::Nd'));
   my ($file,$opts) = @_;
-  $opts = {} if (!defined($opts));
+  my %opts = %{$opts||{}};
 
   ##-- open input file
   my $fh = _ccsio_open($file,'<')
     or confess("readmm(): open failed for input file '$file': $!");
 
   ##-- get matrix market magic header
-  if (!$opts->{nomagic}) {
+  if (!$opts{nomagic}) {
     my $dmagic = <$fh>; chomp($dmagic);
     if ($dmagic eq $MMAGIC) {
       ##-- sparse input file, read as PDL::CCS::Nd
       _ccsio_close($file,$fh);
-      return ccs_readmm($file,{%$opts,nomagic=>1});
+      return ccs_readmm($file,{%opts,nomagic=>1});
     }
     elsif ($dmagic ne $DMAGIC) {
       confess("readmm(): bad magic header line in input file, should be '$DMAGIC'")
@@ -365,10 +370,12 @@ as Perl itself.
 
 =head1 SEE ALSO
 
-perl(1),
-PDL(3perl),
-PDL::IO::Misc(3perl),
-PDL::CCS::Nd(3perl),
+L<perl>,
+L<PDL>,
+L<PDL::CCS::Nd>,
+L<PDL::CCS::IO::FastRaw>,
+L<PDL::CCS::IO::FITS>,
+L<PDL::CCS::IO::LDAC>,
 the matrix market format documentation at L<http://math.nist.gov/MatrixMarket/formats.html>
 ...
 

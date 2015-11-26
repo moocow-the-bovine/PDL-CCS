@@ -171,6 +171,14 @@ sub fromWhich :lvalue {
     $wnd->sever;                         ##-- sever (~ copy)
     $nzvals = $nzvals->append($missing); ##-- copy (b/c append)
   }
+  elsif (!$opts{sorted}) {
+    ##-- "stolen" but un-sorted: we have "missing" value in $vals
+    my $wi = PDL->zeroes(ccs_indx, $wnd->dim(1)+1);
+    $wnd->vv_qsortveci($wi->slice("0:-2"));
+    $wi->set($wnd->dim(1) => $nzvals->nelem-1);
+    $wnd    = $wnd->dice_axis(1,$wi->slice("0:-2"));
+    $nzvals = $nzvals->index($wi);
+  }
 
   ##-- setup and return
   $obj->[$PDIMS]   = $pdims;

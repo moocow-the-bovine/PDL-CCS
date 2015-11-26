@@ -6,9 +6,10 @@ package PDL::CCS::IO::LDAC;
 use PDL::CCS::Version;
 use PDL::CCS::Config qw(ccs_indx);
 use PDL::CCS::Nd;
-use PDL::CCS::IO::FastRaw qw(:intern); ##-- for _ccsio_generate_header(), _ccsio_parse_header()
+use PDL::CCS::IO::Common qw(:intern); ##-- for e.g. _ccsio_header_lines(), _ccsio_parse_header()
 use PDL;
-use PDL::IO::Misc;
+use PDL::IO::Misc;	   ##-- for rcols(), wcols(), $PDL::IO::Misc::deftype
+use Fcntl qw(:seek);	   ##-- for rewinding
 use Carp qw(confess);
 use strict;
 
@@ -37,10 +38,17 @@ PDL::CCS::IO::LDAC - LDA-C format text I/O for PDL::CCS::Nd
  use PDL::CCS::Nd;
  use PDL::CCS::IO::LDAC;
 
- $tdm = PDL::CCS::Nd->newFromWhich($which,$nnz);
+ ##-- (Document x Term) matrix
+ $dtm = PDL::CCS::Nd->newFromWhich($which,$nnz);
+ 
+ ccs_writeldac($dtm,"dtm.ldac");   # write a sparse LDA-C text file
+ $dtm2 = ccs_readldac("dtm.ldac"); # read a sparse LDA-C text file
 
- ccs_writeldac($tdm,"tdm.ldac");   # write a sparse matrix market text file
- $tdm2 = ccs_readldac("tdm.ldac"); # read a sparse matrix market text file
+ ###-- (Term x Document) matrix in document-primary format
+ $tdm = $dtm->xchg(0,1)->make_physically_indexed();
+ 
+ ccs_writeldac($tdm,"tdm.ldac",   {transpose=>1});
+ $dtm2 = ccs_readldac("tdm.ldac", {transpose=>1});
 
 =cut
 
@@ -59,20 +67,28 @@ PDL::CCS::IO::LDAC - LDA-C format text I/O for PDL::CCS::Nd
 
 =head2 ccs_writeldac
 
-Write a 2d L<PDL::CCS::Nd|PDL::CCS::Nd> (Term x Document) matrix as an LDA-C text file.
+Write a 2d L<PDL::CCS::Nd|PDL::CCS::Nd> (Document x Term)
+matrix as an LDA-C text file.  If the C<transpose> option is specified and true,
+the input matrix C<$ccs> is treated as as a (Term x Document) matrix,
+and output lines correspond to logical dimension 1 of C<$ccs>.  Otherwise,
+output lines correspond to logical dimension 0 of C<$ccs>, which is expected
+to be a (Document x Term) matrix.
 
  ccs_writeldac($ccs,$filename_or_fh)
  ccs_writeldac($ccs,$filename_or_fh,\%opts)
 
-Options %opts: (none)
+Options %opts:
+
+ header => $bool,     ##-- do/don't write a header to the output file (default=do)
+ transpose => $bool,  ##-- treat input $ccs as (Term x Document) matrix (default=don't)
 
 =cut
 
 *PDL::ccs_writeldac = *PDL::CCS::Nd::writeldac = \&ccs_writeldac;
 sub ccs_writeldac {
   my ($ccs,$file,$opts) = @_;
-  $opts = {} if (!defined($opts));
-  #$opts->{start} = 0 if (!defined($opts->{start}));
+  my %opts = %{$opts||{}};
+  $opts{header} = 1 if (!defined($opts{header}));
 
   ##-- sanity check(s)
   confess("ccs_writeldac(): input matrix must be 2d!") if ($ccs->ndims != 2);
@@ -83,20 +99,27 @@ sub ccs_writeldac {
   #binmode($fh,':raw');
   local $,='';
 
+  ##-- maybe print header
+  if ($opts{header}) {
+    print $fh
+      ("%%LDA-C sparse matrix file; see http://www.cs.princeton.edu/~blei/lda-c/readme.txt\n",
+       (map {("%", __PACKAGE__, " $_")} @{_ccsio_header_lines($ccs)}),
+      );
+  }
+
+  ##-- transpose?
+  my ($ddim,$tdim) = $opts{transpose} ? (1,0) : (0,1);
+
   ##-- convert to lda-c format: use ptr()
-  my ($ptr,$pi2nzi) = $ccs->ptr(1);
+  my ($ptr,$pi2nzi) = $ccs->ptr($ddim);
   my $nd = $ptr->nelem-1;
   my $ix = $ccs->_whichND;
   my $nz = $ccs->_nzvals;
-  my ($di,$xi,$xj,$nzi);
-  for ($di=0; $di < $ptr->nelem; ++$di) {
-    ($xi,$xj) = ($ptr->at($di),$ptr->at($di+1));
-    print $fh $xj-$xi;
-    for ( ; $xi < $xj; ++$xi) {
-      $nzi = $pi2nzi->index($xi)->sclr;
-      print $fh ' ', $ix->at(0,$nzi), ":", $nz->at($nzi);
-    }
-    print $fh "\n";
+  my ($di,$i,$j,$nzi);
+  for ($di=0; $di < $nd; ++$di) {
+    ($i,$j) = ($ptr->at($di),$ptr->at($di+1));
+    $nzi    = $pi2nzi->slice("$i:".($j-1));
+    print $fh join(' ', ($j-$i), map {$ix->at($tdim,$_).":".$nz->at($_)} $nzi->list), "\n";
   }
 
   ##-- cleanup
@@ -113,14 +136,23 @@ sub ccs_writeldac {
 
 =head2 ccs_readldac
 
-Read a 2d L<PDL::CCS::Nd|PDL::CCS::Nd> (Term x Document) matrix from an LDA-C text file.
+Read a 2d (Document x Term) matrix from an LDA-C text file as a
+L<PDL::CCS::Nd|PDL::CCS::Nd> object.
+If the C<transpose> option is specified and true,
+the output matrix C<$ccs> will be a (Term x Document) matrix,
+and input lines correspond to logical dimension 1 of C<$ccs>.  Otherwise,
+input lines correspond to logical dimension 0 of C<$ccs>, which will be
+returned as a (Document x Term) matrix.
 
  $ccs = ccs_readldac($filename_or_fh)
  $ccs = ccs_readldac($filename_or_fh,\%opts)
 
 Options %opts:
 
- type => $type,      ##-- value datatype; default = $PDL::IO::Misc::deftype
+ header => $bool,    ##-- do/don't try to read header data from the output file (default=do)
+ type => $type,      ##-- value datatype (default: from header or $PDL::IO::Misc::deftype)
+ transpose => $bool, ##-- generate a (Term x Document) matrix (default=don't)
+ sorted => $bool,    ##-- assume input is lexicographically sorted (only if not transposted; default=don't)
 
 =cut
 
@@ -128,49 +160,84 @@ Options %opts:
 sub ccs_readldac {
   shift if (UNIVERSAL::isa($_[0],'PDL') || UNIVERSAL::isa($_[0],'PDL::CCS::Nd'));
   my ($file,$opts) = @_;
-  $opts = {} if (!defined($opts));
-  #$opts->{start} = 1 if (!defined($opts->{start}));
-  $opts->{type} = $PDL::IO::Misc::deftype if (!defined($opts->{type}));
-  $opts->{type} = PDL->can($opts->{type})->() if (!ref($opts->{type}));
+  my %opts = %{$opts||{}};
+  $opts{header} = 1 if (!defined($opts{header}));
 
   ##-- open input file
   my $fh = _ccsio_open($file,'<')
     or confess("ccs_readldac(): open failed for input file '$file': $!");
 
+  ##-- maybe scan for ccs header
+  my $header;
+  if ($opts{header}) {
+    ##-- scan initial comments for CCS header
+    my @hlines = qw();
+    while (defined($_=<$fh>)) {
+      chomp;
+      if (/^[%\#](\S+) (.*)$/) {
+	push(@hlines,$2) if (substr($_,1,length(__PACKAGE__)) eq __PACKAGE__);
+      } elsif (!/^[%\#]/) {
+	last;
+      }
+    }
+    $header = _ccsio_parse_header(\@hlines);
+  } else {
+    $header = {};
+  }
+
+  ##-- get value datatype
+  my $type = $opts{type} || $header->{iotype} || $PDL::IO::Misc::deftype;
+  $type    = PDL->can($type)->() if (!ref($type) && PDL->can($type));
+  $type    = $PDL::IO::Misc::deftype if (!ref($type));
+
   ##-- get nnz (per doc)
-  my $d_nnz = PDL->rcols($fh, [0], { TYPES=>[ccs_indx] });
-  my $nnz   = $d_nnz->sum;
-  undef($d_nnz);
+  seek($fh,0,SEEK_SET)
+    or confess("ccs_readldac(): seek() failed for input file '$file': $!");
+  my $nnz0 = PDL->rcols($fh, [0], { TYPES=>[ccs_indx], IGNORE=>qr{^\s*[^0-9]} });
+  my $nnz  = $nnz0->sum;
+  my $nlines = $nnz0->nelem;
+  undef($nnz0);
 
   ##-- allocate output pdls
-  my $nd    = $d_nnz->nelem;
-  my $ix    = zeroes(ccs_indx, 2,$nnz);
-  my $nz    = zeroes($opts->{type}, $nnz+1);
+  my $ix   = zeroes(ccs_indx, 2,$nnz);
+  my $nz   = zeroes($type, $nnz+1);
 
   ##-- process input
-  my ($nzi,$di,$ti,$f);
-  for ($nzi=$di=0; $di < $nd && $nzi < $nnz && defined($_=<$fh>); ++$di) {
+  seek($fh,0,SEEK_SET)
+    or confess("ccs_readldac(): seek() failed for input file '$file': $!");
+  my ($dim0,$dim1) = $opts{transpose} ? (1,0) : (0,1);
+  my ($nzi,$i0,$i1,$f);
+  for ($nzi=$i0=0; $i0 < $nlines && $nzi < $nnz && defined($_=<$fh>); ) {
     chomp;
-    next if (/^\s*$/ || /^\s*\D/);
-    while (/\b([0-9]+):(\S+)\b/g) {
-      ($ti,$f) = ($1,$2);
-      $ix->set(0,$nzi => $ti);
-      $ix->set(1,$nzi => $di);
+    next if (/^\s*(?:$|[^0-9])/);
+    while (/\b([0-9]+)\s*:\s*(\S+)/g) {
+      ($i1,$f) = ($1,$2);
+      $ix->set($dim1,$nzi => $i1);
+      $ix->set($dim0,$nzi => $i0);
       $nz->set($nzi => $f);
       ++$nzi;
     }
-    ++$di;
+    ++$i0;
   }
-  my $nt = $ix->slice("(0),")->max+1;
 
   ##-- cleanup
   _ccsio_close($file,$fh)
     or confess("ccs_readldac(): close failed for input file '$file': $!");
 
+  ##-- guess header data
+  if (!defined($header->{pdims})) {
+    $header->{pdims} = [];
+    $header->{pdims}[$dim0] = $nlines;
+    $header->{pdims}[$dim1] = $ix->slice("($dim1),")->max+1;
+  }
+  $header->{flags} = $PDL::CCS::Nd::CCSND_FLAGS_DEFAULT if (!defined($header->{flags}));
+
   ##-- construct and return
   return PDL::CCS::Nd->newFromWhich($ix,$nz,
-				    pdims=>[$nt,$nd],
-				    sorted=>0,
+				    pdims=>$header->{pdims},
+				    vdims=>$header->{vdims},
+				    flags=>$header->{flags},
+				    sorted=>($opts{sorted} && !$opts{transpose}),
 				    steal=>1,
 				   );
 }
@@ -210,10 +277,12 @@ as Perl itself.
 
 =head1 SEE ALSO
 
-perl(1),
-PDL(3perl),
-PDL::IO::Misc(3perl),
-PDL::CCS::Nd(3perl),
+L<perl>,
+L<PDL>,
+L<PDL::CCS::Nd>,
+L<PDL::CCS::IO::FastRaw>,
+L<PDL::CCS::IO::FITS>,
+L<PDL::CCS::IO::MatrixMarket>,
 the LDA-C package documentation at L<http://www.cs.princeton.edu/~blei/lda-c/>
 ...
 

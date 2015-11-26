@@ -1,12 +1,13 @@
 ##-*- Mode: CPerl -*-
 $TEST_DIR = './t';
-#use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
+#use lib qw(.. ../../.. ../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
 
-use Test::More tests=>(4+20);
+use Test::More tests=>(5+(9*6));
 use PDL;
 use PDL::CCS;
 
 BEGIN {
+  use_ok('PDL::CCS::IO::Common');
   use_ok('PDL::CCS::IO::FastRaw');
   use_ok('PDL::CCS::IO::FITS');
   use_ok('PDL::CCS::IO::MatrixMarket');
@@ -37,32 +38,41 @@ sub pdleq {
   }
 }
 
-##-- n..(n+3): i/o testing
+##-- *6: i/o testing
 sub iotest {
-  my ($p, $file, $reader,$writer) = @_;
+  my ($p, $file, $reader,$writer, $opts) = @_;
   my ($q);
   $reader = $p->can($reader) if (!ref($reader));
   $writer = $p->can($writer) if (!ref($writer));
-  ok($writer->($p,"$TEST_DIR/$file"), "$file - write");
-  ok(defined($q = $reader->("$TEST_DIR/$file")), "$file - read");
+  ok(defined($writer), "$file - writer sub");
+  ok(defined($reader), "$file - reader sub");
+  
+  ok($writer->($p,"$TEST_DIR/$file",$opts), "$file - write");
+  ok(defined($q = $reader->("$TEST_DIR/$file",$opts)), "$file - read");
   is(ref($q), ref($p), "$file - ref");
   ok(pdleq($p,$q), "$file - data");
 
   ##-- unlink test data
-  unlink($_) foreach (glob("$TEST_DIR/$file*"));
+  #unlink($_) foreach (glob("$TEST_DIR/$file*"));
 }
 
-##-- 1..4 : raw
+##-- x1 : raw
 iotest($ccs, 'ccs.raw', qw(readfraw writefraw));
 
-##-- 5..8 : fits
+##-- x2 : fits
 iotest($ccs, 'ccs.fits', qw(rfits wfits));
 
-##-- 9..12 : mm/sparse
-iotest($ccs, 'ccs.mm', qw(readmm writemm));
+##-- x3-x5 : mm
+do {
+  iotest($ccs, 'ccs.mm', qw(readmm writemm));			##-- mm: sparse
+  iotest($ccs, 'ccs.mm0', qw(readmm writemm), {header=>0});	##-- mm: sparse, no header
+  iotest($a, 'dense.mm', qw(readmm writemm));			##-- mm: dense
+};
 
-##-- 13..16 : mm/dense
-iotest($a, 'dense.mm', qw(readmm writemm));
-
-##-- 17..20 : ldac
-iotest($a, 'ccs.ldac', qw(readldac writeldac));
+##-- x6-x9 : ldac
+do {
+  iotest($ccs, 'ccs.ldac', qw(readldac writeldac));				##-- ldac: natural
+  iotest($ccs, 'ccs.ldac0', qw(readldac writeldac), {header=>0});		##-- ldac: natural, no-header
+  iotest($ccs, 'ccs.ldact', qw(readldac writeldac), {transpose=>1});		##-- ldac: transposed
+  iotest($ccs, 'ccs.ldact0', qw(readldac writeldac), {header=>0,transpose=>1});	##-- ldac: transposed, no-header
+}

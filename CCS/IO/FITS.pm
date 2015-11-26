@@ -6,7 +6,7 @@ package PDL::CCS::IO::FITS;
 use PDL::CCS::Version;
 use PDL::CCS::Nd;
 use PDL;
-use PDL::CCS::IO::FastRaw qw(:intern); ##-- for _ccsio_write_header, _ccsio_read_header
+use PDL::CCS::IO::Common qw(:intern); ##-- for e.g. _ccsio_write_header, _ccsio_read_header
 use Carp qw(confess);
 use strict;
 
@@ -85,7 +85,7 @@ sub ccs_wfits {
   my $nzFile = $opts->{nzFile} // "$fname.nz.fits";
 
   ##-- write header
-  _ccsio_write_header({magic=>(ref($ccs)." $VERSION"), pdims=>$ccs->pdims, vdims=>$ccs->vdims, flags=>$ccs->flags}, $hFile)
+  _ccsio_write_header($ccs, $hFile)
     or confess("ccs_wfits(): failed to write header-file $hFile: $!");
 
   ##-- write pdls
@@ -183,10 +183,12 @@ as Perl itself.
 
 =head1 SEE ALSO
 
-perl(1),
-PDL(3perl),
-PDL::IO::FITS(3perl),
-PDL::CCS::Nd(3perl),
+L<perl>,
+L<PDL>,
+L<PDL::CCS::Nd>,
+L<PDL::CCS::IO::FastRaw>,
+L<PDL::CCS::IO::MatrixMarket>,
+L<PDL::CCS::IO::LDAC>,
 ...
 
 =cut
