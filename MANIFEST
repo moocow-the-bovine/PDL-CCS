@@ -17,6 +17,7 @@ CCS/IO/FastRaw.pm
 CCS/IO/FITS.pm
 CCS/IO/LDAC.pm
 CCS/IO/MatrixMarket.pm
+CCS/IO/PETSc.pm
 CCS/Nd.pm
 CCS/Version.pm
 CCS/Ops/Makefile.PL
