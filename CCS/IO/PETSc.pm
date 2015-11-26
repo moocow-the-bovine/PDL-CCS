@@ -268,8 +268,6 @@ Perl by Larry Wall.
 
 PDL by Karl Glazebrook, Tuomas J. Lukka, Christian Soeller, and others.
 
-LDA-C package by by David M. Blei.
-
 =cut
 
 
