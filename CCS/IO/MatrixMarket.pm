@@ -249,7 +249,7 @@ sub ccs_readmm {
   seek($fh,$offset,SEEK_SET)
     or confess("ccs_readmm(): seek() failed for input file '$file': $!");
   my $iotype = $header->{iotype};
-  $iotype    = PDL->can($iotype)->() if (!ref($iotype) && PDL->can($iotype));
+  $iotype    = PDL->can($iotype)->() if (defined($iotype) && !ref($iotype) && PDL->can($iotype));
   $iotype    = $PDL::IO::Misc::deftype if (!ref($iotype));
   my $nz = PDL->rcols($fh, [2],   { IGNORE=>qr{^%}, TYPES=>[$iotype] });
   $nz    = $nz->append(0); ##-- missing value

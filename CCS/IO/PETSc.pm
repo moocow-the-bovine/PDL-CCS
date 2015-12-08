@@ -176,7 +176,7 @@ sub ccs_rpetsc {
   my $pack_val = $opts{pack_val} // 'd>';
   my $ioblock  = $opts{ioblock}  || 8192;
   my $type     = $opts{type};
-  $type = PDL->can($type)->() if (!ref($type) && PDL->can($type));
+  $type = PDL->can($type)->() if (defined($type) && !ref($type) && PDL->can($type));
   $type = double if (!ref($type));
   $opts{sorted} //= 1;
   $opts{flags}  //= $PDL::CCS::Nd::CCSND_FLAGS_DEFAULT;

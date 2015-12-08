@@ -188,7 +188,7 @@ sub ccs_readldac {
 
   ##-- get value datatype
   my $type = $opts{type} || $header->{iotype} || $PDL::IO::Misc::deftype;
-  $type    = PDL->can($type)->() if (!ref($type) && PDL->can($type));
+  $type    = PDL->can($type)->() if (defined($type) && !ref($type) && PDL->can($type));
   $type    = $PDL::IO::Misc::deftype if (!ref($type));
 
   ##-- get nnz (per doc)
