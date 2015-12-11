@@ -1,5 +1,6 @@
-v1.22.7-pre Tue, 08 Dec 2015 09:49:38 +0100 moocow
+v1.22.7-pre Fri, 11 Dec 2015 14:47:08 +0100 moocow
 	+ fixed "uninitialized value" warnings for PDL->can($type) in PDL::CCS::IO::*
+	+ added vector-cosine ccs_vcos_zdd() in PDL::CCS::MatrixOps, with wrapper PDL::CCS::Nd::vcos_zdd()
 
 v1.22.6 Wed, 25 Nov 2015 16:27:24 +0100 moocow
 	+ added CCS::IO::FITS, CCS::IO::MatrixMarket, CCS::IO::LDAC, CCS::IO::PETSc

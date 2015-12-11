@@ -8,7 +8,11 @@ $| = 1;
 sub isok {
   my $label = shift;
   print "$label:\n";
-  ok(@_);
+  if (@_==1) {
+    ok($_[0]);
+  } else {
+    ok(@_);
+  }
 }
 
 # skipok($label,$skip_if_true,@_) -- prints helpful label

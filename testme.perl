@@ -732,8 +732,29 @@ sub test_io_fraw {
 
   exit 0;
 }
-test_io_fraw();
+#test_io_fraw();
 
+##---------------------------------------------------------------------
+## test vcos
+
+sub test_ccs_vcos {
+  my $a = pdl([[1,2,3,4],[1,2,2,1],[-1,-2,-3,-4]])->xchg(0,1);
+  my $b = pdl([1,2,3,4]);
+  my $ccs = $a->toccs;
+  my $vcos = $ccs->vcos_zdd($b);
+  my $vcos_want = pdl([1,0.8660254,-1]);
+  all($vcos->approx($vcos_want,1e-4))
+    or die("vcos test failed : got=$vcos != want=$vcos_want");
+  print "vcos ok\n";
+
+  my $b3 = $b->slice(",*3");
+  my $vcos3 = $ccs->vcos_zdd($b3);
+  my $vcos3_want = $vcos_want->slice(",*3");
+  all($vcos3->approx($vcos3_want,1e-4))
+    or die("vcos test failed : got=$vcos3 != want=$vcos3_want");
+  print "vcos:threaded ok\n";
+}
+test_ccs_vcos();
 
 ##---------------------------------------------------------------------
 ## DUMMY

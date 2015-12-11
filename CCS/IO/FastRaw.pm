@@ -12,7 +12,7 @@ use PDL::IO::FastRaw;
 use Carp qw(confess);
 use strict;
 
-our $VERSION = '1.22.6';
+our $VERSION = '1.22.7';
 our @ISA = ('PDL::Exporter');
 our @EXPORT_OK = qw(ccs_writefraw ccs_readfraw ccs_mapfraw);
 our %EXPORT_TAGS =

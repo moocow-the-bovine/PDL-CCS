@@ -19,7 +19,7 @@ BEGIN {
   *can = \&UNIVERSAL::can;
 }
 
-our $VERSION = '1.22.6'; ##-- update with perl-reversion from Perl::Version module
+our $VERSION = '1.22.7'; ##-- update with perl-reversion from Perl::Version module
 our @ISA = qw();
 our %EXPORT_TAGS =
   (
@@ -1810,6 +1810,20 @@ sub matmult2d_zdd  :lvalue {
   ccs_matmult2d_zdd($a->_whichND,$a->_nzvals, $b, $c);
 
   return $c;
+}
+
+## $vcos_dense = $a->vcos_zdd($b_dense, ?$vcos_dense, ?$norm_dense)
+##  + assumes $a->missing==0
+sub vcos_zdd {
+  my $a = shift;
+  my $b = shift;
+
+  ##-- ensure $b dense, $a physically indexed ccs
+  $b = todense($b) if ($b->isa(__PACKAGE__));
+  $a = $a->to_physically_indexed();
+
+  ##-- guts
+  return ccs_vcos_zdd($a->_whichND, $a->_nzvals, $b, $a->dim(0), @_);
 }
 
 

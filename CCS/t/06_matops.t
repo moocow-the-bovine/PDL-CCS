@@ -1,8 +1,9 @@
 # -*- Mode: CPerl -*-
-# t/05_binops.t
+# t/06_matops.t
 
 $TEST_DIR = './t';
-#use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
+#$TEST_DIR = './CCS/t';
+#use lib qw(../blib/lib ../blib/arch ../../blib/lib ../../blib/arch); $TEST_DIR = '.'; # for debugging
 
 # load common subs
 use Test;
@@ -15,7 +16,7 @@ BEGIN {
   my $N_TESTS_PER_MATOP  = 8;
   my $N_RUNS_PER_BLOCK = 6;
   my $N_BLOCKS = 5;
-  my $N_HACKS = 3;
+  my $N_HACKS = 5;
   plan(tests=>(
 	       $N_BLOCKS*$N_RUNS_PER_BLOCK*$N_TESTS_PER_MATOP*$N_MATOPS
 	       +
@@ -25,6 +26,7 @@ BEGIN {
 }
 
 our ($BAD);
+
 
 ##--------------------------------------------------------------
 ## hacks
@@ -55,6 +57,20 @@ sub test_matmult2d_all {
   test_matmult2d_sdd('m1',$a,$b, $a->toccs(1));
 }
 test_matmult2d_all();
+
+sub test_vcos_zdd {
+  my $a = pdl([[1,2,3,4],[1,2,2,1],[-1,-2,-3,-4]])->xchg(0,1);
+  my $b = pdl([1,2,3,4]);
+  my $ccs = $a->toccs;
+  my $vcos = $ccs->vcos_zdd($b);
+  my $vcos_want = pdl([1,0.8660254,-1]);
+  isok("vcos_zdd", all($vcos->approx($vcos_want,1e-4)));
+
+  my $b3 = $b->slice(",*3");
+  my $vcos3 = $ccs->vcos_zdd($b3);
+  isok("vcos_zdd:threaded", all($vcos3->approx($vcos_want->slice(",*3"),1e-4)));
+}
+test_vcos_zdd();
 
 ##--------------------------------------------------------------
 ## matrix operation test (manual swap)

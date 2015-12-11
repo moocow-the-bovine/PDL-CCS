@@ -5,7 +5,7 @@
 ##======================================================================
 
 use PDL::VectorValued::Dev;
-my $VERSION = '1.22.6'; ##-- update with perl-reversion from Perl::Version module
+my $VERSION = '1.22.7'; ##-- update with perl-reversion from Perl::Version module
 pp_setversion($VERSION);
 
 ##------------------------------------------------------
@@ -106,7 +106,7 @@ dimension "M" and 1st dimension "N", just as for the
 built-in PDL::Primitive::matmult().
 
 "Missing" values in $a() are treated as $missinga(), which shouldn't
-be BAD or inifinte, but otherwise ought to be handled correctly.
+be BAD or infinite, but otherwise ought to be handled correctly.
 The input pdl $zc() is used to pass the cached contribution of
 a $missinga()-row ("M") to an output column ("O"), i.e.
 
@@ -159,6 +159,98 @@ $SIZE(Ndimsa) is assumed to be 2.
  ); ##--/ccs_matmult2d_zdd
 
 
+##--------------------------------------------------------------
+vvpp_def
+  ('ccs_vcos_zdd',
+   Pars => ("\n    "
+	    .join("\n    ",
+		  "$INDX ixa(Two,NnzA); nza(NnzA);",   ##-- logical (M,N)
+		  "b(N);",		   	       ##-- logical (1,N)
+		  "[o]vcos(M);",
+		  "[t]anorm(M);",
+		 )),
+   OtherPars => "int sizeM=>M;",
+   Code=>
+(q{
+    PDL_Indx an,am, bm;
+    $GENERIC(anorm) bnorm;
+    $GENERIC(nza)   av;
+    int have_anorm = 0; /*-- avoid redundant re-computation of anorm() --*/
+
+    /*-- sanity check: dimension "Two" --*/
+    if ($SIZE(Two) != 2) {
+       croak("ccs_vcos_zdd(): bogus input dimension Two=%ld for index-piddle ixa(Two,NnzA) must be 2", $SIZE(Two));
+    }
+
+    threadloop %{
+      /*-- cache bnorm as \sum_{i=1}^d b[i]**2 --*/
+      bnorm = 0;
+      loop (N) %{ bnorm += $b() * $b(); %}
+      bnorm = sqrt(bnorm);
+      if (bnorm == 0) {
+        /*-- pathological case: return minimum similarity (-1) --*/
+        loop(M) %{ $vcos() = -1; %}
+      }
+      else {
+        /*-- initialize --*/
+        loop (M) %{ $vcos() = 0; %}
+
+        /*-- compute \sum_{i=1}^n (a[i]*b[i]) in vcos(), caching anorm=\sum_{i=1}^n a[i]**2 if appropriate --*/
+	if (!have_anorm) {
+          loop (NnzA) %{
+	    /*-- first nontrivial threadloop iteration: populate anorm() --*/
+	    am = $ixa(Two=>0);
+	    an = $ixa(Two=>1);
+	    av = $nza();
+	    $anorm(M=>am) += av * av;
+	    $vcos(M=>am)  += av * $b(N=>an);
+	  %}
+          have_anorm = 1;
+	} else {
+	  loop (NnzA) %{
+  	    /*-- non-initial threadloop iteration: we already have anorm() --*/
+	    am = $ixa(Two=>0);
+	    an = $ixa(Two=>1);
+	    $vcos(M=>am) += $nza() * $b(N=>an);
+	  %}
+	}
+
+        /*-- factor out vector magnitudes (Euclidean norms ||a||*||b||), cached in anorm, bnorm() --*/
+        loop (M) %{
+          if ($anorm() != 0) {
+	    $vcos() /= (sqrt($anorm()) * bnorm);
+	  } else {
+	    $vcos() = -1;
+	  }
+        %}
+      }
+    %}
+}),
+  Doc=>
+(q{
+Computes the vector cosine of a dense row-vector $b(N) with respect to each column $a(i,*)
+of a sparse index-encoded PDL $a() of logical dimensions (M,N), with output to a dense piddle
+$vcos(M).  "Missing" values in $a() are treated as zero, and $SIZE(Two) must be 2.
+This is basically the same thing as:
+
+ ($a * $b->slice("*1,"))->xchg(0,1)->sumover / ($a->pow(2)->xchg(0,1)->sumover->sqrt * $b->pow(2)->sumover->sqrt)
+
+... but should be must faster to compute.  Output values in $vcos() are cosine similarities in the range [-1,1].
+If you need non-negative distances, follow this up with a:
+
+ $vcos->minus(1,$vcos,1)
+
+to get distances values in the range [0,2].  You can use PDL threading to batch-compute distances for
+multiple $b() vectors simultaneously:
+
+  $bx   = random($N, $NB);                   ##-- get $NB random vectors of size $N
+  $vcos = ccs_vcos_zdd($ixa,$nza, $bx, $M);  ##-- $vcos is now ($M,$NB)
+
+}),
+  ); ##-- /ccs_vcos_zdd
+
+
+
 
 ##======================================================================
 ## Footer Administrivia
@@ -200,7 +292,7 @@ Bryan Jurish E<lt>moocow@cpan.orgE<gt>
 
 =head2 Copyright Policy
 
-All other parts Copyright (C) 2009-2013, Bryan Jurish. All rights reserved.
+All other parts Copyright (C) 2009-2015, Bryan Jurish. All rights reserved.
 
 This package is free software, and entirely without warranty.
 You may redistribute it and/or modify it under the same terms
