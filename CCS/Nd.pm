@@ -1643,6 +1643,7 @@ foreach my $binop (
 		  )
   {
     eval "*${binop} = *${binop}_mia = _ccsnd_binary_op_mia('${binop}',PDL->can('${binop}'));";
+    die(__PACKAGE__, ": could not define binary operation $binop: $@") if ($@);
   }
 
 *pow = *pow_mia = _ccsnd_binary_op_mia('power',PDL->can('pow'),undef,1);
@@ -1652,7 +1653,9 @@ foreach my $intop (
 		   qw(and2 or2 xor shiftleft shiftright),
 		  )
   {
-    eval "*${intop} = *${intop}_mia = _ccsnd_binary_op_mia('${intop}',PDL->can('${intop}'),\$P_LONG);";
+    my $deftype = PDL->can($intop)->(pdl(0),pdl(0),0)->type->ioname;
+    eval "*${intop} = *${intop}_mia = _ccsnd_binary_op_mia('${intop}',PDL->can('${intop}'),PDL::${deftype}());";
+    die(__PACKAGE__, ": could not define integer operation $intop: $@") if ($@);
   }
 
 ## rassgn_mia($to,$from): binary assignment operation with missing-annihilator assumption

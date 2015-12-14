@@ -1,16 +1,20 @@
 # -*- Mode: CPerl -*-
 # t/04_unops.t
+use Test::More tests => 144;
 
-$TEST_DIR = './t';
-#use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
+##-- common subs
+my $TEST_DIR;
+BEGIN {
+  use File::Basename;
+  use Cwd;
+  $TEST_DIR = Cwd::abs_path dirname( __FILE__ );
+  eval qq{use lib ("$TEST_DIR/$_/blib/lib","$TEST_DIR/$_/blib/arch");} foreach (qw(../.. ..));
+  do "$TEST_DIR/common.plt" or  die("$0: failed to load $TEST_DIR/common.plt: $@");
+}
 
-# load common subs
-use Test;
-do "$TEST_DIR/common.plt";
+##-- common modules
 use PDL;
 use PDL::CCS::Nd;
-
-BEGIN { plan tests=>144, todo=>[]; }
 
 ##--------------------------------------------------------------
 ## basic test
@@ -34,14 +38,14 @@ sub test_unop {
   my $dense_rc = $pdl_func->($a);
   my $ccs_rc   = $ccs_func->($ccs);
 
-  isok("${op_name}:func:missing=$missing_val:type", $dense_rc->type==$ccs_rc->type);
-  isok("${op_name}:func:missing=$missing_val:vals", all( matchpdl($ccs_rc->decode, $dense_rc) ));
+  isok("${op_name}:func:missing=$missing_val:type", $ccs_rc->type, $dense_rc->type);
+  pdlok("${op_name}:func:missing=$missing_val:vals", $ccs_rc->decode, $dense_rc);
 
   if (defined($op_op)) {
     eval "\$dense_rc = $op_op \$a";
     eval "\$ccs_rc   = $op_op \$ccs";
-    isok("${op_name}:op=$op_op:missing=$missing_val:type", $dense_rc->type==$ccs_rc->type);
-    isok("${op_name}:op=$op_op:missing=$missing_val:vals", all( matchpdl($ccs_rc->decode, $dense_rc) ));
+    isok("${op_name}:op=$op_op:missing=$missing_val:type", $ccs_rc->type, $dense_rc->type);
+    pdlok("${op_name}:op=$op_op:missing=$missing_val:vals", $ccs_rc->decode, $dense_rc);
   } else {
     isok("${op_name}:op=NONE:missing=$missing_val:type (dummy)", 1);
     isok("${op_name}:op=NONE:missing=$missing_val:vals (dummy)", 1);

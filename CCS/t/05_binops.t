@@ -1,16 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/05_binops.t
-
-$TEST_DIR = './t';
-#use lib qw(.. ../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging (PDL::CCS/CCS)
-#use lib qw(../.. ../../blib/lib ../../blib/arch); $TEST_DIR = '.'; # for debugging (PDL::CCS)
-
-# load common subs
-use Test;
-do "$TEST_DIR/common.plt";
-use PDL;
-use PDL::CCS::Nd;
-
+use Test::More;
 BEGIN {
   my $N_BINOPS = 18;
   my $N_TESTS_PER_BINOP  = 8;
@@ -20,7 +10,23 @@ BEGIN {
 	       $N_BLOCKS*$N_RUNS_PER_BLOCK*$N_TESTS_PER_BINOP*$N_BINOPS
 	      ),
        todo=>[]);
+  select(STDERR); $|=1; select(STDOUT); $|=1;
 }
+
+##-- common subs
+my $TEST_DIR;
+BEGIN {
+  use File::Basename;
+  use Cwd;
+  $TEST_DIR = Cwd::abs_path dirname( __FILE__ );
+  eval qq{use lib ("$TEST_DIR/$_/blib/lib","$TEST_DIR/$_/blib/arch");} foreach (qw(../.. ..));
+  do "$TEST_DIR/common.plt" or  die("$0: failed to load $TEST_DIR/common.plt: $@");
+}
+
+##-- common modules
+use PDL;
+use PDL::CCS::Nd;
+
 
 ##--------------------------------------------------------------
 ## basic test
@@ -63,13 +69,13 @@ sub test_binop {
   my $ccs_b    = $ccs_func->($as, $b,  $swap);
 
   isok("$lab:${op_name}:func:b=sparse:missing=$missing_val:swap=$swap:type",
-       $dense_rc->type==$ccs_bs->type);
-  isok("$lab:${op_name}:func:b=sparse:missing=$missing_val:swap=$swap:vals",
-       all( matchpdl($dense_rc, $ccs_bs->decode) ));
+       $ccs_bs->type, $dense_rc->type);
+  pdlok("$lab:${op_name}:func:b=sparse:missing=$missing_val:swap=$swap:nzvals",
+	$ccs_bs->_nzvals, $dense_rc->indexND($ccs_bs->_whichND));
   isok("$lab:${op_name}:func:b=dense:missing=$missing_val:swap=$swap:type",
-       $dense_rc->type==$ccs_b->type);
-  isok("$lab:${op_name}:func:b=dense:missing=$missing_val:swap=$swap:vals", 
-       all( matchpdl($dense_rc, $ccs_b->decode) ));
+       $ccs_b->type, $dense_rc->type);
+  pdlok("$lab:${op_name}:func:b=dense:missing=$missing_val:swap=$swap:nzvals",
+	$ccs_b->_nzvals, $dense_rc->indexND($ccs_b->_whichND));
 
   if (defined($op_op)) {
     if (!$swap) {
@@ -82,13 +88,13 @@ sub test_binop {
       eval "\$ccs_b    = (\$bs $op_op \$a);";
     }
     isok("$lab:${op_name}:op=$op_op:b=sparse:missing=$missing_val:swap=$swap:type",
-	 $dense_rc->type==$ccs_bs->type);
-    isok("$lab:${op_name}:op=$op_op:b=sparse:missing=$missing_val:swap=$swap:vals",
-	 all( matchpdl($dense_rc,$ccs_bs->decode) ));
+	 $ccs_bs->type, $dense_rc->type);
+    pdlok("$lab:${op_name}:op=$op_op:b=sparse:missing=$missing_val:swap=$swap:nzvals",
+	  $ccs_bs->_nzvals, $dense_rc->indexND(scalar $ccs_bs->_whichND));
     isok("$lab:${op_name}:op=$op_op:b=dense:missing=$missing_val:swap=$swap:type",
-	 $dense_rc->type==$ccs_b->type);
-    isok("$lab:${op_name}:op=$op_op:b=dense:missing=$missing_val:swap=$swap:vals",
-	 all( matchpdl($dense_rc,$ccs_b->decode) ));
+	 $ccs_b->type, $dense_rc->type);
+    pdlok("$lab:${op_name}:op=$op_op:b=dense:missing=$missing_val:swap=$swap:nzvals",
+	  $ccs_b->_nzvals, $dense_rc->indexND(scalar $ccs_b->_whichND));
   } else {
     isok("$lab:${op_name}:op=NONE:b=sparse:missing=$missing_val:swap=$swap:type (dummy)", 1);
     isok("$lab:${op_name}:op=NONE:b=sparse:missing=$missing_val:swap=$swap:vals (dummy)", 1);
@@ -123,7 +129,7 @@ my @binops = (			##-- *20
 	      [qw(shiftright >>)],
 	     );
 
-our ($BAD);
+my ($b);
 
 ##-- Block 1 : mat * mat
 $b = $a->flat->rotate(1)->pdl->reshape($a->dims); ##-- extra pdl() before reshape() avoids realloc() crashes in PDL-2.0.14
