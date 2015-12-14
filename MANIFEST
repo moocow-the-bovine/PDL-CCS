@@ -35,11 +35,8 @@ CCS/MatrixOps/MatrixOps.pm
 t/common.plt
 t/00_basic.t
 t/01_nnz.t
-t/01_nnz_compat.t
 t/02_encode.t
-t/02_encode_compat.t
 t/03_ops.t
-t/03_ops_compat.t
 CCS/t/00_basic.t
 CCS/t/01_encode.t
 CCS/t/02_indexing.t

@@ -1,7 +1,6 @@
 # -*- Mode: CPerl -*-
 # File: t/common.plt
-# Description: re-usable test subs
-use Test::More;
+# Description: re-usable test subs; requires Test::More
 BEGIN { $| = 1; }
 
 # isok($label,@_) -- prints helpful label
@@ -17,12 +16,17 @@ sub isok {
 }
 
 # skipok($label,$skip_if_true,@_) -- prints helpful label
+# skipok($label,$skip_if_true,\&CODE) -- prints helpful label
 sub skipok {
   my ($label,$skip_if_true) = splice(@_,0,2);
   if ($skip_if_true) {
     isok("skip:$label",1);
   } else {
-    isok($label,@_);
+    if (@_==1 && ref($_[0]) && ref($_[0]) eq 'CODE') {
+      isok($label, $_[0]->());
+    } else {
+      isok($label,@_);
+    }
   }
 }
 
@@ -33,29 +37,47 @@ sub ulistok {
   is_deeply([sort @$l1],[sort @$l2],$label);
 }
 
+# matchpdl($a,$b) : returns pdl identity check, including BAD
+sub matchpdl {
+  my ($a,$b) = map {PDL->topdl($_)->setnantobad} @_[0,1];
+  return ($a==$b)->setbadtoval(0) | ($a->isbad & $b->isbad);
+}
+# matchpdl($a,$b,$eps) : returns pdl approximation check, including BAD
+sub matchpdla {
+  my ($a,$b) = map {$_->setnantobad} @_[0,1];
+  my $eps = $_[2];
+  $eps    = 1e-5 if (!defined($eps));
+  return $a->approx($b,$eps)->setbadtoval(0) | ($a->isbad & $b->isbad);
+}
+
+
 # pdlok($label, $got, $want)
 sub pdlok {
   my ($label,$got,$want) = @_;
+  $got  = PDL->topdl($got) if (defined($got));
+  $want = PDL->topdl($want) if (defined($want));
   isok($label,
        defined($got) && defined($want)
        && $got->ndims==$want->ndims
        && all(pdl([$got->dims])==pdl([$want->dims]))
-       && all($want==$got));
+       && all(matchpdl($want,$got)));
 }
 
 # pdlapprox($label, $got, $want, $eps=1e-5)
 sub pdlapprox {
   my ($label,$got,$want,$eps) = @_;
-  $eps = 1e-5 if (!defined($eps));
+  $got  = PDL->topdl($got) if (defined($got));
+  $want = PDL->topdl($want) if (defined($want));
+  $eps  = 1e-5 if (!defined($eps));
   isok($label,
        defined($got) && defined($want)
        && $got->ndims==$want->ndims
        && all(pdl([$got->dims])==pdl([$want->dims]))
-       && all($want->approx($got,$eps)));
+       && all(matchpdla($want,$got,$eps)));
 }
 
 
-#print "common.plt loaded.\n";
+print "loaded ", __FILE__, "\n";
 
 1;
 

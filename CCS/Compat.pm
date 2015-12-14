@@ -722,8 +722,12 @@ sub ccsget2d {
   my $nzi        = ccsi2dtonzi($ptr,$rowids, $xi,$yi, -1);
   my $nzi_isgood = ($nzi != -1);
   $ixnzvals      = zeroes($nzvals->type, $xi->nelem) if (!defined($ixnzvals));
-  $ixnzvals->where( $nzi_isgood) .= $nzvals->index($nzi->where($nzi_isgood));
-  $ixnzvals->where(!$nzi_isgood) .= $missing;
+  if (!all($nzi_isgood)) {
+    my $tmp;
+    ($tmp=$ixnzvals->where( $nzi_isgood)) .= $nzvals->index($nzi->where($nzi_isgood));
+    ($tmp=$ixnzvals->where(!$nzi_isgood)) .= $missing;
+    $ixnzvals->badflag(1) if (PDL->topdl($missing)->badflag);
+  }
   return $ixnzvals;
 }
 
@@ -759,8 +763,12 @@ sub ccsget {
   my $nzi        = ccsitonzi($ptr,$rowids, $ix,-1);
   my $nzi_isgood = ($nzi != -1);
   $ixnzvals      = zeroes($nzvals->type, $ix->nelem) if (!defined($ixnzvals));
-  $ixnzvals->where( $nzi_isgood) .= $nzvals->index($nzi->where($nzi_isgood));
-  $ixnzvals->where(!$nzi_isgood) .= $missing;
+  if (!all($nzi_isgood)) {
+    my $tmp;
+    ($tmp=$ixnzvals->where( $nzi_isgood)) .= $nzvals->index($nzi->where($nzi_isgood));
+    ($tmp=$ixnzvals->where(!$nzi_isgood)) .= $missing;
+    $ixnzvals->badflag(1) if (PDL->topdl($missing)->badflag);
+  }
   return $ixnzvals;
 }
 

@@ -1097,7 +1097,7 @@ sub _ufunc_ind_sub {
     my @dims    = $ccs->dims;
     my ($which0,$which1,$vals1);
     if ($which->dim(0) <= 1) {
-      ##-- flat sum
+      ##-- flat X_ind
       $which0 = $which->slice("(0),");
       $which1 = PDL->zeroes($P_INDX,1,$which->dim(1)); ##-- dummy
       $vals1  = $vals;
@@ -1135,7 +1135,7 @@ sub _ufunc_ind_sub {
 *minimum_ind = _ufunc_ind_sub('minimum_ind', PDL::CCS::Ufunc->can('ccs_accum_minimum_nz_ind'),1);
 
 ##--------------------------------------------------------------
-## Ufuncs: qsort
+## Ufuncs: qsort (from CCS::Functions)
 
 ## ($which0,$nzVals0, $nzix,$nzenum, $whichOut) = $ccs->_qsort()
 ## ($which0,$nzVals0, $nzix,$nzenum, $whichOut) = $ccs->_qsort([o]nzix(NNz), [o]nzenum(Nnz))

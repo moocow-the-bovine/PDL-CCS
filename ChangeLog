@@ -1,6 +1,12 @@
 v1.22.7-pre Fri, 11 Dec 2015 14:47:08 +0100 moocow
 	+ fixed "uninitialized value" warnings for PDL->can($type) in PDL::CCS::IO::*
 	+ added vector-cosine ccs_vcos_zdd() in PDL::CCS::MatrixOps, with wrapper PDL::CCS::Nd::vcos_zdd()
+	+ fixed BAD handling in CCS::Compat::ccsget(), CCS::Compat::ccsget2d()
+	+ fixed I/O type handling in integer ufuncs (borover)
+	+ fixed wrongly succeeding bogus tests with unary ok()
+	  - tests now use Test::More and re-factored common test subroutines
+	+ fixed C-level abs() function in CCS::Utils::nnza(); now dispatches to one of {abs,labs,llabs,fabsf,fabs} using PDL::PP types(...) macro
+	+ fixed CCS ufunc type-promotion logic to be compatible with PDL v2.015
 
 v1.22.6 Wed, 25 Nov 2015 16:27:24 +0100 moocow
 	+ added CCS::IO::FITS, CCS::IO::MatrixMarket, CCS::IO::LDAC, CCS::IO::PETSc

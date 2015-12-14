@@ -1,17 +1,21 @@
 # -*- Mode: CPerl -*-
 # t/01_encode.t
+use Test::More tests => 83;
 
-$TEST_DIR = './t';
-#use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
+##-- common subs
+my $TEST_DIR;
+BEGIN {
+  use File::Basename;
+  use Cwd;
+  $TEST_DIR = Cwd::abs_path dirname( __FILE__ );
+  eval qq{use lib ("$TEST_DIR/$_/blib/lib","$TEST_DIR/$_/blib/arch");} foreach (qw(../.. ..));
+  do "$TEST_DIR/common.plt" or  die("$0: failed to load $TEST_DIR/common.plt: $@");
+}
 
-# load common subs
-use Test;
-do "$TEST_DIR/common.plt";
+##-- common modules
 use PDL;
 use PDL::CCS::Nd;
 use PDL::VectorValued;
-
-BEGIN { plan tests=>83, todo=>[]; }
 
 ## (i+1)..(i+9): basic properites (missing==0)
 sub test_basic {
@@ -31,13 +35,13 @@ sub test_basic {
   }
 
   isok("${label}:_nnz",    $ccs->_nnz==$awhichND->dim(1));
-  isok("${label}:whichND", all($ccs->whichND->vv_qsortvec==$awhichND->vv_qsortvec));
-  isok("${label}:nzvals",  all(matchpdl($ccs->whichVals, $a->indexND(scalar($ccs->whichND)))));
-  isok("${label}:missing:value", matchpdl($ccs->missing, $missing));
+  pdlok("${label}:whichND", $ccs->whichND->vv_qsortvec, $awhichND->vv_qsortvec);
+  pdlok("${label}:nzvals",  $ccs->whichVals, $a->indexND(scalar($ccs->whichND)));
+  pdlok("${label}:missing:value", $ccs->missing->squeeze, $missing->squeeze);
 
   ##-- testdecode
-  isok("${label}:decode",  all(matchpdl($ccs->decode,$a)));
-  isok("${label}:todense", all(matchpdl($ccs->todense,$a)));
+  pdlok("${label}:decode",  $ccs->decode,$a);
+  pdlok("${label}:todense", $ccs->todense,$a);
 }
 
 
@@ -60,8 +64,8 @@ test_basic("newFromWhich:missing=0", $a, $ccs, 0);
 ## missing==BAD
 
 ##-- 5*nbasic: newFromDense(...BAD): basic properties
-our ($abad);
-$a = $a->setbadif($abad);
+$a     = $a->setbadif($abad);
+$avals = $a->indexND($awhich);
 test_basic("newFromDense:missing=BAD:explicit", $a, PDL::CCS::Nd->newFromDense($a,$BAD), $BAD);
 test_basic("newFromDense:missing=BAD:implicit", $a, PDL::CCS::Nd->newFromDense($a),      $BAD);
 

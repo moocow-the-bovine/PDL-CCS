@@ -1,17 +1,20 @@
 # -*- Mode: CPerl -*-
 # t/03_ufuncs.t
+use Test::More tests => 2*4*17;
 
-$TEST_DIR = './t';
-#use lib qw(../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging, with build from PDL-CCS/CCS/
-#use lib qw(../../blib/lib ../../blib/arch); $TEST_DIR = '.'; # for debugging, with build from PDL-CCS/
+##-- common subs
+my $TEST_DIR;
+BEGIN {
+  use File::Basename;
+  use Cwd;
+  $TEST_DIR = Cwd::abs_path dirname( __FILE__ );
+  eval qq{use lib ("$TEST_DIR/$_/blib/lib","$TEST_DIR/$_/blib/arch");} foreach (qw(../.. ..));
+  do "$TEST_DIR/common.plt" or  die("$0: failed to load $TEST_DIR/common.plt: $@");
+}
 
-# load common subs
-use Test;
-do "$TEST_DIR/common.plt";
+##-- common modules
 use PDL;
 use PDL::CCS::Nd;
-
-BEGIN { plan tests=>2*4*17, todo=>[]; }
 
 ##--------------------------------------------------------------
 ## ufunc test
@@ -31,7 +34,14 @@ sub test_ufunc {
   if ($missing_val->isbad) { $a = $a->setbadif($abad); }
   else                     { $a->where($abad) .= $missing_val; $a->badflag(0); }
 
+  ##-- sorting with bad values doesn't work right in PDL-2.015 ; ccs/vv sorts BAD as minimal, PDL sort BAD as maximal: wtf?
+  if ($ufunc_name =~ /qsort/ && $missing_val->isbad) {
+    $missing_val = 'inf';
+    $a->inplace->setbadtoval('inf');
+  }
+
   my $ccs      = $a->toccs($missing_val);
+  $ccs->_whichND($ccs->_whichND->ccs_indx()) if ($ccs->_whichND->type != PDL::ccs_indx());
   my $dense_rc = $pdl_ufunc->($a);
   my $ccs_rc   = $ccs_ufunc->($ccs);
 
@@ -45,8 +55,8 @@ sub test_ufunc {
     $dense_rc->where( $ccs_mask->not ) .= $ccs_rc->missing;
   }
 
-  isok("${ufunc_name}:missing=$missing_val:type", $dense_rc->type==$ccs_rc->type);
-  isok("${ufunc_name}:missing=$missing_val:vals", all( matchpdl($ccs_rc->decode, $dense_rc) ));
+  isok("${ufunc_name}:missing=$missing_val:type", $ccs_rc->type, $dense_rc->type);
+  pdlok("${ufunc_name}:missing=$missing_val:vals", $ccs_rc->decode, $dense_rc);
 }
 
 

@@ -46,8 +46,12 @@ $cconfig{INDX_TYPEDEF} = "typedef $cconfig{INDX_CTYPE} CCS_Indx;  /**< typedef f
 $cconfig{INDX_FUNCDEF} = "*ccs_indx = \\&PDL::$cconfig{INDX_FUNC}; ##-- typecasting for CCS indices\n";
 
 require PDL::Types;
-$cconfig{INT_TYPE_KEYS} = [sort grep {$PDL::Types::typehash{$_}{ppsym} =~ /^(?:[BSULQN]|LL|US)$/} keys %PDL::Types::typehash];
-$cconfig{INT_TYPE_CHRS} = [sort map {$_->{ppsym}} @PDL::Types::typehash{ @{$cconfig{INT_TYPE_KEYS}} }];
+$cconfig{INT_TYPE_KEYS} = [map {$_->{sym}}
+			   sort {$a->{numval} <=> $b->{numval}}
+			   grep {$_->{ppsym} =~ /^(?:[BSULQN]|LL|US)$/}
+			   values %PDL::Types::typehash
+			  ];
+$cconfig{INT_TYPE_CHRS} = [map {$_->{ppsym}} @PDL::Types::typehash{ @{$cconfig{INT_TYPE_KEYS}} }];
 
 ##-- save cache file
 open(CONFIGPM,">./CCS/Config.pm")

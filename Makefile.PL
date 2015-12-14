@@ -6,6 +6,8 @@ pdlmaker_init();
 my %prereq = (
 	      'PDL' => 0, #'2.4.2',
 	      'PDL::VectorValued' => '1.0.4',
+	      'Test::More' => 0,
+	      'File::Basename' => 0,
 	     );
 
 ##-- read in user variables

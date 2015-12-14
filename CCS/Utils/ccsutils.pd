@@ -101,9 +101,26 @@ along the the 1st dimension.
 
 ##------------------------------------------------------
 ## nnza() : get number of non-approximate zero values
+use PDL;
+my %absfunc = (
+	       map {
+		 my $typ = PDL->can($_);
+		 ($typ
+		  ? ($typ->()->ppsym => ($typ->()->ctype eq 'long' ? "labs" : "llabs"))
+		  : qw())
+	       } qw (longlong indx)
+	      );
 pp_def('nnza',
-       Pars => 'a(N); eps(); int+ [o]nnz()',
-       Code => ('$nnz()=0; loop (N) %{ if (abs($a()) > $eps()) ++$nnz(); %}'),
+       Pars => 'a(N); eps(); int+ [o]nnz();',
+       Code => ('
+$nnz()=0;
+loop (N) %{
+  types(BSUL) %{ if ( abs($a()) > $eps()) ++$nnz(); %}
+ '.join("\n ", map {"types($_) %{ if ($absfunc{$_}(\$a()) > \$eps()) ++\$nnz(); %}"} sort keys(%absfunc)).'
+  types(F)    %{ if (fabsf($a()) > $eps()) ++$nnz(); %}
+  types(D)    %{ if (fabs ($a()) > $eps()) ++$nnz(); %}
+%}
+'),
        Doc =>
 q(Like nnz() using tolerance constant $eps().
 For 1d PDLs, should be equivalent to:

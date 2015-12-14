@@ -436,7 +436,7 @@ sub test_align_v2 {
 
   print "test_align_v2: done.\n";
 }
-test_align_v2();
+#test_align_v2();
 
 
 
@@ -564,7 +564,7 @@ sub test_matmult_pre1 {
 
   print "test_matmult_pre1: done.\n";
 }
-test_matmult_pre1();
+#test_matmult_pre1();
 
 
 ##---------------------------------------------------------------------
@@ -640,7 +640,7 @@ sub test_vdims_1 {
   $as1d = $as1->decode;
   isok("ccs:nd:dummy(-1,3)", all($as1d==$a1));
 }
-test_vdims_1;
+#test_vdims_1;
 
 ##---------------------------------------------------------------------
 ## CCS: Nd: recode
@@ -703,7 +703,7 @@ sub test_recode {
   $aslong = $as->long;
   isok("ccs:nd->long()", $aslong->type == PDL::long());
 }
-test_recode();
+#test_recode();
 
 ##---------------------------------------------------------------------
 ## CCS: Nd: binary ops: scalar (correct)
@@ -742,7 +742,7 @@ sub test_nd_binop_sclr {
 }
 ##-- test_nd_binop_sclr(op,b,missing,swap,flags)
 #test_nd_binop_sclr('mult',$BAD,0);
-test_nd_binop_sclr('mult',42, 0,0,0);
+#test_nd_binop_sclr('mult',42, 0,0,0);
 #test_nd_binop_sclr('mult',pdl([[42]])->toccs, 0,0,0);
 #test_nd_binop_sclr('divide',0, $BAD,0,0);
 #test_nd_binop_sclr('power',0, $BAD,1,0);
@@ -824,7 +824,7 @@ sub test_nd_binop_cvrv_mia {
 }
 #test_nd_binop_cvrv_mia('plus',$BAD,0);
 #test_nd_binop_cvrv_mia('mult',$BAD,0);
-test_nd_binop_cvrv_mia('mult',0,0);
+#test_nd_binop_cvrv_mia('mult',0,0);
 #test_nd_binop_cvrv_mia('divide',0,0, 3);
 
 sub test_nd_binop_cvrv_all {
@@ -890,7 +890,7 @@ sub test_nd_binop_mia {
 #test_nd_binop_mia('and2',$BAD,0);
 #test_nd_binop_mia('or2',$BAD,0);
 #test_nd_binop_mia('xor',$BAD,0);
-test_nd_binop_mia('shiftleft',$BAD,0);
+#test_nd_binop_mia('shiftleft',$BAD,0);
 
 sub test_nd_binop_mia_all {
   my ($binop,$missing,$swap);
@@ -946,7 +946,7 @@ sub test_nd_unop {
 }
 #test_nd_unop('abs',0);
 #test_nd_unop('bitnot',-1);
-test_nd_unop('bitnot',$BAD);
+#test_nd_unop('bitnot',$BAD);
 
 sub test_nd_unop_all {
   my ($unop,$missing);
@@ -993,7 +993,8 @@ sub test_nd_ufunc_1 {
 #test_nd_ufunc_1('dprod',1);
 #test_nd_ufunc_1('sumover',$BAD);
 #test_nd_ufunc_1('ngoodover',$BAD);
-test_nd_ufunc_1('nbadover',$BAD);
+#test_nd_ufunc_1('nbadover',$BAD);
+test_nd_ufunc_1('borover',0);
 
 sub test_nd_ufunc_all {
   my ($ufunc,$missing);
@@ -1012,7 +1013,7 @@ sub test_nd_ufunc_all {
       }
   }
 }
-test_nd_ufunc_all();
+#test_nd_ufunc_all();
 
 ##---------------------------------------------------------------------
 ## CCS: binops (block-wise alignment / missing-is-annihiliator): with column-vector
