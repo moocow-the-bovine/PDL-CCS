@@ -1,5 +1,5 @@
 ##-*- Mode: CPerl -*-
-use Test::More tests=>(6+(11*6));
+use Test::More tests=>(6+(14*6));
 
 ##-- common subs
 my $TEST_DIR;
@@ -73,14 +73,20 @@ iotest($ccs, 'ccs.raw', qw(readfraw writefraw));
 ##-- x2 : fits
 iotest($ccs, 'ccs.fits', qw(rfits wfits));
 
-##-- x3-x5 : mm
+##-- x3-x8 : mm
 do {
   iotest($ccs, 'ccs.mm', qw(readmm writemm));			##-- mm: sparse
   iotest($ccs, 'ccs.mm0', qw(readmm writemm), {header=>0});	##-- mm: sparse, no header
   iotest($a, 'dense.mm', qw(readmm writemm));			##-- mm: dense
+
+  my $a3 = $a->cat($a->rotate(1));
+  my $ccs3 = $a3->toccs;
+  iotest($ccs3, 'ccs3.mm', qw(readmm writemm));			##-- mm3: sparse
+  iotest($ccs3, 'ccs3.mm0', qw(readmm writemm), {header=>0});	##-- mm3: sparse, no header
+  iotest($a3, 'dense3.mm', qw(readmm writemm));			##-- mm3: dense
 };
 
-##-- x6-x9 : ldac
+##-- x9-x12 : ldac
 do {
   iotest($ccs, 'ccs.ldac', qw(readldac writeldac));				##-- ldac: natural
   iotest($ccs, 'ccs.ldac0', qw(readldac writeldac), {header=>0});		##-- ldac: natural, no-header
@@ -88,7 +94,7 @@ do {
   iotest($ccs, 'ccs.ldact0', qw(readldac writeldac), {header=>0,transpose=>1});	##-- ldac: transposed, no-header
 };
 
-##-- x10-x11: petsc
+##-- x13-x14: petsc
 do {
   iotest($ccs, 'ccs.petsc',  qw(rpetsc wpetsc));		##-- petsc: bin
   iotest($ccs, 'ccs.petscb', qw(rpetsc wpetsc), {ioblock=>2});	##-- petsc: bin, with block i/o

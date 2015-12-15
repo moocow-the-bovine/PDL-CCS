@@ -13,7 +13,7 @@ use Fcntl qw(:seek);	   ##-- for rewinding
 use Carp qw(confess);
 use strict;
 
-our $VERSION = '1.22.7';
+our $VERSION = '1.23.0';
 our @ISA = ('PDL::Exporter');
 our @EXPORT_OK =
   (
@@ -241,7 +241,7 @@ sub ccs_readmm {
 
   ##-- read data: indices
   my $offset = tell($fh);
-  my $ix = PDL->rcols($fh, [0,1], { IGNORE=>qr{^%}, TYPES=>[ccs_indx] });
+  my $ix = PDL->rcols($fh, [0..$#dims], { IGNORE=>qr{^%}, TYPES=>[ccs_indx()] });
   $ix   -= $opts{start} if ($opts{start} != 0);
   $ix    = $ix->xchg(0,1);
 
@@ -251,7 +251,7 @@ sub ccs_readmm {
   my $iotype = $header->{iotype};
   $iotype    = PDL->can($iotype)->() if (defined($iotype) && !ref($iotype) && PDL->can($iotype));
   $iotype    = $PDL::IO::Misc::deftype if (!ref($iotype));
-  my $nz = PDL->rcols($fh, [2],   { IGNORE=>qr{^%}, TYPES=>[$iotype] });
+  my $nz = PDL->rcols($fh, [$#dims+1],   { IGNORE=>qr{^%}, TYPES=>[$iotype] });
   $nz    = $nz->append(0); ##-- missing value
 
   ##-- cleanup

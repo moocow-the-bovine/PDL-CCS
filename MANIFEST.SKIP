@@ -6,6 +6,7 @@
 \.svn
 \.gz$
 \.\#
+\#
 \bAttic\b
 CCS/.*\.bin$
 CCS/Old
