@@ -8,6 +8,10 @@ use PDL::VectorValued::Dev;
 my $VERSION = '1.23.0'; ##-- update with perl-reversion from Perl::Version module
 pp_setversion($VERSION);
 
+##-- for integer-type keys
+require "../Config.pm";
+my $INT_TYPES = join('',@{$PDL::CCS::Config::ccsConfig{INT_TYPE_CHRS}});
+
 ##------------------------------------------------------
 ## pm headers
 pp_addpm({At=>'Top'},<<'EOPM');
@@ -42,6 +46,7 @@ EOPM
 ##------------------------------------------------------
 ## Includes / defines
 pp_addhdr(<<'EOH');
+#include <math.h> /*-- for NAN --*/
 EOH
 
 ##------------------------------------------------------
@@ -160,18 +165,8 @@ $SIZE(Ndimsa) is assumed to be 2.
 
 
 ##--------------------------------------------------------------
-vvpp_def
-  ('ccs_vcos_zdd',
-   Pars => ("\n    "
-	    .join("\n    ",
-		  "$INDX ixa(Two,NnzA); nza(NnzA);",   ##-- logical (M,N)
-		  "b(N);",		   	       ##-- logical (1,N)
-		  "[o]vcos(M);",
-		  "[t]anorm(M);",
-		 )),
-   OtherPars => "int sizeM=>M;",
-   Code=>
-(q{
+my $vcos_zdd_code =
+'
     PDL_Indx an,am, bm;
     $GENERIC(anorm) bnorm;
     $GENERIC(nza)   av;
@@ -185,11 +180,16 @@ vvpp_def
     threadloop %{
       /*-- cache bnorm as \sum_{i=1}^d b[i]**2 --*/
       bnorm = 0;
-      loop (N) %{ bnorm += $b() * $b(); %}
+      loop (N) %{
+#ifdef PDL_BAD_CODE
+	if ($ISGOOD(b()))
+#endif
+          bnorm += $b() * $b();
+      %}
       bnorm = sqrt(bnorm);
       if (bnorm == 0) {
-        /*-- pathological case: return minimum similarity (-1) --*/
-        loop(M) %{ $vcos() = -1; %}
+        /*-- pathological case: return all NaN --*/
+        loop(M) %{ $vcos() = NAN; %}
       }
       else {
         /*-- initialize --*/
@@ -197,13 +197,23 @@ vvpp_def
 
         /*-- compute \sum_{i=1}^n (a[i]*b[i]) in vcos(), caching anorm=\sum_{i=1}^n a[i]**2 if appropriate --*/
 	if (!have_anorm) {
+          loop (M) %{ $anorm() = 0; %}
           loop (NnzA) %{
 	    /*-- first nontrivial threadloop iteration: populate anorm() --*/
 	    am = $ixa(Two=>0);
 	    an = $ixa(Two=>1);
-	    av = $nza();
-	    $anorm(M=>am) += av * av;
-	    $vcos(M=>am)  += av * $b(N=>an);
+            av = $nza();
+#ifdef PDL_BAD_CODE
+            if ($ISGOOD(nza())) {
+#endif
+	      $anorm(M=>am) += av * av;
+#ifdef PDL_BAD_CODE
+              if ($ISGOOD(b(N=>an)))
+#endif
+	        $vcos(M=>am)  += av * $b(N=>an);
+#ifdef PDL_BAD_CODE
+            }
+#endif
 	  %}
           have_anorm = 1;
 	} else {
@@ -211,7 +221,10 @@ vvpp_def
   	    /*-- non-initial threadloop iteration: we already have anorm() --*/
 	    am = $ixa(Two=>0);
 	    an = $ixa(Two=>1);
-	    $vcos(M=>am) += $nza() * $b(N=>an);
+#ifdef PDL_BAD_CODE
+            if ($ISGOOD(nza()) && $ISGOOD(b(N=>an)))
+#endif
+	      $vcos(M=>am) += $nza() * $b(N=>an);
 	  %}
 	}
 
@@ -220,11 +233,32 @@ vvpp_def
           if ($anorm() != 0) {
 	    $vcos() /= (sqrt($anorm()) * bnorm);
 	  } else {
-	    $vcos() = -1;
+            /*-- bogus anorm(), return NaN --*/
+	    $vcos() = NAN;
 	  }
         %}
       }
     %}
+';
+
+vvpp_def
+  ('ccs_vcos_zdd',
+   Pars => ("\n    "
+	    .join("\n    ",
+		  "$INDX ixa(Two,NnzA); nza(NnzA);",   ##-- logical (M,N)
+		  "b(N);",		   	       ##-- logical (1,N)
+		  "float+ [o]vcos(M);",
+		  "float+ [t]anorm(M);",
+		 )),
+   OtherPars => "int sizeM=>M;",
+   HandleBad => 1,
+   Code=>$vcos_zdd_code,
+   BadCode=>$vcos_zdd_code,
+   CopyBadStatusCode=>
+(q{
+   if ( $ISPDLSTATEBAD(b) || $ISPDLSTATEBAD(nza) ) {
+     $SETPDLSTATEBAD(vcos);
+   }
 }),
   Doc=>
 (q{
@@ -235,10 +269,12 @@ This is basically the same thing as:
 
  ($a * $b->slice("*1,"))->xchg(0,1)->sumover / ($a->pow(2)->xchg(0,1)->sumover->sqrt * $b->pow(2)->sumover->sqrt)
 
-... but should be must faster to compute.  Output values in $vcos() are cosine similarities in the range [-1,1].
+... but should be must faster to compute.  Output values in $vcos() are cosine similarities in the range [-1,1],
+except for zero-magnitude vectors which will result in NaN values in $vcos().
 If you need non-negative distances, follow this up with a:
 
  $vcos->minus(1,$vcos,1)
+ $vcos->inplace->setnantobad->inplace->setbadtoval(0); ##-- minimum distance for NaN values
 
 to get distances values in the range [0,2].  You can use PDL threading to batch-compute distances for
 multiple $b() vectors simultaneously:
@@ -246,6 +282,12 @@ multiple $b() vectors simultaneously:
   $bx   = random($N, $NB);                   ##-- get $NB random vectors of size $N
   $vcos = ccs_vcos_zdd($ixa,$nza, $bx, $M);  ##-- $vcos is now ($M,$NB)
 
+
+}),
+  BadDoc=>
+(q{
+ccs_vcos_zdd() will set the bad status flag on the output piddle $vcos() if it is set on either of the input
+piddles $nza() or $b().
 }),
   ); ##-- /ccs_vcos_zdd
 

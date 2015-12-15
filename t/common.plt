@@ -30,6 +30,16 @@ sub skipok {
   }
 }
 
+# skipordo($label,$skip_if_true,sub { ok ... },@args_for_sub)
+sub skipordo {
+  my ($label,$skip_if_true) = splice(@_,0,2);
+  if ($skip_if_true) {
+    isok("skip:$label",1);
+  } else {
+    $_[0]->(@_[1..$#_]);
+  }
+}
+
 # ulistok($label,\@got,\@expect)
 # --> ok() for unsorted lists
 sub ulistok {
@@ -40,14 +50,14 @@ sub ulistok {
 # matchpdl($a,$b) : returns pdl identity check, including BAD
 sub matchpdl {
   my ($a,$b) = map {PDL->topdl($_)->setnantobad} @_[0,1];
-  return ($a==$b)->setbadtoval(0) | ($a->isbad & $b->isbad);
+  return ($a==$b)->setbadtoval(0) | ($a->isbad & $b->isbad) | ($a->isfinite->not & $b->isfinite->not);
 }
 # matchpdl($a,$b,$eps) : returns pdl approximation check, including BAD
 sub matchpdla {
   my ($a,$b) = map {$_->setnantobad} @_[0,1];
   my $eps = $_[2];
   $eps    = 1e-5 if (!defined($eps));
-  return $a->approx($b,$eps)->setbadtoval(0) | ($a->isbad & $b->isbad);
+  return $a->approx($b,$eps)->setbadtoval(0) | ($a->isbad & $b->isbad) | ($a->isfinite->not & $b->isfinite->not);
 }
 
 

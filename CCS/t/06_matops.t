@@ -7,7 +7,7 @@ BEGIN {
   my $N_MISSING  = 1;
   my $N_SWAP    = 2;
   my $N_BLOCKS = 5;
-  my $N_HACKS = 5;
+  my $N_HACKS = 8;
   plan(tests=>(
 	       $N_BLOCKS*$N_MISSING*$N_SWAP*$N_TESTS_PER_MATOP*$N_MATOPS
 	       +
@@ -34,6 +34,7 @@ use PDL::CCS::Nd;
 ##--------------------------------------------------------------
 ## hacks
 
+##-- x1
 sub test_matmult2d_sdd {
   my ($lab,$a,$b,$az) = @_;  ##-- dense args
   $az = $a->toccs if (!defined($az));
@@ -41,6 +42,8 @@ sub test_matmult2d_sdd {
   my $cz = $az->matmult2d_sdd($b);
   pdlok("${lab}:matmult2d_sdd:obj:missing=".($az->missing->sclr), $cz, $c);
 }
+
+##-- x1
 sub test_matmult2d_zdd {
   my ($lab,$a,$b,$az) = @_;  ##-- dense args
   $az = $a->toccs if (!defined($az));
@@ -48,6 +51,8 @@ sub test_matmult2d_zdd {
   my $cz = $az->matmult2d_zdd($b);
   pdlok("${lab}:matmult2d_zdd:obj:missing=".($az->missing->sclr), $cz,$c);
 }
+
+##-- x3
 sub test_matmult2d_all {
   my ($M,$N,$O) = (2,3,4);
   my $a = sequence($M,$N);
@@ -61,6 +66,7 @@ sub test_matmult2d_all {
 }
 test_matmult2d_all();
 
+##-- x5
 sub test_vcos_zdd {
   my $a = pdl([[1,2,3,4],[1,2,2,1],[-1,-2,-3,-4]])->xchg(0,1);
   my $b = pdl([1,2,3,4]);
@@ -72,6 +78,23 @@ sub test_vcos_zdd {
   my $b3 = $b->slice(",*3");
   my $vcos3 = $ccs->vcos_zdd($b3);
   pdlapprox("vcos_zdd:threaded", $vcos3, $vcos_want->slice(",*3"), 1e-4);
+
+  ##-- test: nullvec:a
+  my $a0 = $a->pdl;
+  (my $tmp=$a0->slice("(1),")) .= 0;
+  my $ccs0 = $a0->toccs;
+  my $vcos0 = $ccs0->vcos_zdd($b);
+  pdlapprox("vcos_zdd:nullvec:a:nan", $vcos0, pdl([1,'nan',-1]), 1e-4);
+
+  ##-- test: nullvec:b
+  my $b0 = $b->zeroes;
+  $vcos0 = $ccs->vcos_zdd($b0);
+  pdlok("vcos_zdd:nullvec:b:nan", $vcos0, pdl([qw(nan nan nan)]));
+
+  ##-- test: bad:b
+  my $b1 = $b->pdl->setbadif($b->xvals==2);
+  my $vcos1 = $ccs->vcos_zdd($b1);
+  pdlapprox("vcos_zdd:bad:b", $vcos1, pdl([0.8366,0.6211,-0.8366]), 1e-4);
 }
 test_vcos_zdd();
 
