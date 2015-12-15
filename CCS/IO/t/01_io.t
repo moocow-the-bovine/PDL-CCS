@@ -1,8 +1,17 @@
 ##-*- Mode: CPerl -*-
-$TEST_DIR = './t';
-#use lib qw(.. ../../.. ../blib/lib ../blib/arch); $TEST_DIR = '.'; # for debugging
-
 use Test::More tests=>(6+(11*6));
+
+##-- common subs
+my $TEST_DIR;
+BEGIN {
+  use File::Basename;
+  use Cwd;
+  $TEST_DIR = Cwd::abs_path dirname( __FILE__ );
+  eval qq{use lib ("$TEST_DIR/$_/blib/lib","$TEST_DIR/$_/blib/arch");} foreach (qw(../../.. ../.. ..));
+  #do "$TEST_DIR/common.plt" or  die("$0: failed to load $TEST_DIR/common.plt: $@");
+}
+
+##-- common modules
 use PDL;
 use PDL::CCS;
 
@@ -18,7 +27,7 @@ BEGIN {
 }
 
 ##-- basic data
-our $a = pdl(double, [
+my $a = pdl(double, [
 		      [10,0,0,0,-2],
 		      [3,9,0,0,0],
 		      [0,7,8,7,0],
@@ -26,7 +35,7 @@ our $a = pdl(double, [
 		      [0,8,0,9,9],
 		      [0,4,0,0,2],
 		     ]);
-our $ccs = $a->toccs();
+my $ccs = $a->toccs();
 
 ##-- pdl equality
 sub pdleq {
