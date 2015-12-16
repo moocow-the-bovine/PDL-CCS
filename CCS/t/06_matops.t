@@ -31,6 +31,9 @@ BEGIN {
 use PDL;
 use PDL::CCS::Nd;
 
+use version;
+my $HAVE_PDL_2_014 = version->parse($PDL::VERSION) >= version->parse("2.014");
+
 ##--------------------------------------------------------------
 ## hacks
 
@@ -102,8 +105,10 @@ sub test_vcos_zdd {
   my $b1 = $b->pdl->setbadif($b->xvals==2);
   my $vcos1 = $ccs->vcos_zdd($b1);
   my $vcos1_want = pdl([0.8366,0.6211,-0.8366]);
-  pdlapprox("vcos_zdd:bad:b", $vcos1, $vcos1_want, 1e-4);
-  pdlapprox("vcos_ddd:bad:b", $ax->ccs_vcos_ddd($b1), $vcos1_want, 1e-4);
+  skipordo("vcos_zdd:bad:b", ($HAVE_PDL_2_014 ? 0 : "PDL >= v2.014 only"),
+	   sub { pdlapprox("vcos_zdd:bad:b", $vcos1, $vcos1_want, 1e-4); });
+  skipordo("vcos_ddd:bad:b", ($HAVE_PDL_2_014 ? 0 : "PDL >= v2.014 only"),
+	   sub { pdlapprox("vcos_ddd:bad:b", $ax->ccs_vcos_ddd($b1), $vcos1_want, 1e-4); });
 }
 test_vcos_zdd();
 

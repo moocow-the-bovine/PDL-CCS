@@ -20,7 +20,7 @@ sub isok {
 sub skipok {
   my ($label,$skip_if_true) = splice(@_,0,2);
   if ($skip_if_true) {
-    isok("skip:$label",1);
+    isok("$label - SKIPPED ($skip_if_true)",1);
   } else {
     if (@_==1 && ref($_[0]) && ref($_[0]) eq 'CODE') {
       isok($label, $_[0]->());
@@ -34,7 +34,7 @@ sub skipok {
 sub skipordo {
   my ($label,$skip_if_true) = splice(@_,0,2);
   if ($skip_if_true) {
-    isok("skip:$label",1);
+    isok("$label - SKIPPED ($skip_if_true)",1);
   } else {
     $_[0]->(@_[1..$#_]);
   }
@@ -70,6 +70,19 @@ sub pdlok {
        defined($got) && defined($want)
        && $got->ndims==$want->ndims
        && all(pdl([$got->dims])==pdl([$want->dims]))
+       && all(matchpdl($want,$got)));
+}
+
+# pdlok1($label, $got, $want)
+#  + ignores dimensions
+sub pdlok1 {
+  my ($label,$got,$want) = @_;
+  $got  = PDL->topdl($got) if (defined($got));
+  $want = PDL->topdl($want) if (defined($want));
+  isok($label,
+       defined($got) && defined($want)
+       #&& $got->ndims==$want->ndims
+       #&& all(pdl([$got->dims])==pdl([$want->dims]))
        && all(matchpdl($want,$got)));
 }
 

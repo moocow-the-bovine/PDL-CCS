@@ -16,6 +16,9 @@ BEGIN {
 use PDL;
 use PDL::CCS::Nd;
 
+use version;
+my $HAVE_PDL_2_014 = version->parse($PDL::VERSION) >= version->parse("2.014");
+
 ##--------------------------------------------------------------
 ## ufunc test
 
@@ -55,7 +58,7 @@ sub test_ufunc {
     $dense_rc->where( $ccs_mask->not ) .= $ccs_rc->missing;
   }
 
-  isok("${ufunc_name}:missing=$missing_val:type", $ccs_rc->type, $dense_rc->type);
+  skipok("${ufunc_name}:missing=$missing_val:type", ($HAVE_PDL_2_014 ? 0 : "PDL >= v2.014 only"), $ccs_rc->type, $dense_rc->type);
   pdlok("${ufunc_name}:missing=$missing_val:vals", $ccs_rc->decode, $dense_rc);
 }
 
