@@ -10,6 +10,7 @@ v1.23.0 Tue, 15 Dec 2015 13:25:35 +0100 moocow
 	+ fixed C-level abs() function in CCS::Utils::nnza(); now dispatches to one of {abs,labs,llabs,fabsf,fabs} using PDL::PP types(...) macro
 	+ fixed CCS ufunc type-promotion logic to be compatible with PDL v2.015
 	+ pared down CCS/t/06_matops.t to test only missing==0 : matrix ops don't work correctly with missing!=0
+	+ pdlmaker.plm doesn't distribute generated PM files any more (PDL now does this for us)
 
 v1.22.6 Wed, 25 Nov 2015 16:27:24 +0100 moocow
 	+ added CCS::IO::FITS, CCS::IO::MatrixMarket, CCS::IO::LDAC, CCS::IO::PETSc
