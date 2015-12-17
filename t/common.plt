@@ -60,6 +60,11 @@ sub matchpdla {
   return $a->approx($b,$eps)->setbadtoval(0) | ($a->isbad & $b->isbad) | ($a->isfinite->not & $b->isfinite->not);
 }
 
+# cmp_dims($got_pdl,$expect_pdl)
+sub cmp_dims {
+  my ($p1,$p2) = @_;
+  return $p1->ndims==$p2->ndims && all(pdl(PDL::long(),[$p1->dims])==pdl(PDL::long(),[$p2->dims]));
+}
 
 # pdlok($label, $got, $want)
 sub pdlok {
@@ -68,8 +73,7 @@ sub pdlok {
   $want = PDL->topdl($want) if (defined($want));
   isok($label,
        defined($got) && defined($want)
-       && $got->ndims==$want->ndims
-       && all(pdl([$got->dims])==pdl([$want->dims]))
+       && cmp_dims($got,$want)
        && all(matchpdl($want,$got)));
 }
 
@@ -81,8 +85,7 @@ sub pdlok_nodims {
   $want = PDL->topdl($want) if (defined($want));
   isok($label,
        defined($got) && defined($want)
-       #&& $got->ndims==$want->ndims
-       #&& all(pdl([$got->dims])==pdl([$want->dims]))
+       #&& cmp_dims($got,$want)
        && all(matchpdl($want,$got)));
 }
 
@@ -94,8 +97,7 @@ sub pdlapprox {
   $eps  = 1e-5 if (!defined($eps));
   isok($label,
        defined($got) && defined($want)
-       && $got->ndims==$want->ndims
-       && all(pdl([$got->dims])==pdl([$want->dims]))
+       && cmp_dims($got,$want)
        && all(matchpdla($want,$got,$eps)));
 }
 
