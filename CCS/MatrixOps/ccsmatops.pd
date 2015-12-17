@@ -263,7 +263,7 @@ vvpp_def
 }),
   Doc=>
 (q{
-Computes the vector cosine of a dense row-vector $b(N) with respect to each column $a(i,*)
+Computes the vector cosine similarity of a dense row-vector $b(N) with respect to each column $a(i,*)
 of a sparse index-encoded PDL $a() of logical dimensions (M,N), with output to a dense piddle
 $vcos(M).  "Missing" values in $a() are treated as zero, and $SIZE(Two) must be 2.
 This is basically the same thing as:

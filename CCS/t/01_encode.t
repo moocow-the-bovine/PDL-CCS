@@ -37,7 +37,7 @@ sub test_basic {
   isok("${label}:_nnz",    $ccs->_nnz==$awhichND->dim(1));
   pdlok("${label}:whichND", $ccs->whichND->vv_qsortvec, $awhichND->vv_qsortvec);
   pdlok("${label}:nzvals",  $ccs->whichVals, $a->indexND(scalar($ccs->whichND)));
-  pdlok1("${label}:missing:value", $ccs->missing, $missing);
+  pdlok_nodims("${label}:missing:value", $ccs->missing, $missing);
 
   ##-- testdecode
   pdlok("${label}:decode",  $ccs->decode,$a);
