@@ -2,7 +2,7 @@ v1.23.0 Tue, 15 Dec 2015 13:25:35 +0100 moocow
 	+ fixed "uninitialized value" warnings for PDL->can($type) in PDL::CCS::IO::*
 	+ added support for ndims>2 to PDL::CCS::IO::MatrixMarket
 	+ added sparse/dense vector-cosine ccs_vcos_zdd() in PDL::CCS::MatrixOps, with wrapper PDL::CCS::Nd::vcos_zdd()
-	+ added dense/dense vector-cosine ccs_vcos_ddd() in PDL::CCS::MatrixOps
+	  - dense/dense variant in PDL::VectorValued::Utils::vv_vcos() for PDL::VectorValued v1.0.5
 	+ fixed BAD handling in CCS::Compat::ccsget(), CCS::Compat::ccsget2d()
 	+ fixed I/O type handling in integer ufuncs (borover)
 	+ fixed wrongly succeeding bogus tests with unary ok()

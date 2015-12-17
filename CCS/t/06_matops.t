@@ -7,7 +7,7 @@ BEGIN {
   my $N_MISSING  = 1;
   my $N_SWAP    = 2;
   my $N_BLOCKS = 5;
-  my $N_HACKS = 13;
+  my $N_HACKS = 8;
   plan(tests=>(
 	       $N_BLOCKS*$N_MISSING*$N_SWAP*$N_TESTS_PER_MATOP*$N_MATOPS
 	       +
@@ -78,12 +78,10 @@ sub test_vcos_zdd {
   my $vcos = $ccs->vcos_zdd($b);
   my $vcos_want = pdl([1,0.8660254,-1]);
   pdlapprox("vcos_zdd", $vcos, $vcos_want, 1e-4);
-  pdlapprox("vcos_ddd", $ax->ccs_vcos_ddd($b), $vcos_want, 1e-4);
 
   my $b3 = $b->slice(",*3");
   my $vcos3 = $ccs->vcos_zdd($b3);
   pdlapprox("vcos_zdd:threaded", $vcos3, $vcos_want->slice(",*3"), 1e-4);
-  pdlapprox("vcos_ddd:threaded", $ax->ccs_vcos_ddd($b3), $vcos_want->slice(",*3"), 1e-4);
 
   ##-- test: nullvec:a
   my $a0 = $a->pdl;
@@ -92,14 +90,12 @@ sub test_vcos_zdd {
   my $vcos0 = $ccs0->vcos_zdd($b);
   my $vcos0_want = pdl([1,'nan',-1]);
   pdlapprox("vcos_zdd:nullvec:a:nan", $vcos0, $vcos0_want, 1e-4);
-  pdlapprox("vcos_ddd:nullvec:a:nan", $a0->xchg(0,1)->ccs_vcos_ddd($b), $vcos0_want, 1e-4);
 
   ##-- test: nullvec:b
   my $b0 = $b->zeroes;
   $vcos0 = $ccs->vcos_zdd($b0);
   $vcos0_want = pdl([qw(nan nan nan)]);
   pdlok("vcos_zdd:nullvec:b:nan", $vcos0, $vcos0_want);
-  pdlok("vcos_ddd:nullvec:a:nan", $ax->ccs_vcos_ddd($b0), $vcos0_want);
 
   ##-- test: bad:b
   my $b1 = $b->pdl->setbadif($b->xvals==2);
@@ -107,8 +103,6 @@ sub test_vcos_zdd {
   my $vcos1_want = pdl([0.8366,0.6211,-0.8366]);
   skipordo("vcos_zdd:bad:b", ($HAVE_PDL_2_014 ? 0 : "PDL >= v2.014 only"),
 	   sub { pdlapprox("vcos_zdd:bad:b", $vcos1, $vcos1_want, 1e-4); });
-  skipordo("vcos_ddd:bad:b", ($HAVE_PDL_2_014 ? 0 : "PDL >= v2.014 only"),
-	   sub { pdlapprox("vcos_ddd:bad:b", $ax->ccs_vcos_ddd($b1), $vcos1_want, 1e-4); });
 }
 test_vcos_zdd();
 
