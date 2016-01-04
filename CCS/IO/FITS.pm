@@ -37,8 +37,7 @@ PDL::CCS::IO::FITS - PDL::IO::FITS wrappers for PDL::CCS::Nd
  use PDL::CCS::Nd;
  use PDL::CCS::IO::FITS;
 
-
- $ccs = PDL::CCS::Nd->newFromWhich($which,$nnz);
+ $ccs = PDL::CCS::Nd->newFromWhich($which,$nzvals);
 
  ccs_wfits($ccs,$fname);	 # write a pair of FITS files
  $ccs2 = ccs_readfits($fname);   # read a pair of FITS files

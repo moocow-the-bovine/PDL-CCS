@@ -44,7 +44,7 @@ PDL::CCS::IO::MatrixMarket - Matrix Market Exchange Format text I/O for PDL::CCS
  use PDL::CCS::Nd;
  use PDL::CCS::IO::MatrixMarket;
 
- $ccs = PDL::CCS::Nd->newFromWhich($which,$nnz);
+ $ccs = PDL::CCS::Nd->newFromWhich($which,$nzvals);
 
  ccs_writemm($ccs,"ccs.mm");	 # write a sparse matrix market text file
  $ccs2 = ccs_readmm("ccs.mm");   # read a sparse matrix market text file

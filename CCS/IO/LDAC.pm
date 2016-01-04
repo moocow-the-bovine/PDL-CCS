@@ -39,7 +39,7 @@ PDL::CCS::IO::LDAC - LDA-C format text I/O for PDL::CCS::Nd
  use PDL::CCS::IO::LDAC;
 
  ##-- (Document x Term) matrix
- $dtm = PDL::CCS::Nd->newFromWhich($which,$nnz);
+ $dtm = PDL::CCS::Nd->newFromWhich($which,$nzvals);
  
  ccs_writeldac($dtm,"dtm.ldac");   # write a sparse LDA-C text file
  $dtm2 = ccs_readldac("dtm.ldac"); # read a sparse LDA-C text file

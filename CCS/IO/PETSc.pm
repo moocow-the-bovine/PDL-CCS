@@ -40,7 +40,7 @@ PDL::CCS::IO::PETSc - PETSc-compatible I/O for PDL::CCS::Nd
  use PDL::CCS::IO::PETSc;
 
  ##-- sparse 2d matrix
- $ccs = PDL::CCS::Nd->newFromWhich($which,$nnz);
+ $ccs = PDL::CCS::Nd->newFromWhich($which,$nzvals);
  
  ccs_wpetsc($ccs,"ccs.petsc");      # write a sparse binary PETSc file
  $ccs2 = ccs_rpetsc("ccs.petsc");   # read a sparse binary PETSc file

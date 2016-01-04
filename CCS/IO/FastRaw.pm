@@ -36,8 +36,7 @@ PDL::CCS::IO::FastRaw - PDL::IO::FastRaw wrappers for PDL::CCS::Nd
  use PDL::CCS::Nd;
  use PDL::CCS::IO::FastRaw;
 
-
- $ccs = PDL::CCS::Nd->newFromWhich($which,$nnz);
+ $ccs = PDL::CCS::Nd->newFromWhich($which,$nzvals);
 
  ccs_writefraw($ccs,$fname);	 # write a pair of raw files
  $ccs2 = ccs_readfraw($fname);   # read a pair of raw files
