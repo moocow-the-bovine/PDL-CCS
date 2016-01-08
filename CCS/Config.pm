@@ -9,33 +9,31 @@ our @EXPORT_OK   = ('%ccsConfig', 'ccs_indx');
 our %EXPORT_TAGS = (config=>['%ccsConfig'], Func=>\@Export, default=>\@EXPORT, all=>\@EXPORT_OK);
 
 %ccsConfig = (
-               'INDX_SIG' => 'indx',
-               'USE_PDL_INDX' => 1,
+               'INDX_SIG' => 'int',
                'INT_TYPE_KEYS' => [
                                     'PDL_B',
                                     'PDL_S',
                                     'PDL_US',
                                     'PDL_L',
-                                    'PDL_IND',
                                     'PDL_LL'
                                   ],
-               'INDX_FUNC' => 'indx',
-               'INDX_CTYPE' => 'PDL_Indx',
+               'INDX_FUNCDEF' => '*ccs_indx = \\&PDL::long; ##-- typecasting for CCS indices
+',
                'INT_TYPE_CHRS' => [
                                     'B',
                                     'S',
                                     'U',
                                     'L',
-                                    'N',
                                     'Q'
                                   ],
-               'INDX_FUNCDEF' => '*ccs_indx = \\&PDL::indx; ##-- typecasting for CCS indices
+               'INDX_FUNC' => 'long',
+               'INDX_TYPEDEF' => 'typedef PDL_Long CCS_Indx;  /**< typedef for CCS indices */
 ',
-               'INDX_TYPEDEF' => 'typedef PDL_Indx CCS_Indx;  /**< typedef for CCS indices */
-'
+               'USE_PDL_INDX' => '',
+               'INDX_CTYPE' => 'PDL_Long'
              );
 
-*PDL::ccs_indx = *ccs_indx = \&PDL::indx; ##-- typecasting for CCS indices
+*PDL::ccs_indx = *ccs_indx = \&PDL::long; ##-- typecasting for CCS indices
 
 
 1; ##-- be happy

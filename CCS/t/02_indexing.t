@@ -1,6 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/02_indexing.t
-use Test::More tests => 21;
+use Test::More tests => 22;
 
 ##-- common subs
 my $TEST_DIR;
@@ -65,16 +65,17 @@ pdlok("post-mv(0,1):decode",      $ccs->decode, $a);
 pdlok("mv(1,0)",                  $ccs->mv(1,0)->decode, $a->mv(1,0));
 pdlok("post-mv(1,0):decode",      $ccs->decode, $a);
 
-##-- 19..21: xsubset2d
+##-- 19..22: xsubset2d
 my $ai = pdl(long, [1,2,4]);
 my $bi = pdl(long, [2,4]);
-my $wnd = $ai->slice("*1,")->cat($bi)->clump(2)->xchg(0,1);
+my $wnd = $ai->slice("*".$bi->nelem.",")->cat($bi)->clump(2)->xchg(0,1);
 my $abi      = $wnd->vsearchvec($ccs->_whichND);
 my $abi_mask = ($wnd==$ccs->_whichND->dice_axis(1,$abi))->andover;
 $abi         = $abi->where($abi_mask);
 my $absub = $ccs->xsubset2d($ai,$bi);
 isok("xsubset2d:defined", defined($absub));
 pdlok("xsubset2d:which",   $absub->_whichND, $ccs->_whichND->dice_axis(1,$abi));
+pdlok("xsubset2d:nzvals",  $absub->_nzvals,  $ccs->_nzvals->index($abi));
 pdlok("xsubset2d:missing", $absub->missing, $ccs->missing);
 
 print "\n";
