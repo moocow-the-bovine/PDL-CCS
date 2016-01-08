@@ -168,7 +168,7 @@ $SIZE(Ndimsa) is assumed to be 2.
 ## ccs_vcos_zdd
 my $vcos_zdd_code =
 '
-    PDL_Indx an,am, bm;
+    CCS_Indx an,am, bm;
     $GENERIC(anorm) bnorm;
     $GENERIC(nza)   av;
     int have_anorm = 0; /*-- avoid redundant re-computation of anorm() --*/
