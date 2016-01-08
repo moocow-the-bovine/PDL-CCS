@@ -5,7 +5,7 @@
 ##======================================================================
 
 use PDL::VectorValued::Dev;
-my $VERSION = '1.23.0'; ##-- update with perl-reversion from Perl::Version module
+my $VERSION = '1.23.1'; ##-- update with perl-reversion from Perl::Version module
 pp_setversion($VERSION);
 
 ##------------------------------------------------------
@@ -332,7 +332,10 @@ vvpp_def('ccs_xindex2d',
    barf("Usage: ccs_xindex2d(which(2,Nnz), a(Na), b(Nb), [o]nab(), [o]ab(Nab)")
      if ((grep {!defined($_)} @_[0..2]) || $which->ndims != 2 || $which->dim(0) < 2);
    $nab = $ab->dim(0) if (defined($ab) && !defined($nab));
-   $nab = pdl($which->type, [$a->nelem*$b->nelem,$which->dim(1)])->minimum if (!defined($nab));
+   if (!defined($nab)) {
+     $nab = $a->nelem*$b->nelem;
+     $nab = $which->dim(1) if ($which->dim(1)) < $nab;
+   }
    $nab = pdl($which->type, $nab) if (!ref($nab));
    $ab = PDL->zeroes($which->type, $nab->sclr) if (!defined($ab));
    &PDL::_ccs_xindex2d_int($which,$a,$b,$ab,$nab);
