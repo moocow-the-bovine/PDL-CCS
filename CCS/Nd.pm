@@ -591,8 +591,16 @@ sub _vals  :lvalue {
 sub ptr {
   my ($ccs,$dim) = @_;
   $dim = 0 if (!defined($dim));
-  $ccs->[$PTRS][$dim] = [$ccs->getptr($dim)] if (!defined($ccs->[$PTRS][$dim]));
+  $ccs->[$PTRS][$dim] = [$ccs->getptr($dim)] if (!$ccs->hasptr($dim));
   return wantarray ? @{$ccs->[$PTRS][$dim]} : $ccs->[$PTRS][$dim][0];
+}
+
+## $bool = $obj->hasptr($dim_p)
+##   + returns true iff $obj has a cached pointer for physical dim $dim_p
+sub hasptr {
+  my ($ccs,$dim) = @_;
+  $dim = 0 if (!defined($dim));
+  return defined($ccs->[$PTRS][$dim]) && @{$ccs->[$PTRS][$dim]};
 }
 
 ## ($ptr,$pi2nzi) = $obj->getptr($dim_p);
@@ -2235,6 +2243,12 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  ## Matrix Operations
  $c = $ccs->inner($b);
  $c = $ccs->matmult($b);       $c = $ccs x $b;
+ $c_dense = $ccs->matmult2d_sdd($b_dense, $zc);
+ $c_dense = $ccs->matmult2d_zdd($b_dense);
+ 
+ $vnorm = $ccs->vnorm($pdimi);
+ $vcos  = $ccs->vcos_zdd($b_dense);
+ $vcos  = $ccs->vcos_pzd($b_ccs);
 
  ##---------------------------------------
  ## Other Operations
@@ -2268,11 +2282,12 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  $vals_phys    = $ccs->_vals();                 ##-- get/set phsically indexed values
  $vals_phys    = $ccs->_vals($vals_phys);
 
- ($ptr,$ptrix) = $ccs->ptr($pdimi);             ##-- get a Harwell-Boeing pointer
- ($ptr,$ptrix) = $ccs->getptr($pdimi);
- ($ptr,$ptrix) = $ccs->setptr($pdimi,$p,$pix);  ##-- ... or set one
- $ccs->clearptr($pdimi);                        ##-- ... or clear one
- $ccs->clearptrs();                             ##-- ... or clear all
+ $bool         = $ccs->hasptr($pdimi);          ##-- check for cached Harwell-Boeing pointer
+ ($ptr,$ptrix) = $ccs->ptr($pdimi);             ##-- ... get one, caching for later use
+ ($ptr,$ptrix) = $ccs->getptr($pdimi);          ##-- ... compute one, regardless of cache
+ ($ptr,$ptrix) = $ccs->setptr($pdimi,$p,$pix);  ##-- ... set a cached pointer
+ $ccs->clearptr($pdimi);                        ##-- ... clear a cached pointer
+ $ccs->clearptrs();                             ##-- ... clear all cached pointers
 
  $flags = $ccs->flags();                        ##-- get/set object-local flags
  $flags = $ccs->flags($flags);
@@ -3084,6 +3099,9 @@ Alias: whichVals().
 
 Get/set the underlying $VALS piddle.
 
+=item hasptr($pdimi)
+
+Returns true iff a pointer for physical dim $pdimi is cached.
 
 =item ptr($pdimi)
 

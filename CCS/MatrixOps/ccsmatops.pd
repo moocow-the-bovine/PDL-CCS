@@ -459,7 +459,7 @@ sub PDL::ccs_vcos_pzd {
 
   ##-- create output piddles, implicitly computing anorm() if required
   $anorm = $acols->ccs_vnorm($avals, $M) if (!defined($anorm) || $anorm->isempty);
-  $vcos  = PDL->zeroes($anorm->type, $M) if (!defined($vcos) || $vcos->ismpty);
+  $vcos  = PDL->zeroes($anorm->type, $M) if (!defined($vcos) || $vcos->isempty);
 
   ##-- guts
   &PDL::_ccs_vcos_pzd_int($aptr,$acols,$avals, $brows,$bvals, $anorm,$vcos);
