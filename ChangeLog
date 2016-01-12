@@ -1,5 +1,7 @@
-v1.23.1 Wed, 06 Jan 2016 16:04:08 +0100 moocow
+v1.23.1 Tue, 12 Jan 2016 13:24:00 +0100 moocow
 	+ fixed index overflow bug picking maximum output dimension in perl-side ccs_xindex2d()
+	+ added optional pass-in $anorm() for ccs_vcos_zdd()
+	+ added pointer-optimized sparse-crs matrix vs. sparse-coo vector cosine method ccs_vcos_pzd()
 
 v1.23.0 Tue, 15 Dec 2015 13:25:35 +0100 moocow
 	+ fixed "uninitialized value" warnings for PDL->can($type) in PDL::CCS::IO::*

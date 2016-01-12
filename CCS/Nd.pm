@@ -1815,6 +1815,20 @@ sub matmult2d_zdd  :lvalue {
   return $c;
 }
 
+## $vnorm_dense = $a->vnorm($pdimi, ?$vnorm_dense)
+##  + assumes $a->missing==0
+sub vnorm {
+  my ($a,$pdimi,$vnorm) = @_;
+
+  ##-- ensure $a physically indexed ccs, $vnorm defined
+  $a = $a->to_physically_indexed();
+  $vnorm = PDL->zeroes($a->type, $a->dim($pdimi)) if (!defined($vnorm));
+
+  ccs_vnorm($a->_whichND->slice("($pdimi),"), $a->_nzvals, $vnorm, $a->dim($pdimi));
+  return $vnorm;
+}
+
+
 ## $vcos_dense = $a->vcos_zdd($b_dense, ?$vcos_dense, ?$norm_dense)
 ##  + assumes $a->missing==0
 sub vcos_zdd {
@@ -1822,11 +1836,34 @@ sub vcos_zdd {
   my $b = shift;
 
   ##-- ensure $b dense, $a physically indexed ccs
-  $b = todense($b) if ($b->isa(__PACKAGE__));
+  $b = todense($b) if (!UNIVERSAL::isa($b,__PACKAGE__));
   $a = $a->to_physically_indexed();
 
   ##-- guts
   return ccs_vcos_zdd($a->_whichND, $a->_nzvals, $b, $a->dim(0), @_);
+}
+
+## $vcos_dense = $a->vcos_pzd($b_sparse, ?$vcos_dense, ?$norm_dense)
+##  + assumes $a->missing==0
+##  + uses $a->ptr(1)
+sub vcos_pzd {
+  my $a = shift;
+  my $b = shift;
+
+  ##-- ensure $b dense, $a physically indexed ccs
+  $b = toccs($b) if (!UNIVERSAL::isa($b,__PACKAGE__));
+  $a = $a->to_physically_indexed();
+  $b = $b->to_physically_indexed();
+
+  ##-- get params
+  my ($aptr,$aqsi) = $a->ptr(1);
+  my $arows        = $a->[$WHICH]->slice("(0),")->index($aqsi);
+  my $avals        = $a->[$VALS]->index($aqsi);
+  my $brows        = $b->[$WHICH]->slice("(0),");
+  my $bvals        = $b->_nzvals;
+
+  ##-- guts
+  return ccs_vcos_pzd($aptr,$arows,$avals, $brows,$bvals, @_);
 }
 
 

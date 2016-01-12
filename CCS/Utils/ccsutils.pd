@@ -299,7 +299,7 @@ pp_def
   Doc=><<'EOD'
 General CCS decoding utility.
 
-Project indices $proj() from a compressed storage "pointer" vecotr $proj().
+Project indices $proj() from a compressed storage "pointer" vector $proj().
 If unspecified, $proj() defaults to:
 
  sequence($ptr->dim(0))

@@ -7,7 +7,7 @@ BEGIN {
   my $N_MISSING  = 1;
   my $N_SWAP    = 2;
   my $N_BLOCKS = 5;
-  my $N_HACKS = 8;
+  my $N_HACKS = (3+8);
   plan(tests=>(
 	       $N_BLOCKS*$N_MISSING*$N_SWAP*$N_TESTS_PER_MATOP*$N_MATOPS
 	       +
@@ -55,7 +55,7 @@ sub test_matmult2d_zdd {
   pdlok("${lab}:matmult2d_zdd:obj:missing=".($az->missing->sclr), $cz,$c);
 }
 
-##-- x3
+##-- +2*sdd +1*zdd = +3
 sub test_matmult2d_all {
   my ($M,$N,$O) = (2,3,4);
   my $a = sequence($M,$N);
@@ -69,21 +69,36 @@ sub test_matmult2d_all {
 }
 test_matmult2d_all();
 
-##-- x10
+##-- +8
 sub test_vcos_zdd {
   my $a  = pdl([[1,2,3,4],[1,2,2,1],[-1,-2,-3,-4]])->xchg(0,1);
   my $ax = $a->xchg(0,1);
   my $b = pdl([1,2,3,4]);
   my $ccs = $a->toccs;
+
+  ##-- test: vnorm
+  my $anorm0 = $ccs->vnorm(0);
+  my $anorm0_want = ($a**2)->xchg(0,1)->sumover->sqrt;
+  pdlapprox("vnorm(0)", $anorm0, $anorm0_want, 1e-5);
+  ##
+  my $anorm1 = $ccs->vnorm(1);
+  my $anorm1_want = ($a**2)->sumover->sqrt;
+  pdlapprox("vnorm(1)", $anorm1, $anorm1_want, 1e-5);
+
+  ##-- test: vcos_zdd
   my $vcos = $ccs->vcos_zdd($b);
   my $vcos_want = pdl([1,0.8660254,-1]);
   pdlapprox("vcos_zdd", $vcos, $vcos_want, 1e-4);
-
+  ##
   my $b3 = $b->slice(",*3");
   my $vcos3 = $ccs->vcos_zdd($b3);
   pdlapprox("vcos_zdd:threaded", $vcos3, $vcos_want->slice(",*3"), 1e-4);
 
-  ##-- test: nullvec:a
+  ##-- test: vcos_pzd
+  $vcos = $ccs->vcos_pzd($b->toccs);
+  pdlapprox("vcos_pzd", $vcos, $vcos_want, 1e-4);
+
+  ##-- test: vcos_zdd: nullvec:a
   my $a0 = $a->pdl;
   (my $tmp=$a0->slice("(1),")) .= 0;
   my $ccs0 = $a0->toccs;
@@ -91,13 +106,13 @@ sub test_vcos_zdd {
   my $vcos0_want = pdl([1,'nan',-1]);
   pdlapprox("vcos_zdd:nullvec:a:nan", $vcos0, $vcos0_want, 1e-4);
 
-  ##-- test: nullvec:b
+  ##-- test: vcos_zdd: nullvec:b
   my $b0 = $b->zeroes;
   $vcos0 = $ccs->vcos_zdd($b0);
   $vcos0_want = pdl([qw(nan nan nan)]);
   pdlok("vcos_zdd:nullvec:b:nan", $vcos0, $vcos0_want);
 
-  ##-- test: bad:b
+  ##-- test: vcos_zdd: bad:b
   my $b1 = $b->pdl->setbadif($b->xvals==2);
   my $vcos1 = $ccs->vcos_zdd($b1);
   my $vcos1_want = pdl([0.8366,0.6211,-0.8366]);
