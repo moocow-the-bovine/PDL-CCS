@@ -1851,7 +1851,7 @@ sub vcos_zdd {
   return ccs_vcos_zdd($a->_whichND, $a->_nzvals, $b, $a->dim(0), @_);
 }
 
-## $vcos_dense = $a->vcos_pzd($b_sparse, ?$vcos_dense, ?$norm_dense)
+## $vcos_dense = $a->vcos_pzd($b_sparse, ?$norm_dense, ?$vcos_dense)
 ##  + assumes $a->missing==0
 ##  + uses $a->ptr(1)
 sub vcos_pzd {
