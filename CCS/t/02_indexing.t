@@ -1,6 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/02_indexing.t
-use Test::More tests => 22;
+use Test::More tests => 26;
 
 ##-- common subs
 my $TEST_DIR;
@@ -77,6 +77,18 @@ isok("xsubset2d:defined", defined($absub));
 pdlok("xsubset2d:which",   $absub->_whichND, $ccs->_whichND->dice_axis(1,$abi));
 pdlok("xsubset2d:nzvals",  $absub->_nzvals,  $ccs->_nzvals->index($abi));
 pdlok("xsubset2d:missing", $absub->missing, $ccs->missing);
+
+##-- 23..24: xsubset1d
+my $xi   = pdl(long, [0,2]);
+my $sub1 = $ccs->xsubset1d($xi);
+isok("xsubset1d:defined", defined($sub1));
+pdlok("xsubset1d:vals",   $sub1->decode->dice_axis(0,$xi), $a->dice_axis(0,$xi));
+
+##-- 25..26: pxsubset1d
+my $yi   = pdl(long, [1,3]);
+my $sub2 = $ccs->pxsubset1d(1,$yi);
+isok("pxsubset1d:defined", defined($sub2));
+pdlok("pxsubset1d:vals",   $sub2->decode->dice_axis(1,$yi), $a->dice_axis(1,$yi));
 
 print "\n";
 # end of t/*.t

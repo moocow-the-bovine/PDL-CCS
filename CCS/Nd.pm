@@ -139,7 +139,7 @@ sub newFromWhich :lvalue {
 ## $obj = $obj->fromWhich($whichND,$nzvals);
 ##  + %options:
 ##     sorted  => $bool,    ##-- if true, $whichND is assumed to be pre-sorted
-##     steal   => $bool,    ##-- if true, $whichND and $nzvals are used literally (implies 'sorted')
+##     steal   => $bool,    ##-- if true, $whichND and $nzvals are used literally (formerly implied 'sorted')
 ##                          ##    + in this case, $nzvals should really be: $nzvals->append($missing)
 ##     pdims   => $pdims,   ##-- physical dimension list; default guessed from $whichND (alias: 'dims')
 ##     missing => $missing, ##-- default: BAD if $nzvals->badflag, 0 otherwise
@@ -600,7 +600,7 @@ sub ptr {
 sub hasptr {
   my ($ccs,$dim) = @_;
   $dim = 0 if (!defined($dim));
-  return defined($ccs->[$PTRS][$dim]) && @{$ccs->[$PTRS][$dim]};
+  return defined($ccs->[$PTRS][$dim]) ? scalar(@{$ccs->[$PTRS][$dim]}) : 0;
 }
 
 ## ($ptr,$pi2nzi) = $obj->getptr($dim_p);
@@ -830,17 +830,75 @@ sub indexND  :lvalue { my $tmp=$_[0][$VALS]->index($_[0]->indexNDi($_[1])); }
 ## $vals = $ccs->index2d($xi,$yi)
 sub index2d  :lvalue { my $tmp=$_[0]->indexND($_[1]->cat($_[2])->xchg(0,1)); }
 
+## $nzi = $ccs->xindex1d($xi)
+##  + nzi indices for dice_axis(0,$xi)
+##  + physically indexed only
+sub xindex1d :lvalue {
+  my ($ccs,$xi) = @_;
+  $ccs->make_physically_indexed;
+  my $nzi = $ccs->[$WHICH]->ccs_xindex1d($xi);
+  $nzi->sever;
+  return $nzi;
+}
+
+## $subset = $ccs->xsubset1d($xi)
+##  + subset object like dice_axis(0,$xi) without $xi-renumbering
+##  + returned object should participate in dataflow
+##  + physically indexed only
+sub xsubset1d :lvalue {
+  my ($ccs,$xi) = @_;
+  my $nzi = $ccs->xindex1d($xi);
+  return $ccs->shadow(which=>$ccs->[$WHICH]->dice_axis(1,$nzi),
+		      vals =>$ccs->[$VALS]->index($nzi->append($ccs->_nnz)));
+}
+
+## $nzi = $ccs->pxindex1d($dimi,$xi)
+##  + nzi indices for dice_axis($dimi,$xi), using ptr($dimi)
+##  + physically indexed only
+sub pxindex1d :lvalue {
+  my ($ccs,$dimi,$xi) = @_;
+  $ccs->make_physically_indexed();
+  my ($ptr,$pix) = $ccs->ptr($dimi);
+  my $xptr = $ptr->index($xi);
+  my $xlen = $ptr->index($xi+1) - $xptr;
+  my $nzi  = $pix->index($xlen->rldseq($xptr))->qsort;
+  $nzi->sever;
+  return $nzi;
+}
+
+## $subset = $ccs->pxsubset1d($dimi,$xi)
+##  + subset object like dice_axis($dimi,$xi) without $xi-renumbering, using ptr($dimi)
+##  + returned object should participate in dataflow
+##  + physically indexed only
+sub pxsubset1d {
+  my ($ccs,$dimi,$xi) = @_;
+  my $nzi = $ccs->pxindex1d($dimi,$xi);
+  return $ccs->shadow(which=>$ccs->[$WHICH]->dice_axis(1,$nzi),
+		      vals =>$ccs->[$VALS]->index($nzi->append($ccs->_nnz)));
+}
+
+## $nzi = $ccs->xindex2d($xi,$yi)
+##  + returns nz-index piddle matching any index-pair in Cartesian product ($xi x $yi)
+##  + caller object must be a ccs-encoded 2d matrix
+##  + physically indexed only
+sub xindex2d :lvalue {
+  my ($ccs,$xi,$yi) = @_;
+  $ccs->make_physically_indexed;
+  my $nzi = $ccs->[$WHICH]->ccs_xindex2d($xi,$yi);
+  $nzi->sever;
+  return $nzi;
+}
+
 ## $subset = $ccs->xsubset2d($xi,$yi)
 ##  + returns a subset CCS object for all index-pairs in $xi,$yi
 ##  + caller object must be a ccs-encoded 2d matrix
 ##  + returned object should participate in dataflow
+##  + physically indexed only
 sub xsubset2d :lvalue {
   my ($ccs,$xi,$yi) = @_;
-  $ccs->make_physically_indexed;
-  my $nzi = $ccs->[$WHICH]->ccs_xindex2d($xi,$yi);
-  my $subset = $ccs->shadow(which=>$ccs->[$WHICH]->dice_axis(1,$nzi),
-			    vals =>$ccs->[$VALS]->index($nzi->append($ccs->_nnz)));
-  return $subset;
+  my $nzi = $ccs->xindex2d($xi,$yi);
+  return $ccs->shadow(which=>$ccs->[$WHICH]->dice_axis(1,$nzi),
+		      vals =>$ccs->[$VALS]->index($nzi->append($ccs->_nnz)));
 }
 
 ## $vals = $ccs->index($flati)
@@ -1867,11 +1925,12 @@ sub vcos_pzd {
   my ($aptr,$aqsi) = $a->ptr(1);
   my $arows        = $a->[$WHICH]->slice("(0),")->index($aqsi);
   my $avals        = $a->[$VALS]->index($aqsi);
+  my $anorm        = @_ ? shift : $a->vnorm(0);
   my $brows        = $b->[$WHICH]->slice("(0),");
   my $bvals        = $b->_nzvals;
 
   ##-- guts
-  return ccs_vcos_pzd($aptr,$arows,$avals, $brows,$bvals, @_);
+  return ccs_vcos_pzd($aptr,$arows,$avals, $brows,$bvals, $anorm, @_);
 }
 
 
@@ -2157,6 +2216,14 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  $ivals = $ccs->index($flati);               ##-- buggy: no pseudo-threading!
  $ccs2  = $ccs->dice_axis($vaxis,$vaxis_ix);
 
+ $nzi   = $ccs->xindex1d($xi);               ##-- nz-indices along 0th dimension
+ $nzi   = $ccs->pxindex1d($dimi,$xi);        ##-- ... or any dimension, using ptr()
+ $nzi   = $ccs->xindex2d($xi,$yi);           ##-- ... or for Cartesian product on 2d matrix
+
+ $ccs2  = $ccs->xsubset1d($xi);              ##-- subset along 0th dimension
+ $ccs2  = $ccs->pxsubset1d($dimi,$xi);       ##-- ... or any dimension, using ptr()
+ $ccs2  = $ccs->xsubset2d($xi,$yi);          ##-- ... or for Cartesian product on 2d matrix
+
  $whichND = $ccs->whichND();
  $vals    = $ccs->whichVals();               ##-- like $ccs->indexND($ccs->whichND), but faster
  $which   = $ccs->which()
@@ -2254,6 +2321,9 @@ PDL::CCS::Nd - N-dimensional sparse pseudo-PDLs
  ## Other Operations
  $ccs->rassgn($b);             $ccs .= $b;
  $str = $ccs->string();        $str  = "$ccs";
+
+ ##---------------------------------------------------------------------
+ ## Indexing Utilities
 
 
  ##---------------------------------------------------------------------
@@ -2528,7 +2598,7 @@ of indices $whichND of non-missing elements in a (hypothetical) dense piddle
 and a vector $nzvals of the corresponding values.  Known %options:
 
   sorted  => $bool,    ##-- if true, $whichND is assumed to be pre-sorted
-  steal   => $bool,    ##-- if true, $whichND and $nzvals are used literally (implies 'sorted')
+  steal   => $bool,    ##-- if true, $whichND and $nzvals are used literally (formerly implied 'sorted')
                        ##    + in this case, $nzvals should really be: $nzvals->append($missing)
   pdims   => $pdims,   ##-- physical dimension list; default guessed from $whichND (alias: 'dims')
   vdims   => $vdims,   ##-- virtual dims (default: sequence($nPhysDims)); alias: 'xdims'
@@ -2742,6 +2812,43 @@ This ought to be fixed.
 Should be compatible with the PDL function of the same name.
 Returns a new PDL::CCS::Nd object which should participate
 in dataflow.
+
+=item xindex1d($xi)
+
+Get non-missing indices for any element of $xi along 0th dimension;
+$xi must be sorted in ascending order.
+
+=item pxindex1d($dimi,$xi)
+
+Get non-missing indices for any element of $xi along physically indexed dimension $dimi,
+using L<ptr($dimi)/ptr>.
+$xi must be sorted in ascending order.
+
+=item xindex2d($xi,$yi)
+
+Get non-missing indices for any element in Cartesian product ($xi x $yi) for 2d sparse
+matrix.
+$xi and $yi must be sorted in ascending order.
+
+=item xsubset1d($xi)
+
+Returns a subset object similar to L<dice_axis(0,$x)|PDL::Slices/dice_axis>,
+but without renumbering of indices along the diced dimension;
+$xi must be sorted in ascending order.
+
+=item pxsubset1d($dimi,$xi)
+
+Returns a subset object similar to L<dice_axis($dimi,$x)|PDL::Slices/dice_axis>,
+but without renumbering of indices along the diced dimension;
+$xi must be sorted in ascending order.
+
+=item xsubset2d($xi,$yi)
+
+Returns a subset object similar to
+indexND( $xi-E<gt>slice("*1,")-E<gt>cat($yi)-E<gt>clump(2)-E<gt>xchg(0,1) ),
+but without renumbering of indices;
+$xi and $yi must be sorted in ascending order.
+
 
 =item n2oned($ndi)
 

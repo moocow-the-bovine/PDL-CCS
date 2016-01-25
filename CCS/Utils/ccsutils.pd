@@ -305,7 +305,42 @@ If unspecified, $proj() defaults to:
  sequence($ptr->dim(0))
 
 EOD
-  );
+);
+
+##--------------------------------------------------------------
+## _ccs_pointerlen : optimized pointer-length
+pp_def('ccs_pointerlen',
+       Pars => "ptr(Nplus1); [o]ptrlen(N);",
+       GenericTypes=>$PDL::CCS::Config::ccsConfig{INT_TYPE_CHRS},
+
+       Code =>
+q{
+   $GENERIC(ptr) *pptr = $PP(ptr);
+   loop (N) %{
+     $ptrlen() = *(pptr+1) - *pptr;
+     ++pptr;
+   %}
+},
+
+       PMCode =>
+q{
+sub PDL::ccs_pointerlen {
+  my ($ptr,$len) = @_;
+  $len = zeroes($ptr->type, $ptr->nelem-1) if (!defined($len));
+  &PDL::_ccs_pointerlen_int($ptr,$len);
+  return $len;
+}
+},
+
+       Doc => <<'EOD'
+
+Get number of non-missing values for each axis value from a CCS-encoded
+offset pointer vector $ptr().
+
+EOD
+      ); ##-- /ccs_pointerlen
+
+
 
 ##======================================================================
 ## Indexing
@@ -319,6 +354,71 @@ pp_addpm(<<'EOPM');
 =cut
 
 EOPM
+
+##------------------------------------------------------
+## ccs_xindex1d()
+##  + optimized dice_axis on 0th dimension, no pointer required
+vvpp_def('ccs_xindex1d',
+	 Pars => "which(Ndims,Nnz); a(Na); [o]nzia(NnzA); [o]nnza()",
+   PMCode=>
+(q{
+ sub PDL::ccs_xindex1d {
+   my ($which,$a,$nzia,$nnza) = @_;
+   barf("Usage: ccs_xindex2d(which(Ndims,Nnz), a(Na), [o]nzia(NnzA), [o]nnza()")
+     if ((grep {!defined($_)} @_[0..1]) || $which->ndims < 2 || $which->dim(0) < 1);
+   $nnza = $nzia->dim(0) if (defined($nzia) && !defined($nnza));
+   $nnza = $which->dim(1) if (!defined($nnza));
+   $nnza = pdl($which->type, $nnza) if (!ref($nnza));
+   $nzia  = PDL->zeroes($which->type, $nnza->sclr) if (!defined($nzia));
+   &PDL::_ccs_xindex1d_int($which,$a,$nzia,$nnza);
+   return ($nzia,$nnza) if (wantarray);
+   return $nzia->reshape($nnza->sclr);
+ }
+}),
+	 Code =>
+(q(
+long a_min=0, a_max=$SIZE(Nnz);
+long a_lb, a_ub, a_ubmax=a_max;
+CCS_Indx nnzai = 0;
+/*-- DEBUG
+ long size_nnz = $SIZE(Nnz);
+ long size_na  = $SIZE(Na);
+ long size_nnza = $SIZE(NnzA);
+ printf("Nnz=%d, Na=%d [%d:%d], NnzA=%d\n", size_nnz, size_na,$a(Na=>0),$a(Na=>size_na-1), size_nnza);
+*/
+loop (Na) %{
+  a_ubmax = a_max;
+  $LB('$a()',   '$which(Ndims=>0,Nnz=>$_)', 'a_min','a_max',   'a_lb',ubmaxvar=>'a_ubmax');
+  if ($which(Ndims=>0,Nnz=>a_lb) != $a()) { a_min=a_lb; continue; }
+
+  $LB('$a()+1', '$which(Ndims=>0,Nnz=>$_)', 'a_lb' ,'a_ubmax', 'a_ub');
+  if ($which(Ndims=>0,Nnz=>a_ub) <= $a()) ++a_ub;
+
+  for ( ; a_lb < a_ub && nnzai < $SIZE(NnzA); ++a_lb, ++nnzai ) {
+    $nzia(NnzA=>nnzai) = a_lb;
+  }
+  if (nnzai >= $SIZE(NnzA)) break;
+  if (a_ub < a_max) a_min = a_ub;
+%}
+$nnza() = nnzai;
+for ( ; nnzai < $SIZE(NnzA); ++nnzai) {
+  $nzia(NnzA=>nnzai) = -1;
+}
+)),
+  Doc=><<'EOD'
+
+Compute indices $nzai() along dimension C<NNz> of $which() whose initial values $which(0,$nzai)
+match some element of $a().  Appropriate for indexing a sparse encoded PDL
+with non-missing entries at $which()
+along the 0th dimension, a la L<dice_axis(0,$a)|PDL::Slices/dice_axis>.
+$which((0),) and $a() must be both sorted in ascending order.
+
+In list context, returns a list ($nzai,$nnza), where $nnza() is the number of indices found,
+and $nzai are those C<Nnz> indices.  In scalar context, trims the output vector $nzai() to $nnza()
+elements.
+
+EOD
+  );
 
 ##------------------------------------------------------
 ## ccs_xindex2d()
@@ -396,7 +496,7 @@ for ( ; abi < $SIZE(Nab); ++abi) {
 Compute indices along dimension C<NNz> of $which() corresponding to any combination
 of values in the Cartesian product of $a() and $b().  Appropriate for indexing a
 2d sparse encoded PDL with non-missing entries at $which() via the ND-index piddle
-$a->slice("*1,")->cat($b)->clump(2)->xchg(0,1), i.e. all pairs $ai,$bi with $ai in $a()
+$a-E<gt>slice("*1,")-E<gt>cat($b)-E<gt>clump(2)-E<gt>xchg(0,1), i.e. all pairs $ai,$bi with $ai in $a()
 and $bi in $b().  $a() and $b() values must be be sorted in ascending order
 
 In list context, returns a list ($ab,$nab), where $nab() is the number of indices found,

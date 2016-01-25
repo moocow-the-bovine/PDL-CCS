@@ -392,7 +392,7 @@ pp_def
 ## ccs_vcos_pzd: code
 my $vcos_pzd_code = '
     CCS_Indx bn,bn1, alo,ahi, am,anzi;
-    $GENERIC(anorm) bnorm, bv;
+    $GENERIC(anorm) bnorm;
 
       /*-- guts: initialize --*/
       bnorm = 0;
@@ -408,15 +408,14 @@ my $vcos_pzd_code = '
 #ifdef PDL_BAD_CODE
         if ($ISGOOD(bvals())) {
 #endif
-          bv     = $bvals();
-          bnorm += bv * bv;
+          bnorm += $bvals() * $bvals();
 
           for (anzi=alo; anzi < ahi; ++anzi) {
    	    am = $acols(NnzA=>anzi);
 #ifdef PDL_BAD_CODE
             if ($ISGOOD(avals(NnzA=>anzi)))
 #endif
-	      $vcos(M=>am)  += $avals(NnzA=>anzi) * bv;
+	      $vcos(M=>am)  += $avals(NnzA=>anzi) * $bvals();
           }
 #ifdef PDL_BAD_CODE
         }
@@ -428,47 +427,22 @@ my $vcos_pzd_code = '
     if (bnorm == 0) {
       /*-- bogus bnorm, return all NaN --*/
       loop (M) %{ $vcos() = NAN; %}
-    }
-    loop (M) %{
-      if ($anorm() != 0
+    } else {
+      loop (M) %{
+        if ($anorm() != 0
 #ifdef PDL_BAD_CODE
-          && $ISGOOD(anorm())
+            && $ISGOOD(anorm())
 #endif
-          ) {
-        $vcos() /= ($anorm() * bnorm);
-      } else {
-        /*-- bogus anorm(), return NaN --*/
-        $vcos() = NAN;
-      }
-    %}
+            ) {
+          $vcos() /= ($anorm() * bnorm);
+        } else {
+          /*-- bogus anorm(), return NaN --*/
+          $vcos() = NAN;
+        }
+      %}
+    }
 ';
 ##--/$vcos_pzd_code
-
-##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-## ccs_vcos_pzd: pmcode
-my $vcos_pzd_pmcode = q{
-
-sub PDL::ccs_vcos_pzd {
-  my ($aptr,$acols,$avals, $brows,$bvals, $anorm,$vcos) = @_;
-
-  ##-- get M
-  my ($M);
-  $M = $vcos->dim($vcos->ndims-1) if (!defined($M) && defined($vcos) && !$vcos->isempty);
-  $M = $anorm->nelem if (!defined($M) && defined($anorm) && !$anorm->isempty);
-  $M = $acols->max+1 if (!defined($M));
-
-  ##-- create output piddles, implicitly computing anorm() if required
-  $anorm = $acols->ccs_vnorm($avals, $M) if (!defined($anorm) || $anorm->isempty);
-  $vcos  = PDL->zeroes($anorm->type, $M) if (!defined($vcos) || $vcos->isempty);
-
-  ##-- guts
-  &PDL::_ccs_vcos_pzd_int($aptr,$acols,$avals, $brows,$bvals, $anorm,$vcos);
-  return $vcos;
-}
-
-};
-##--/$vcos_pzd_pmcode
-
 
 ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ## ccs_vcos_pzd: ppdef
@@ -477,13 +451,12 @@ pp_def('ccs_vcos_pzd',
 		.join("\n    ",
 		      "$INDX aptr(Nplus1); $INDX acols(NnzA); avals(NnzA);", ##-- logical (M,N)~(T,D) with ptr(1)
 		      "$INDX brows(NnzB);                     bvals(NnzB);", ##-- logical (1,N)~(1,D)
-		      "float+ anorm(M);",   ##-- (M)~(T)
+		      "anorm(M);",          ##-- (M)~(T)
 		      "float+ [o]vcos(M);", ##-- (M)~(T)
 		     )),
        HandleBad => 1,
        Code => $vcos_pzd_code,
        BadCode => $vcos_pzd_code,
-       PMCode => $vcos_pzd_pmcode,
        CopyBadStatusCode => q{$SETPDLSTATEGOOD(vcos);},
        BadDoc=> q{ccs_vcos_pzd() always clears the bad status flag on the output piddle $vcos.},
        Doc => q{
@@ -491,7 +464,7 @@ Computes the vector cosine similarity of a sparse index-encoded row-vector $b() 
 with respect to each column $a(i,*) a sparse Harwell-Boeing row-encoded PDL $a() of logical dimensions (M,N),
 with output to a dense piddle $vcos(M).
 "Missing" values in $a() are treated as zero,
-and magnitudes for $a() are passed in the optional paramter $anorm().
+and magnitudes for $a() are passed in the obligatory paramter $anorm().
 Usually much faster than L<ccs_vcos_zdd()|/ccs_vcos_zdd> if a CRS pointer over logical dimension (N) is available
 for $a().
 },

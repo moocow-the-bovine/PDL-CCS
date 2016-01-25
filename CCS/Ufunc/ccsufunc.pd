@@ -143,8 +143,8 @@ sub ccs_accum_hash {
    &PDL::_ccs_accum_).${op_codename}.q(_int($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nOut);
    ##
    ##-- auto-trim
-   $ixOut      = $ixOut->slice(",0:".($nOut-1));
-   $nzvalsOut  = $nzvalsOut->slice("0:".($nOut-1));
+   $ixOut      = $ixOut->slice(",0:".($nOut->max-1));
+   $nzvalsOut  = $nzvalsOut->slice("0:".($nOut->max-1));
    ##
    ##-- return
    return wantarray ? ($ixOut,$nzvalsOut,$nOut) : $nzvalsOut;

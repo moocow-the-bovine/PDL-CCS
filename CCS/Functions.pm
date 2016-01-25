@@ -78,8 +78,11 @@ offset pointer vector $ptr().
 
 ;#-- emacs
 
-*PDL::ccs_pointerlen = \&ccs_pointerlen;
-sub ccs_pointerlen :lvalue {
+*ccs_pointerlen = \&PDL::ccs_pointerlen; 
+
+##-- now a PDL::PP function in PDL::CCS::Utils
+*PDL::ccs_pointerlen_perl = \&ccs_pointerlen_perl;
+sub ccs_pointerlen_perl :lvalue {
   my ($ptr,$len) = @_;
   if (!defined($len)) {
     $len = $ptr->slice("1:-1") - $ptr->slice("0:-2");
