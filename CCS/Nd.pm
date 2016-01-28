@@ -1,4 +1,4 @@
-# File: PDL::CCS::Nd.pm
+## File: PDL::CCS::Nd.pm
 ## Author: Bryan Jurish <moocow@cpan.org>
 ## Description: N-dimensional CCS-encoded pseudo-PDL
 
@@ -861,7 +861,7 @@ sub pxindex1d :lvalue {
   my ($ptr,$pix) = $ccs->ptr($dimi);
   my $xptr = $ptr->index($xi);
   my $xlen = $ptr->index($xi+1) - $xptr;
-  my $nzi  = $pix->index($xlen->rldseq($xptr))->qsort;
+  my $nzi  = defined($pix) ? $pix->index($xlen->rldseq($xptr))->qsort : $xlen->rldseq($xptr);
   $nzi->sever;
   return $nzi;
 }
@@ -941,7 +941,7 @@ sub dice_axis  :lvalue {
   ##-- ok, we're dicing on a real axis
   my ($ptr,$pi2nzi)    = $ccs->ptr($axis);
   my ($ptrix,$pi2nzix) = $ptr->ccs_decode_pointer($axisi);
-  my $nzix   = $pi2nzi->index($pi2nzix);
+  my $nzix   = defined($pi2nzi) ? $pi2nzi->index($pi2nzix) : $pi2nzix;
   my $which  = $ccs->[$WHICH]->dice_axis(1,$nzix);
   $which->sever;
   (my $tmp=$which->slice("($axis),")) .= $ptrix if (!$which->isempty); ##-- isempty() fix: v1.12
