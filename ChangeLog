@@ -1,3 +1,7 @@
+v1.23.3 Mon, 06 Jun 2016 14:45:29 +0200 moocow
+	+ fixed ccs_wfits() typecast-to-long hack for indx types
+	  - feature request including patch posted to https://sourceforge.net/p/pdl/bugs/421/
+
 v1.23.2 Mon, 06 Jun 2016 11:20:12 +0200 moocow
 	+ win32/NaN fixes for tests (RT bug #115078)
 

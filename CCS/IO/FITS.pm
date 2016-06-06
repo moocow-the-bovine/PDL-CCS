@@ -10,7 +10,7 @@ use PDL::CCS::IO::Common qw(:intern); ##-- for e.g. _ccsio_write_header, _ccsio_
 use Carp qw(confess);
 use strict;
 
-our $VERSION = '1.23.2';
+our $VERSION = '1.23.3';
 our @ISA = ('PDL::Exporter');
 our @EXPORT_OK =
   (
@@ -88,11 +88,12 @@ sub ccs_wfits {
     or confess("ccs_wfits(): failed to write header-file $hFile: $!");
 
   ##-- write pdls
-  my $ix = $ccs->_whichND;
-  $ix    = $ix->long if ($ix->type->ioname eq 'indx'); ##-- hack: treat 'indx' as 'long' until PDL::IO::FITS supports it (PDL v2.014)
-  PDL::wfits($ccs->_whichND, $ixFile)
+  ## + hack: treat 'indx' as 'long' until PDL::IO::FITS supports it (PDL v2.014 .. v2.016)
+  my $ix   = $ccs->_whichND->type->ioname eq 'indx' ? $ccs->_whichND->long : $ccs->_whichND;
+  my $vals = $ccs->_vals->type->ioname    eq 'indx' ? $ccs->_vals->long    : $ccs->_vals;
+  PDL::wfits($ix, $ixFile)
       or confess("ccs_wfits(): failed to write index-file $ixFile: $!");
-  PDL::wfits($ccs->_vals,  $nzFile)
+  PDL::wfits($vals,  $nzFile)
       or confess("ccs_wfits(): failed to write values-file $nzFile: $!");
 
   return 1;
