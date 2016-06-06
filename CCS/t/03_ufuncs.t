@@ -39,8 +39,9 @@ sub test_ufunc {
 
   ##-- sorting with bad values doesn't work right in PDL-2.015 ; ccs/vv sorts BAD as minimal, PDL sort BAD as maximal: wtf?
   if ($ufunc_name =~ /qsort/ && $missing_val->isbad) {
-    $missing_val = 'inf';
-    $a->inplace->setbadtoval('inf');
+    my $inf = $^O =~ /MSWin32/i ? (99**99)**99 : 'inf';
+    $missing_val = $inf;
+    $a->inplace->setbadtoval($inf);
   }
 
   my $ccs      = $a->toccs($missing_val);

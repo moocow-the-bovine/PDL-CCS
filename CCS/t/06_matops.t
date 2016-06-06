@@ -103,13 +103,14 @@ sub test_vcos_zdd {
   (my $tmp=$a0->slice("(1),")) .= 0;
   my $ccs0 = $a0->toccs;
   my $vcos0 = $ccs0->vcos_zdd($b);
-  my $vcos0_want = pdl([1,'nan',-1]);
+  my $nan = $^O =~ /MSWin32/i ? ((99**99)**99) - ((99**99)**99) : 'nan';
+  my $vcos0_want = pdl([1,$nan,-1]);
   pdlapprox("vcos_zdd:nullvec:a:nan", $vcos0, $vcos0_want, 1e-4);
 
   ##-- test: vcos_zdd: nullvec:b
   my $b0 = $b->zeroes;
   $vcos0 = $ccs->vcos_zdd($b0);
-  $vcos0_want = pdl([qw(nan nan nan)]);
+  $vcos0_want = pdl([$nan, $nan, $nan]);
   pdlok("vcos_zdd:nullvec:b:nan", $vcos0, $vcos0_want);
 
   ##-- test: vcos_zdd: bad:b
