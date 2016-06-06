@@ -1,0 +1,1 @@
+svntags=$(svnroot.sh . | perl -pe 's{\btrunk.*$}{tags};')
