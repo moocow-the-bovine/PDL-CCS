@@ -1,3 +1,6 @@
+v1.23.6 Tue, 05 Jun 2018 16:39:46 +0200 moocow
+	+ fixed "do 'Config.PL'" call in Makefile.PL
+
 v1.23.5 Tue, 05 Jun 2018 15:05:00 +0200 moocow
 	+ fixed typos reported by L. Baillet (RT bug #125493)
 
