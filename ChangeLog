@@ -1,3 +1,6 @@
+v1.23.5 Tue, 05 Jun 2018 15:05:00 +0200 moocow
+	+ fixed typos reported by L. Baillet (RT bug #125493)
+
 v1.23.4 Tue, 06 Jun 2017 10:17:44 +0200 moocow
 	+ fixed bogus bareword pdl() call in CCS/Nd.pm (RT bug #121952)
 	+ added 'use lib "."' to Makefile.PL (RT bug #121661)
