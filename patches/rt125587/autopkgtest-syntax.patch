@@ -1,0 +1,90 @@
+--- a/CCS/IO/MatrixMarket.pm
++++ b/CCS/IO/MatrixMarket.pm
+@@ -233,7 +233,7 @@
+   my $nnz  = pop(@dims);
+ 
+   ##-- update ccs header if required
+-  my $mmdims = pdl(ccs_indx,\@dims);
++  my $mmdims = pdl(ccs_indx(),\@dims);
+   if (defined($header->{pdims}) && ($header->{pdims}->nelem != $mmdims->nelem || !all($header->{pdims}==$mmdims))) {
+     $header->{pdims} = $mmdims;
+     $header->{vdims} = undef;
+--- a/CCS/IO/LDAC.pm
++++ b/CCS/IO/LDAC.pm
+@@ -194,13 +194,13 @@
+   ##-- get nnz (per doc)
+   seek($fh,0,SEEK_SET)
+     or confess("ccs_readldac(): seek() failed for input file '$file': $!");
+-  my $nnz0 = PDL->rcols($fh, [0], { TYPES=>[ccs_indx], IGNORE=>qr{^\s*[^0-9]} });
++  my $nnz0 = PDL->rcols($fh, [0], { TYPES=>[ccs_indx()], IGNORE=>qr{^\s*[^0-9]} });
+   my $nnz  = $nnz0->sum;
+   my $nlines = $nnz0->nelem;
+   undef($nnz0);
+ 
+   ##-- allocate output pdls
+-  my $ix   = zeroes(ccs_indx, 2,$nnz);
++  my $ix   = zeroes(ccs_indx(), 2,$nnz);
+   my $nz   = zeroes($type, $nnz+1);
+ 
+   ##-- process input
+--- a/CCS/IO/PETSc.pm
++++ b/CCS/IO/PETSc.pm
+@@ -202,7 +202,7 @@
+ 
+   ##-- read input data: row-lengths
+   #     int    *number nonzeros in each row
+-  my $plen = zeroes(ccs_indx, $m);
++  my $plen = zeroes(ccs_indx(), $m);
+   my ($i,$j,$blen,$tmp);
+   for ($i=0; $i < $m; $i=$j+1) {
+     $j = $i+$ioblock;
+@@ -210,11 +210,11 @@
+     $blen = $ilen * (1+$j-$i);
+     read($fh,$buf,$blen)==$blen
+       or confess("ccs_rpetsc(): failed to read $blen bytes of length data from '$file': $!");
+-    ($tmp=$plen->slice("$i:$j")) .= pdl(ccs_indx, [unpack("($pack_int)*", $buf)]);
++    ($tmp=$plen->slice("$i:$j")) .= pdl(ccs_indx(), [unpack("($pack_int)*", $buf)]);
+   }
+ 
+   ##-- setup index pdl
+-  my $ix = zeroes(ccs_indx,2,$nnz);
++  my $ix = zeroes(ccs_indx(),2,$nnz);
+   $plen->rld($plen->sequence, $ix->slice("(0),"));
+   undef $plen;
+ 
+@@ -226,7 +226,7 @@
+     $blen = $ilen * (1+$j-$i);
+     read($fh,$buf,$blen)==$blen
+       or confess("ccs_rpetsc(): failed to read $blen bytes of column-index data from '$file': $!");
+-    ($tmp=$ix->slice("(1),$i:$j")) .= pdl(ccs_indx, [unpack("($pack_int)*", $buf)]);
++    ($tmp=$ix->slice("(1),$i:$j")) .= pdl(ccs_indx(), [unpack("($pack_int)*", $buf)]);
+   }
+ 
+   ##-- read input data: nzvals
+--- a/CCS/IO/FastRaw.pm
++++ b/CCS/IO/FastRaw.pm
+@@ -206,9 +206,9 @@
+       or confess("ccs_mapfraw(): failed to read header-file $hFile: $!");
+     $header->{$_} //= $hdr->{$_} foreach (keys %$hdr);
+   }
+-  $header->{pdims} = PDL->topdl(ccs_indx,$header->{pdims}) if (!ref($header->{pdims}));
++  $header->{pdims} = PDL->topdl(ccs_indx(),$header->{pdims}) if (!ref($header->{pdims}));
+   $header->{vdims} = $header->{pdims}->sequence if (!defined($header->{vdims}));
+-  $header->{vdims} = PDL->topdl(ccs_indx,$header->{vdims}) if (!ref($header->{vdims}));
++  $header->{vdims} = PDL->topdl(ccs_indx(),$header->{vdims}) if (!ref($header->{vdims}));
+ 
+   ##-- get component options
+   my %defaults = (map {($_=>$opts->{$_})} grep {exists($opts->{$_})} qw(Creat Trunc ReadOnly));
+--- a/CCS/IO/Common.pm
++++ b/CCS/IO/Common.pm
+@@ -99,8 +99,8 @@
+   my ($magic,$pdims,$vdims,$flags,$iotype) = map {chomp;$_} @$hlines;
+   return {
+ 	  magic=>$magic,
+-	  (defined($pdims) && $pdims ne '' ? (pdims=>pdl(ccs_indx,[split(' ',$pdims)])) : qw()),
+-	  (defined($vdims) && $vdims ne '' ? (vdims=>pdl(ccs_indx,[split(' ',$vdims)])) : qw()),
++	  (defined($pdims) && $pdims ne '' ? (pdims=>pdl(ccs_indx(),[split(' ',$pdims)])) : qw()),
++	  (defined($vdims) && $vdims ne '' ? (vdims=>pdl(ccs_indx(),[split(' ',$vdims)])) : qw()),
+ 	  (defined($flags) && $flags ne '' ? (flags=>$flags) : qw()),
+ 	  (defined($iotype) && $iotype ne ''  ? (iotype=>$iotype) : qw()), ##-- added in v1.22.6
+ 	 };

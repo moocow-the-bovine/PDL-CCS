@@ -1,0 +1,16 @@
+Description: sort hash keys
+Origin: vendor
+Forwarded: no
+Author: gregor herrmann <gregoa@debian.org>
+Last-Update: 2018-06-10
+
+--- a/Config.PL
++++ b/Config.PL
+@@ -71,6 +71,7 @@
+ 
+ ##-- config hash
+ use Data::Dumper;
++$Data::Dumper::Sortkeys=1; # reproducible order of hash keys
+ print CONFIGPM Data::Dumper->Dump([\%cconfig],['*ccsConfig']), "\n";
+ 
+ ##-- type conversion sub
