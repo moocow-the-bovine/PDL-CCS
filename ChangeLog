@@ -1,3 +1,8 @@
+v1.23.11 Mon, 27 Aug 2018 14:35:47 +0200 moocow
+	+ workaround for RT bug #126294, reported by G. Herrmann
+	  - skip ufunc "borover:missing=BAD" test if PDL::borover() is broken
+	  - upstream patch submitted to PDL maintainers as https://sourceforge.net/p/pdl/bugs/446/
+
 v1.23.10 Fri, 24 Aug 2018 10:14:40 +0200 moocow
 	+ fixed typo in failed test label-reporting labstr() in t/common.plt, added 'use strict'
 	+ may help to diagnose RT bug #126294 (CCS/Ufunc/t/01_ufunc.t test 'borover:missing=BAD' fails on armv6l-linux ~ rpi)
