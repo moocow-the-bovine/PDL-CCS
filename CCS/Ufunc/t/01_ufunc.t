@@ -61,7 +61,8 @@ sub test_ufunc {
 
   ##-- exceptions
  SKIP: {
-    ##-- RT bug #126294: maybe test ($Config{stdchar}=~/unsigned/) or ($Config{stdchar} eq 'unsigned char') instead
+    ##-- RT bug #126294 (see also analogous tests in CCS/t/03_ufuncs.t)
+    ## - maybe test ($Config{stdchar}=~/unsigned/) or ($Config{stdchar} eq 'unsigned char') instead
     skip("RT #126294 - PDL::borover() appears to be broken", 1)
       if ($label eq 'borover:missing=BAD' && pdl([10,0,-2])->setvaltobad(0)->borover->sclr != -2);
 
