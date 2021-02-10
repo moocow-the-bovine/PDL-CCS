@@ -1,1 +1,1 @@
-svntags=$(svnroot.sh . | perl -pe 's{\btrunk.*$}{tags};')
+svntags=$(svnroot.sh . | perl -pe 's{\btrunk.*$}{tags/PDL-CCS};')
