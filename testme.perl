@@ -546,9 +546,17 @@ sub ccsobj_data {
   our $a  = $al;
 }
 
+# isok($label,@_) -- prints helpful label
+use Test::More;
 sub isok {
-  my ($label,$bool) = @_;
-  print "test($label): ", ($bool ? "ok" : "NOT ok"), "\n";
+  my $label = shift;
+  if (@_==1) {
+    ok($_[0],$label);
+  } elsif (@_==2) {
+    is($_[0],$_[1], $label);
+  } else {
+    die("isok(): expected 1 or 2 non-label arguments, but got ", scalar(@_));
+  }
 }
 
 sub test_ccsobj {
@@ -754,7 +762,133 @@ sub test_ccs_vcos {
     or die("vcos test failed : got=$vcos3 != want=$vcos3_want");
   print "vcos:threaded ok\n";
 }
-test_ccs_vcos();
+#test_ccs_vcos();
+
+##---------------------------------------------------------------------
+## test_ufunc_2_039
+## + see http://www.cpantesters.org/cpan/report/9ea0e2bc-a3e5-11eb-8917-5f9a624ac675
+sub test_ufunc_2_039 {
+  print STDERR "$0: using PDL v$PDL::VERSION\n";
+  
+  ##-- common data (CCS/t/common.plt)
+  our $a = pdl(double, [
+			[10,0,0,0,-2],
+			[3,9,0,0,0],
+			[0,7,8,6,0],
+			[3,0,8,7,5],
+			[0,8,0,9,7],
+			[0,4,0,0,2],
+		       ]);
+  our $abad   = ($a==0);
+  our $agood  = !$abad;
+  our $awhich = $a->whichND;
+  our $avals  = $a->indexND($awhich);
+  our $BAD = pdl(0)->setvaltobad(0);
+
+  ##-- CCS/t/03_ufuncs.t
+  my ($ufunc_name, $missing_val) =
+    ('bandover',0)
+    #('bandover','BAD')
+    ;
+  print "test_ufunc($ufunc_name, $missing_val)\n";
+
+  my $pdl_ufunc = PDL->can("${ufunc_name}")
+    or die("no PDL Ufunc ${ufunc_name} defined!");
+  my $ccs_ufunc = PDL::CCS::Nd->can("${ufunc_name}")
+    or die("no CCS Ufunc PDL::CCS::Nd::${ufunc_name} defined!");
+
+  $missing_val = 0 if (!defined($missing_val));
+  $missing_val = PDL->topdl($missing_val);
+  if ($missing_val->isbad) { $a = $a->setbadif($abad); }
+  else                     { $a->where($abad) .= $missing_val; $a->badflag(0); }
+
+  ##-- sorting with bad values doesn't work right in PDL-2.015 ; ccs/vv sorts BAD as minimal, PDL sort BAD as maximal: wtf?
+  if ($ufunc_name =~ /qsort/ && $missing_val->isbad) {
+    my $inf = $^O =~ /MSWin32/i ? (99**99)**99 : 'inf';
+    $missing_val = $inf;
+    $a->inplace->setbadtoval($inf);
+  }
+
+  my $ccs      = $a->toccs($missing_val);
+  $ccs->_whichND($ccs->_whichND->ccs_indx()) if ($ccs->_whichND->type != PDL::ccs_indx());
+  my $dense_rc = $pdl_ufunc->($a);
+  my $ccs_rc   = $ccs_ufunc->($ccs);
+
+  if ($ufunc_name =~ /_ind$/) {
+    ##-- hack: adjust $dense_rc for maximum_ind, minimum_ind
+    $dense_rc->where( $a->index2d($dense_rc,sequence($a->dim(1))) == $missing_val ) .= -1;
+  } elsif ($ufunc_name =~ /qsorti$/) {
+    ##-- hack: adjust $dense_rc for qsorti()
+    my $ccs_mask = $dense_rc->zeroes;
+    $ccs_mask->indexND( scalar($ccs_rc->whichND) ) .= 1;
+    $dense_rc->where( $ccs_mask->not ) .= $ccs_rc->missing;
+  }
+  my $label = "${ufunc_name}:missing=$missing_val";
+
+  ##-- check output type
+  my $HAVE_PDL_2_014 = version->parse($PDL::VERSION) >= version->parse("2.014");
+  my $HAVE_PDL_2_039 = version->parse($PDL::VERSION) >= version->parse("2.039");
+  SKIP: {
+      skip("${label}:type - only for PDL >= v2.014",1) if (!$HAVE_PDL_2_014);
+      skip("${label}:type - bandover, borover for PDL >= v2.039 ",1) if ($HAVE_PDL_2_039);
+      isok("${label}:type", $ccs_rc->type, $dense_rc->type);
+  }
+
+  ##-- check output values
+  SKIP: {
+    ##-- RT bug #126294 (ses also analogous tests in CCS/Ufunc/t/01_ufunc.t)
+    skip("RT #126294 - PDL::borover() appears to be broken", 1)
+      if ($label eq 'borover:missing=BAD' && pdl([10,0,-2])->setvaltobad(0)->borover->sclr != -2);
+
+    pdlok("${label}:vals", $ccs_rc->decode, $dense_rc);
+  }
+}
+test_ufunc_2_039();
+
+# pdlok($label, $got, $want)
+sub pdlok {
+  my ($label,$got,$want) = @_;
+  $got  = PDL->topdl($got) if (defined($got));
+  $want = PDL->topdl($want) if (defined($want));
+  my $ok = (defined($got) && defined($want)
+	    && cmp_dims($got,$want)
+	    && all(matchpdl($want,$got))
+	   );
+  isok(labstr($label,$ok,$got,$want), $ok);
+}
+
+# cmp_dims($got_pdl,$expect_pdl)
+sub cmp_dims {
+  my ($p1,$p2) = @_;
+  return $p1->ndims==$p2->ndims && all(pdl(PDL::long(),[$p1->dims])==pdl(PDL::long(),[$p2->dims]));
+}
+
+# matchpdl($a,$b) : returns pdl identity check, including BAD
+sub matchpdl {
+  my ($a,$b) = map {PDL->topdl($_)->setnantobad} @_[0,1];
+  return ($a==$b)->setbadtoval(0) | ($a->isbad & $b->isbad) | ($a->isfinite->not & $b->isfinite->not);
+}
+# matchpdl($a,$b,$eps) : returns pdl approximation check, including BAD
+sub matchpdla {
+  my ($a,$b) = map {$_->setnantobad} @_[0,1];
+  my $eps = $_[2];
+  $eps    = 1e-5 if (!defined($eps));
+  return $a->approx($b,$eps)->setbadtoval(0) | ($a->isbad & $b->isbad) | ($a->isfinite->not & $b->isfinite->not);
+}
+
+sub pdlstr {
+  my $a = shift;
+  return '(undef)' if (!defined($a));
+  my $typ = UNIVERSAL::can($a,'type') ? $a->type : 'NOTYPE';
+  my $str = "($typ) $a";
+  #$str =~ s/\n/ /g;
+  return $str;
+}
+sub labstr {
+  my ($label,$ok,$got,$want) = @_;
+  $label .= "\n  :     got=".pdlstr($got)."\n  :  wanted=".pdlstr($want) if (!$ok);
+  return $label;
+}
 
 ##---------------------------------------------------------------------
 ## DUMMY
