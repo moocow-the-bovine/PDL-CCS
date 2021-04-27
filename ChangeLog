@@ -1,3 +1,7 @@
+UNRELEASED Tue, 27 Apr 2021 10:08:10 +0200 moocow
+	+ added Makefile.PL META_MERGE section pointing to new public github repo moocow-the-bovine/PDL-CCS
+	  - github repo is just a fork of read-only ZDL git mirror of upstream SVN repository
+
 v1.23.14 Mon, 26 Apr 2021 14:58:50 +0200 moocow
 	+ skip some b(and|or)over type-check tests to avoid test failures for PDL >= v2.039
 	  - CCS implementations are returning 'indx' type here, dense PDL versions are giving 'longlong' for input type=double
