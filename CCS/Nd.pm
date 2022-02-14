@@ -414,6 +414,7 @@ sub todense  :lvalue { isa($_[0],__PACKAGE__) ? (my $tmp=$_[0]->decode(@_[1..$#_
 
 ## $type = $obj->type()
 sub type { $_[0][$VALS]->type; }
+sub info { $_[0][$VALS]->info; }
 
 ## $obj2 = $obj->convert($type)
 ##  + unlike PDL function, respects 'inplace' flag
