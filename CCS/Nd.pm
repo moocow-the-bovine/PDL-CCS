@@ -569,7 +569,7 @@ BEGIN { *_whichVals = \&_nzvals; }
 sub _nzvals :lvalue {
   my ($tmp);
   $_[0][$VALS]=$_[1]->append($_[0][$VALS]->slice("-1")) if (@_ > 1);
-  return $tmp=$_[0][$VALS]->index(PDL->null) if ($_[0][$VALS]->dim(0)<=1);
+  return $tmp=$_[0][$VALS]->index(PDL->zeroes(ccs_indx(), 0)) if ($_[0][$VALS]->dim(0)<=1);
   return $tmp=$_[0][$VALS]->slice("0:-2");
 }
 
