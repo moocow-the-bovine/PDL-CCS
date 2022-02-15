@@ -1193,7 +1193,7 @@ sub _ufunc_ind_sub {
 			     pdims =>$newdims,
 			     vdims =>$newdims->sequence,
 			     which =>$which2,
-			     vals  =>$nzi2->append(-1),
+			     vals  =>$nzi2->append(ccs_indx(-1)),
 			    );
   };
 }
@@ -1239,7 +1239,7 @@ sub qsorti :lvalue {
 			      pdims =>$newdims,
 			      vdims =>$newdims->sequence,
 			      which =>$nzenum->slice("*1,")->glue(0,$which0->slice("1:-1,")->dice_axis(1,$nzix)),
-			      vals  =>$which0->slice("(0),")->index($nzix)->append(-1),
+			      vals  =>$which0->slice("(0),")->index($nzix)->append(ccs_indx(-1)),
 			     );
 }
 
