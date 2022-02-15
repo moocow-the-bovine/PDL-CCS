@@ -3197,7 +3197,7 @@ Get/set the underlying $WHICH piddle.
 
 =item _nzvals($storedvals)
 
-Get/set the slice of the underlying $VALS piddle correpsonding for non-missing values only.
+Get/set the slice of the underlying $VALS piddle corresponding for non-missing values only.
 Alias: whichVals().
 
 
