@@ -1,6 +1,8 @@
 # -*- Mode: CPerl -*-
 # t/03_ops.t: test ccs native operations
 use Test::More;
+use strict;
+use warnings;
 
 ##-- common subs
 my $TEST_DIR;

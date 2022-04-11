@@ -1,6 +1,8 @@
 # -*- Mode: CPerl -*-
 # t/02_encode.t: test ccs encoding
 use Test::More;
+use strict;
+use warnings;
 
 ##-- common subs
 my $TEST_DIR;

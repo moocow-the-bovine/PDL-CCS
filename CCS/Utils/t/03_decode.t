@@ -1,6 +1,8 @@
 # -*- Mode: CPerl -*-
 # t/03_encode.t: test ccs pointer-decoding
 use Test::More;
+use strict;
+use warnings;
 
 ##-- common subs
 my $TEST_DIR;

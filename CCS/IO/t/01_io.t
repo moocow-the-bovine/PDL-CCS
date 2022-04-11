@@ -1,5 +1,7 @@
 ##-*- Mode: CPerl -*-
 use Test::More;
+use strict;
+use warnings;
 
 ##-- common subs
 my $TEST_DIR;

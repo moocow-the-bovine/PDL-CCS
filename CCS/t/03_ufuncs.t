@@ -1,6 +1,8 @@
 # -*- Mode: CPerl -*-
 # t/03_ufuncs.t
 use Test::More;
+use strict;
+use warnings;
 
 ##-- common subs
 my $TEST_DIR;
@@ -11,6 +13,7 @@ BEGIN {
   eval qq{use lib ("$TEST_DIR/$_/blib/lib","$TEST_DIR/$_/blib/arch");} foreach (qw(../.. ..));
   do "$TEST_DIR/common.plt" or  die("$0: failed to load $TEST_DIR/common.plt: $@");
 }
+our ($a, $abad, $agood, $awhich, $avals, $BAD);
 
 ##-- common modules
 use PDL;
@@ -78,9 +81,8 @@ sub test_ufunc {
 
 ##--------------------------------------------------------------
 ## all tests
-our ($BAD);
-foreach $missing (0,1,255,$BAD) { ##-- *4
-  foreach $ufunc (
+for my $missing (0,1,255,$BAD) { ##-- *4
+  for my $ufunc (
 		  qw(sumover prodover dsumover dprodover),  ## *17
 		  qw(andover orover bandover borover),
 		  qw(maximum minimum),
