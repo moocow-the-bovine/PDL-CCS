@@ -1,6 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/01_nnz.t: test n nonzeros
-use Test::More tests => 5;
+use Test::More;
 
 ##-- common subs
 my $TEST_DIR;
@@ -24,5 +24,4 @@ isok("nnza(flat,1e-8)", $p->flat->nnza(1e-8), 7);
 isok("nnza(flat,1e-5)", $p->flat->nnza(1e-5), 6);
 isok("nnza(flat:long,1)",  $p->flat->long->nnza(1), 1);
 
-print "\n";
-# end of t/?.t
+done_testing;

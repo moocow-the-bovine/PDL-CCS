@@ -1,6 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/01_ufunc.t
-use Test::More tests => 52;
+use Test::More;
 
 ##-- common subs
 my $TEST_DIR;
@@ -90,5 +90,5 @@ foreach $missing (0,1,31,$BAD) { ## *4
 }
 
 print "\n";
-# end of t/*.t
 
+done_testing;

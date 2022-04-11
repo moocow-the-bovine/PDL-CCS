@@ -1,6 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/04_unops.t
-use Test::More tests => 144;
+use Test::More;
 
 ##-- common subs
 my $TEST_DIR;
@@ -65,6 +65,4 @@ foreach $missing (0,1,255,$BAD) { ##-- *4
     }
 }
 
-print "\n";
-# end of t/*.t
-
+done_testing;

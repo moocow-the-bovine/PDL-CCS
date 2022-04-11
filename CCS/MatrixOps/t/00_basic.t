@@ -1,3 +1,4 @@
 ##-*- Mode: CPerl -*-
-use Test::More tests => 1;
+use Test::More;
 use_ok 'PDL::CCS::MatrixOps';
+done_testing;

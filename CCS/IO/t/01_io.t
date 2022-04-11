@@ -1,5 +1,5 @@
 ##-*- Mode: CPerl -*-
-use Test::More tests=>(6+(14*6));
+use Test::More;
 
 ##-- common subs
 my $TEST_DIR;
@@ -16,7 +16,6 @@ use PDL;
 use PDL::CCS;
 
 BEGIN {
-  ##-- use: 6
   use_ok('PDL::CCS::IO::Common');
   use_ok('PDL::CCS::IO::FastRaw');
   use_ok('PDL::CCS::IO::FITS');
@@ -99,3 +98,5 @@ do {
   iotest($ccs, 'ccs.petsc',  qw(rpetsc wpetsc));		##-- petsc: bin
   iotest($ccs, 'ccs.petscb', qw(rpetsc wpetsc), {ioblock=>2});	##-- petsc: bin, with block i/o
 };
+
+done_testing;

@@ -1,6 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/01_encode.t
-use Test::More tests => 83;
+use Test::More;
 
 ##-- common subs
 my $TEST_DIR;
@@ -85,6 +85,4 @@ test_basic("newFromWhich:missing=BAD:implicit", $a, PDL::CCS::Nd->newFromWhich($
 isok("PDL::todense():no-copy", overload::StrVal($a)   eq overload::StrVal($a->todense));
 isok("CCS::toccs():no-copy",   overload::StrVal($ccs) eq overload::StrVal($ccs->toccs));
 
-print "\n";
-# end of t/*.t
-
+done_testing;

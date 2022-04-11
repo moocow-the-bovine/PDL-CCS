@@ -1,17 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/05_binops.t
 use Test::More;
-BEGIN {
-  my $N_BINOPS = 18;
-  my $N_TESTS_PER_BINOP  = 8;
-  my $N_RUNS_PER_BLOCK = 6;
-  my $N_BLOCKS = 5;
-  plan(tests=>(
-	       $N_BLOCKS*$N_RUNS_PER_BLOCK*$N_TESTS_PER_BINOP*$N_BINOPS
-	      ),
-       todo=>[]);
-  select(STDERR); $|=1; select(STDOUT); $|=1;
-}
 
 ##-- common subs
 my $TEST_DIR;
@@ -193,7 +182,4 @@ foreach $missing (0,127,$BAD) {   ##-- *3
 
 ($a,$abad) = @save;
 
-
-print "\n";
-# end of t/*.t
-
+done_testing;

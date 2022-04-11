@@ -1,6 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/02_encode.t: test ccs encoding
-use Test::More tests => 6;
+use Test::More;
 
 ##-- common subs
 my $TEST_DIR;
@@ -49,7 +49,4 @@ pdlok("ccs_encode_pointers:ptr1",    $aptr1, pdl(long,[0,2,4,7,11,14,16]));
 my $awi1x = $awhich->slice("(1),")->index($awi1);
 pdlok("ccs_encode_pointers:awi1",    $awi1x, $awi1x->qsort);
 
-
-print "\n";
-# end of t/02_encode.t
-
+done_testing;

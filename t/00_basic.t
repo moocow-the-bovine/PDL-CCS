@@ -1,5 +1,7 @@
 ##-*- Mode: CPerl -*-
-use Test::More tests => 2;
+use Test::More;
 
 use_ok 'PDL';
 use_ok 'PDL::CCS';
+
+done_testing;

@@ -1,21 +1,6 @@
 # -*- Mode: CPerl -*-
 # t/06_matops.t
 use Test::More;
-BEGIN {
-  my $N_MATOPS = 2;
-  my $N_TESTS_PER_MATOP = 8;
-  my $N_MISSING  = 1;
-  my $N_SWAP    = 2;
-  my $N_BLOCKS = 5;
-  my $N_HACKS = (3+8);
-  plan(tests=>(
-	       $N_BLOCKS*$N_MISSING*$N_SWAP*$N_TESTS_PER_MATOP*$N_MATOPS
-	       +
-	       $N_HACKS,
-	      ),
-       todo=>[]);
-  select(STDERR); $|=1; select(STDOUT); $|=1;
-}
 
 ##-- common subs
 my $TEST_DIR;
@@ -301,6 +286,4 @@ foreach $missing (@missing) {     ##-- *NMISSING
 
 ($a,$abad) = @save;
 
-print "\n";
-# end of t/*.t
-
+done_testing;
