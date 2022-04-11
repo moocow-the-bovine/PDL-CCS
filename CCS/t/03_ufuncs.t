@@ -16,9 +16,6 @@ BEGIN {
 use PDL;
 use PDL::CCS::Nd;
 
-use version;
-my $HAVE_PDL_2_014 = version->parse($PDL::VERSION) >= version->parse("2.014");
-
 ##--------------------------------------------------------------
 ## ufunc test
 
@@ -62,7 +59,6 @@ sub test_ufunc {
 
   ##-- check output type
  SKIP: {
-    skip("${label}:type - only for PDL >= v2.014",1) if (!$HAVE_PDL_2_014);
     isok("${label}:type", $ccs_rc->type, $dense_rc->type)
       or diag "ccs_rc(", $ccs_rc->info, ")=$ccs_rc\n",
       "dense_rc(", $dense_rc->info, ")=$dense_rc\n";
