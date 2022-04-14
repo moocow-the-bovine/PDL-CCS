@@ -826,10 +826,8 @@ sub test_ufunc_2_039 {
   my $label = "${ufunc_name}:missing=$missing_val";
 
   ##-- check output type
-  my $HAVE_PDL_2_014 = version->parse($PDL::VERSION) >= version->parse("2.014");
   my $HAVE_PDL_2_039 = version->parse($PDL::VERSION) >= version->parse("2.039");
   SKIP: {
-      skip("${label}:type - only for PDL >= v2.014",1) if (!$HAVE_PDL_2_014);
       skip("${label}:type - bandover, borover for PDL >= v2.039 ",1) if ($HAVE_PDL_2_039);
       isok("${label}:type", $ccs_rc->type, $dense_rc->type);
   }
