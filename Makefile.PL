@@ -2,7 +2,7 @@ use ExtUtils::MakeMaker;
 require "./pdlmaker.plm";
 pdlmaker_init();
 
-##-- prerequistes (for PREREQ_PM)
+##-- prerequisites (for PREREQ_PM)
 my %prereq = (
 	      'PDL' => '2.019',
 	      'PDL::VectorValued' => '1.0.4',
