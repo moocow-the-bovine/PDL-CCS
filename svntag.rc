@@ -1,1 +1,2 @@
-svntags=$(svnroot.sh . | perl -pe 's{\btrunk.*$}{tags/PDL-CCS};')
+#svntags=$(svnroot.sh . | perl -pe 's{\btrunk.*$}{tags/PDL-CCS};')
+scm=git
