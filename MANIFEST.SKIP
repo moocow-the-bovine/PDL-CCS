@@ -7,9 +7,7 @@
 \.gz$
 \.\#
 \#
-\bAttic\b
 CCS/.*\.bin$
-CCS/Old
 #CCS/Config.pm
 CCS/Ops/Ops\.(c|pm|xs)$
 CCS/Ufunc/Ufunc\.(c|pm|xs)$
@@ -18,7 +16,6 @@ CCS/MatrixOps/MatrixOps\.(c|pm|xs)$
 pp-[^/]*\.c$
 CCS/IO/t/(?:ccs|dense)3?\.
 \bppgen.perl$
-\.save(?:\d*)$
 \.gz$
 \.bs$
 \.o$
@@ -27,7 +24,6 @@ CCS/IO/t/(?:ccs|dense)3?\.
 \bblib\b
 ^pdl-core$
 ^xs-cookbook$
-\bgraveyard\b
 \bMakefile$
 \btestme\.perl$
 \bREADME\.(?:r?)pod$
