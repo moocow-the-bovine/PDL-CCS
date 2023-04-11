@@ -1070,6 +1070,8 @@ sub _ufuncsub {
       $which1   = $which1->dice_axis(1,$sorti);
       $vals1    = $vals->index($sorti);
     }
+    confess "\$vals1 is empty: \$which=".$which->info.", \$vals1=".$vals1->info.", \$vals=".$vals->info
+      if $vals1->isempty;
     ##
     ##-- guts
     my ($which2,$nzvals2) = $accumsub->($which1,$vals1,
