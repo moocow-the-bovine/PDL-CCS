@@ -22,8 +22,6 @@ CCS/IO/t/(?:ccs|dense)3?\.
 \.bs$
 \.o$
 \.old$
-\.cvsignore$
-\bCVS\b
 \bpm_to_blib$
 \bblib\b
 ^pdl-core$
