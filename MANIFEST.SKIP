@@ -1,4 +1,5 @@
 ~$
+\.sw.$
 ^PDL$
 ^PDL-CCS-
 \bMYMETA\.
@@ -14,6 +15,7 @@ CCS/Ops/Ops\.(c|pm|xs)$
 CCS/Ufunc/Ufunc\.(c|pm|xs)$
 CCS/Utils/Utils\.(c|pm|xs)$
 CCS/MatrixOps/MatrixOps\.(c|pm|xs)$
+pp-[^/]*\.c$
 CCS/IO/t/(?:ccs|dense)3?\.
 \bppgen.perl$
 \.save(?:\d*)$
@@ -33,4 +35,5 @@ CCS/IO/t/(?:ccs|dense)3?\.
 \btmp\b
 ^#Makefile#$
 ^reversion.sh$
-^\.github/
+^\.git
+^svntag\.rc$
