@@ -203,11 +203,6 @@ sub test_matop {
 	 $csb->type, $c->type);
     pdlok("$lab:${op_name}:op=$op_op:b=dense:missing=$missing_val:swap=$swap:vals",
 	  $csb->decode, $c);
-  } else {
-    isok("$lab:${op_name}:op=NONE:b=sparse:missing=$missing_val:swap=$swap:type (dummy)", 1);
-    isok("$lab:${op_name}:op=NONE:b=sparse:missing=$missing_val:swap=$swap:vals (dummy)", 1);
-    isok("$lab:${op_name}:op=NONE:b=dense:missing=$missing_val:swap=$swap:type  (dummy)", 1);
-    isok("$lab:${op_name}:op=NONE:b=dense:missing=$missing_val:swap=$swap:vals  (dummy)", 1);
   }
 }
 
