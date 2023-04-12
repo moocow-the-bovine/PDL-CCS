@@ -227,11 +227,8 @@ and uses \&PDLCODE to perform underlying computation.
 sub ccs_binop_vector_mia {
   my ($opName,$pdlCode) = @_;
   return sub :lvalue {
-    my ($wi,$nzvals_in, $vec,$nzvals_out) = @_;
-    $nzvals_out = zeroes(($nzvals_in->type > $vec->type ? $nzvals_in->type : $vec->type), $nzvals_in->nelem)
-      if (!defined($nzvals_out));
-    $pdlCode->($nzvals_in, $vec->index($wi), $nzvals_out, 0);
-    return $nzvals_out;
+    my ($wi, $nzvals_in, $vec) = @_;
+    my $tmp = $pdlCode->($nzvals_in, $vec->index($wi), 0); # $tmp for perl -d
   };
 }
 
