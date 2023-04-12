@@ -218,63 +218,26 @@ my @matops = (
 	     );
 #my @missing = (0,127,'BAD');
 my @missing = (0);
+my $b;
+my @tuples = (
+  [ 'mat.mat', $a,$abad,$a->flat->rotate(1)->pdl->reshape($a->dims) ], ##-- Block 1 : mat * mat (rotated)
+  [ 'mat.sclr', $a,$abad,PDL->topdl(42) ], ##-- Block 2 : mat * scalar
+  [ 'mat.rv', $a,$abad,sequence($a->dim(0),1)+1, undef, 1 ], ##-- Block 3 : mat * row
+  [ 'mat.cv', $a,$abad,$b=sequence(1,$a->dim(1))+1, $b->flat->toccs->dummy(0,1) ], ##-- Block 4 : mat * col
+  [ 'rv.cv', $a=sequence($a->dim(0),1), ($a==0), $b=sequence(1,$a->dim(1))+1, $b->flat->toccs->dummy(0,1) ], ##-- Block 5 : col * row
+);
 
-##-- Block 1 : mat * mat (rotated)
-my ($b);
-$b = $a->flat->rotate(1)->pdl->reshape($a->dims); ##-- extra pdl() before reshape() avoids realloc() crashes in PDL-2.0.14
-for my $missing (@missing) {  	  ##-- *NMISSING
-  for my $swap (0,1) {           ##-- *NSWAP=2
-    for my $op (@matops) {       ##-- *1
-      if (ref($op)) { test_matop('mat.mat', @$op,        $swap, $missing, $a,$abad,$b); }
-      else          { test_matop('mat.mat', $op, undef,  $swap, $missing, $a,$abad,$b); }
-    }
-  }
-}
-
-##-- Block 2 : mat * scalar
-$b = PDL->topdl(42);
-for my $missing (@missing) {  	  ##-- *NMISSING
-  for my $swap (0,1) {           ##-- *NSWAP=2
-    for my $op (@matops) {       ##-- *NMATOPS
-      if (ref($op)) { test_matop('mat.sclr', $op->[0], $op->[1], $swap, $missing, $a,$abad,$b); }
-      else          { test_matop('mat.sclr', $op,      undef,    $swap, $missing, $a,$abad,$b); }
-    }
-  }
-}
-
-##-- Block 3 : mat * row
-$b  = sequence($a->dim(0),1)+1;
-for my $missing (@missing) {  	  ##-- *NMISSING
-  for my $swap (0,1) {           ##-- *NSWAP=2
-    for my $op (@matops) {         ##-- *NMATOPS
-      if (ref($op)) { test_matop('mat.rv', $op->[0], $op->[1], 1,     $missing, $a,$abad,$b); } ##-- hack
-      else          { test_matop('mat.rv', $op,      undef,    $swap, $missing, $a,$abad,$b); }
-    }
-  }
-}
-
-##-- Block 4 : mat * col
-$b  = sequence(1,$a->dim(1))+1;
-my $bs = $b->flat->toccs->dummy(0,1);
-for my $missing (@missing) {     ##-- *NMISSING
-  for my $swap (0,1) {           ##-- *NSWAP=2
-    for my $op (@matops) {       ##-- *NMATOPS
-      if (ref($op)) { test_matop('mat.cv', $op->[0], $op->[1], $swap, $missing, $a,$abad,$b,$bs); }
-      else          { test_matop('mat.cv', $op,      undef,    $swap, $missing, $a,$abad,$b,$bs); }
-    }
-  }
-}
-
-##-- Block 5 : col * row
-$b  = sequence(1,$a->dim(1))+1;
-$bs = $b->flat->toccs->dummy(0,1);
-$a  = sequence($a->dim(0),1);
-$abad = ($a==0);
-for my $missing (@missing) {     ##-- *NMISSING
-  for my $swap (0,1) {           ##-- *NSWAP=2
-    for my $op (@matops) {       ##-- *NMATOPS
-      if (ref($op)) { test_matop('rv.cv', $op->[0], $op->[1], $swap, $missing, $a,$abad,$b,$bs); }
-      else          { test_matop('rv.cv', $op,      undef,    $swap, $missing, $a,$abad,$b,$bs); }
+for my $tuple (@tuples) {
+  my ($lab, $a, $abad, $b, $bs, $swap_override) = @$tuple;
+  for my $missing (@missing) {  	  ##-- *NMISSING
+    for my $swap (0,1) {           ##-- *NSWAP=2
+      for my $op (@matops) {       ##-- *1
+        test_matop(
+          $lab, @{ref $op ? $op : [$op, undef]},
+          (ref $op && $swap_override) ? 1 : $swap,
+          $missing, $a, $abad, $b, $bs
+        );
+      }
     }
   }
 }
