@@ -322,16 +322,14 @@ sub recode  :lvalue {
   my $z  = $ccs->[$VALS]->slice("-1");
 
   ##-- get mask of "real" non-zero values
-  my $nzmask = PDL->zeroes($P_BYTE,$nz->nelem);
-  my ($nzmask1);
+  my ($nzmask, $nzmask1);
   if ($z->isbad) {
-    $nz->isgood($nzmask);
+    $nzmask = $nz->isgood;
   }
   else {
-    $nz->ne($z, $nzmask, 0);
+    $nzmask = $nz != $z;
     if ($ccs->[$FLAGS] & $CCSND_BAD_IS_MISSING) {
-      $nzmask1 = $nzmask->pdl;
-      $nz->isgood($nzmask1);
+      $nzmask1 = $nz->isgood;
       $nzmask &= $nzmask1;
     }
   }
