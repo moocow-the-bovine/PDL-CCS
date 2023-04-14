@@ -9,6 +9,7 @@ PDL-CCS-*
 *.html
 *.old
 *.gz
+save
 tmp
 README.txt
 pm_to_blib
