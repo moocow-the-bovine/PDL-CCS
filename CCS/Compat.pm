@@ -832,7 +832,8 @@ sub ccs_binop_compat_cv {
   return sub { $ccsop->(@_[1,2,3,4]) };
 }
 foreach my $op (@ccs_binops) {
-  eval "*ccs${op}_cv = *PDL::ccs${op}_cv = ccs_binop_compat_cv(\\&PDL::ccs_${op}_vector_mia);";
+  no strict 'refs';
+  *{"ccs${op}_cv"} = *{"PDL::ccs${op}_cv"} = ccs_binop_compat_cv(\&{"PDL::ccs_${op}_vector_mia"});
 }
 *ccsadd_cv = *PDL::ccsadd_cv = \&ccsplus_cv;
 *ccsdiff_cv = *PDL::ccsdiff_cv = \&ccsminus_cv;
@@ -869,7 +870,8 @@ sub ccs_binop_compat_rv {
   };
 }
 foreach my $op (@ccs_binops) {
-  eval "*ccs${op}_rv = *PDL::ccs${op}_rv = ccs_binop_compat_rv(\\&PDL::ccs_${op}_vector_mia);";
+  no strict 'refs';
+  *{"ccs${op}_rv"} = *{"PDL::ccs${op}_rv"} = ccs_binop_compat_rv(\&{"PDL::ccs_${op}_vector_mia"});
 }
 *ccsadd_rv = *PDL::ccsadd_rv = \&ccsplus_rv;
 *ccsdiff_rv = *PDL::ccsdiff_rv = \&ccsminus_rv;
