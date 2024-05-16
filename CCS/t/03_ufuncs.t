@@ -24,6 +24,7 @@ use PDL::CCS::Nd;
 
 ##-- i..(i+2): test_ufunc($ufunc_name, $missing_val)
 sub test_ufunc {
+  local $Test::Builder::Level = $Test::Builder::Level + 1;
   my ($ufunc_name, $missing_val) = @_;
   print "test_ufunc($ufunc_name, $missing_val)\n";
 
