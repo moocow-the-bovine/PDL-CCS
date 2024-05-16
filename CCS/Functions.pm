@@ -21,7 +21,7 @@ our @EXPORT_OK =
   (
    ##
    ##-- Decoding
-   qw(ccs_decode ccs_pointerlen),
+   qw(ccs_decode),
    ##
    ##-- Vector Operations (compat)
    qw(ccs_binop_vector_mia),
@@ -62,38 +62,6 @@ PDL::CCS::Functions - Useful perl-level functions for PDL::CCS
 =head1 Decoding
 
 =cut
-
-##---------------------------------------------------------------
-## Decoding: utils
-=pod
-
-=head2 ccs_pointerlen
-
-=for sig
-
-  Signature: (indx ptr(N+1); indx [o]len(N))
-
-Get number of non-missing values for each axis value from a CCS-encoded
-offset pointer vector $ptr().
-
-=cut
-
-;#-- emacs
-
-*ccs_pointerlen = \&PDL::ccs_pointerlen; 
-
-##-- now a PDL::PP function in PDL::CCS::Utils
-*PDL::ccs_pointerlen_perl = \&ccs_pointerlen_perl;
-sub ccs_pointerlen_perl :lvalue {
-  my ($ptr,$len) = @_;
-  if (!defined($len)) {
-    $len = $ptr->slice("1:-1") - $ptr->slice("0:-2");
-  } else {
-    $len .= $ptr->slice("1:-1");
-    $len -= $ptr->slice("0:-2");
-  }
-  return $len;
-}
 
 ##---------------------------------------------------------------
 ## Decoding: generic

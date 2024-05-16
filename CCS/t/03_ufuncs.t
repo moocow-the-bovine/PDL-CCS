@@ -70,7 +70,7 @@ sub test_ufunc {
 
   ##-- check output values
  SKIP: {
-    ##-- RT bug #126294 (ses also analogous tests in CCS/Ufunc/t/01_ufunc.t)
+    ##-- RT bug #126294 (see also analogous tests in CCS/Ufunc/t/01_ufunc.t)
     skip("RT #126294 - PDL::borover() appears to be broken", 1)
       if ($label eq 'borover:missing=BAD' && pdl([10,0,-2])->setvaltobad(0)->borover->sclr != -2);
 
