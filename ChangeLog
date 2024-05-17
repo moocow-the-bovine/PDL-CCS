@@ -1,3 +1,7 @@
+(pending) Sat, 18 May 2024 00:13:43 +0200
+	+ PR #12 ccs_pointerlen removal
+	  - keep pure-perl PDL::CCS::Functions::ccs_pointerlen for paranoia reasons
+
 v1.23.23 Wed, 15 May 2024 21:51:55 +0200 mohawk2
 	+ PR #8: no strict "refs" instead of string-eval
 	+ PR #9: switch from $PP() to $P()

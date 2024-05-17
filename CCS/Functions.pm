@@ -21,7 +21,7 @@ our @EXPORT_OK =
   (
    ##
    ##-- Decoding
-   qw(ccs_decode),
+   qw(ccs_decode), #ccs_pointerlen
    ##
    ##-- Vector Operations (compat)
    qw(ccs_binop_vector_mia),
@@ -30,6 +30,7 @@ our @EXPORT_OK =
    ##-- qsort
    qw(ccs_qsort),
   );
+
 our %EXPORT_TAGS =
   (
    Func => [@EXPORT_OK],               ##-- respect PDL conventions (hopefully)
@@ -62,6 +63,20 @@ PDL::CCS::Functions - Useful perl-level functions for PDL::CCS
 =head1 Decoding
 
 =cut
+
+##-- DEPRECATED STEALTH METHOD: formerly a PDL::PP function in PDL::CCS::Utils
+#*PDL::ccs_pointerlen = \&ccs_pointerlen;
+sub ccs_pointerlen :lvalue {
+  my ($ptr,$len) = @_;
+  if (!defined($len)) {
+    $len = $ptr->slice("1:-1") - $ptr->slice("0:-2");
+  } else {
+    $len .= $ptr->slice("1:-1");
+    $len -= $ptr->slice("0:-2");
+  }
+  return $len;
+}
+
 
 ##---------------------------------------------------------------
 ## Decoding: generic
