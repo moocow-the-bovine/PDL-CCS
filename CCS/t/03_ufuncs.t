@@ -62,14 +62,14 @@ sub test_ufunc {
   my $label = "${ufunc_name}:missing=$missing_val";
 
   ##-- check output type
- SKIP: {
+  SKIP: {
     isok("${label}:type", $ccs_rc->type, $dense_rc->type)
       or diag "ccs_rc(", $ccs_rc->info, ")=$ccs_rc\n",
       "dense_rc(", $dense_rc->info, ")=$dense_rc\n";
   }
 
   ##-- check output values
- SKIP: {
+  SKIP: {
     ##-- RT bug #126294 (see also analogous tests in CCS/Ufunc/t/01_ufunc.t)
     skip("RT #126294 - PDL::borover() appears to be broken", 1)
       if ($label eq 'borover:missing=BAD' && pdl([10,0,-2])->setvaltobad(0)->borover->sclr != -2);
