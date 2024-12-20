@@ -922,7 +922,22 @@ sub test_matmult_gh14 {
 
   print STDERR "what now?\n"
 }
-test_matmult_gh14();
+#test_matmult_gh14();
+
+##---------------------------------------------------------------------
+## test_matmult_gh14
+##   + debug https://github.com/moocow-the-bovine/PDL-CCS/issues/14#issuecomment-2556862635
+sub test_matmult_gh14b {
+  my $u = zeroes(1, 3);
+  my $v = ones(1, 3);
+
+  my ($uc, $vc) = ($u->toccs, $v->toccs);
+  my $uvc = $uc * $vc; # Tried to convert(null) at /usr/lib/x86_64-linux-gnu/perl5/5.36/PDL/Core.pm line 2722.
+  pdlok('empty mult', $uvc->decode, ($u * $v));
+
+  print STDERR "what now?\n"
+}
+test_matmult_gh14b();
 
 ##---------------------------------------------------------------------
 ## DUMMY
