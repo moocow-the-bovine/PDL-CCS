@@ -841,7 +841,7 @@ sub test_ufunc_2_039 {
     pdlok("${label}:vals", $ccs_rc->decode, $dense_rc);
   }
 }
-test_ufunc_2_039();
+#test_ufunc_2_039();
 
 # pdlok($label, $got, $want)
 sub pdlok {
@@ -887,6 +887,42 @@ sub labstr {
   $label .= "\n  :     got=".pdlstr($got)."\n  :  wanted=".pdlstr($want) if (!$ok);
   return $label;
 }
+
+##---------------------------------------------------------------------
+## test_matmult_gh14
+##   + debug https://github.com/moocow-the-bovine/PDL-CCS/issues/14
+sub test_matmult_gh14 {
+  my $m = identity(3)->set(2,2,0);
+  my $v = zeroes(1, 3)->set(0, 2, 1);
+
+  #my $c = $m->toccs->matmult($v);
+  # --> $vals1 is empty: $which=PDL: Indx D [3,0], $vals1=PDL: Double D [0], $vals=PDL: Double D [0] at blib/lib/PDL/CCS/Nd.pm line 1073.
+
+  ##--> Nd::matmult()
+  my ($a,$b) = ($m->toccs, $v);
+  my $ad = $a->dummy(1);
+  my $bd = $b->xchg(0,1)->dummy(2);
+  my ($c);
+  #$c = $ad->inner($bd)->sumover; ##-- fails
+
+  ##--> Nd::inner()
+  my $c0 = $ad->mult_mia($bd, 0); ##-- ok
+  $c = $c0->sumover(); ## fails and Nd.pm confess() line 1073 in _ufuncsub() wrapper for sumover()
+  #- input is $c0 = $ccs = zeroes(3,1,3)->toccs()
+
+  ##--> Nd::sumover()
+  my $which1 = $c0->whichND;  #Empty[2x0]
+  my $vals1 = $c0->whichVals; #Empty[0]
+  my $missing = $c0->missing; #[0]
+  my $dim0 = $c0->dim(0); #3
+  my $accumsub = PDL::CCS::Ufunc->can('ccs_accum_sum');
+  my ($which2,$nzvals2) = $accumsub->($which1,$vals1,$missing,$dim0);
+  # -> Error in ccs_accum_sum:called with empty nzvalsIn at /usr/lib/x86_64-linux-gnu/perl5/5.36/PDL/PP.pm line 972.
+  # ... appears to be a PDL::PP restriction; raised immediately after "*** Leaving pp_def for $name\n" for ccs_accum_sum
+
+  print STDERR "what now?\n"
+}
+test_matmult_gh14();
 
 ##---------------------------------------------------------------------
 ## DUMMY
