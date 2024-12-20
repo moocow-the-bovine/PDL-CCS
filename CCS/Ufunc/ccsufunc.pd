@@ -508,7 +508,7 @@ EOMD
 require PDL::Bad;
 ccs_accum_def('nbad', 'number of bad values',
 	      extra          =>{HandleBad=>1},
-	      out_type       =>'int+',
+	      out_type       =>'indx',
 	      max_type_perl  =>'ccs_indx', #$PDL::CCS::Config::ccsConfig{INT_TYPE_MAX_IONAME},
 	      #
 	      #init_missingOut=>'missingOut=$N();',
