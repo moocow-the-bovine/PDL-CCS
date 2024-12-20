@@ -81,7 +81,7 @@ sub test_ufunc {
 
 
 ##--------------------------------------------------------------
-## all tests
+## generic tests
 for my $missing (0,1,255,$BAD) { ##-- *4
   for my $ufunc (
 		  qw(sumover prodover dsumover dprodover),  ## *17
@@ -96,5 +96,13 @@ for my $missing (0,1,255,$BAD) { ##-- *4
       test_ufunc($ufunc,$missing);
     }
 }
+
+##--------------------------------------------------------------
+## specific tests
+
+##-- sumover empty nzValsIn: https://github.com/moocow-the-bovine/PDL-CCS/issues/14
+my $pdl = zeroes(3,1,3);
+pdlok("sumover(empty)", $pdl->toccs->sumover->decode, $pdl->sumover);
+
 
 done_testing;
