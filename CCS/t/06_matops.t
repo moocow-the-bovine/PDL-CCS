@@ -53,11 +53,12 @@ sub test_matmult2d_all {
   test_matmult2d_sdd('m1',$a,$b, $a->toccs(1));
 
   ##-- test non-missing BAD values (expect warnings from older PDLs which don't support BAD in matmult)
-  test_matmult2d_zdd('m0:a-has-bad', $a->pdl->setvaltobad(1), $b, $a->toccs->setvaltobad(1));
-  test_matmult2d_sdd('m0:a-has-bad', $a->pdl->setvaltobad(1), $b, $a->toccs->setvaltobad(1));
+  $a1 = $a + 1;
+  test_matmult2d_zdd('m0:a-has-bad', $a1->pdl->setvaltobad(1), $b, $a1->toccs(0)->setvaltobad(1));
+  test_matmult2d_sdd('m0:a-has-bad', $a1->pdl->setvaltobad(1), $b, $a1->toccs(0)->setvaltobad(1));
 
-  test_matmult2d_zdd('m0:b-has-bad', $a, $b->pdl->setvaltobad(10), $a->toccs);
-  test_matmult2d_sdd('m0:b-has-bad', $a, $b->pdl->setvaltobad(10), $a->toccs);
+  test_matmult2d_zdd('m0:b-has-bad', $a1, $b->pdl->setvaltobad(20), $a1->toccs(0));
+  test_matmult2d_sdd('m0:b-has-bad', $a1, $b->pdl->setvaltobad(20), $a1->toccs(0));
 }
 test_matmult2d_all();
 
