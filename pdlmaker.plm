@@ -155,6 +155,7 @@ EOF
 
   ##----------------------------
   ## PDL v2.058 package parameters $callpack,$multi_c
+  require PDL;
   $package = [@$package, undef, 1]
     if (@{$package||[]} == 3 && version->parse($PDL::VERSION) >= version->parse('2.058'));
 
