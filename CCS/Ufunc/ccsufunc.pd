@@ -9,31 +9,7 @@ my $VERSION = '1.23.29'; ##-- update with perl-reversion from Perl::Version modu
 pp_setversion($VERSION);
 
 ##------------------------------------------------------
-## pm headers
-pp_addpm({At=>'Top'},<<'EOPM');
-
-#use PDL::CCS::Version;
-use strict;
-
-=pod
-
-=head1 NAME
-
-PDL::CCS::Ufunc - Ufuncs for compressed storage sparse PDLs
-
-=head1 SYNOPSIS
-
- use PDL;
- use PDL::CCS::Ufunc;
-
- ##---------------------------------------------------------------------
- ## ... stuff happens
-
-=cut
-
-EOPM
-## /pm additions
-##------------------------------------------------------
+## pm headers -> TODO
 
 ##------------------------------------------------------
 ## Exports: None
@@ -52,11 +28,11 @@ pp_addhdr(<<'EOH');
 EOH
 
 ##------------------------------------------------------
-## index datatype
+## index datatype (obsolete)
 require "../Config.pm";
-our $INDX = $PDL::CCS::Config::ccsConfig{INDX_SIG};
-pp_addpm( $PDL::CCS::Config::ccsConfig{INDX_FUNCDEF} );
-pp_addhdr( $PDL::CCS::Config::ccsConfig{INDX_TYPEDEF} );
+#our $INDX = $PDL::CCS::Config::ccsConfig{INDX_SIG};
+#pp_addpm( $PDL::CCS::Config::ccsConfig{INDX_FUNCDEF} );
+#pp_addhdr( $PDL::CCS::Config::ccsConfig{INDX_TYPEDEF} );
 
 
 ##======================================================================
@@ -108,15 +84,15 @@ sub ccs_accum_hash {
     (
   Pars => ("\n    "
 	   .join(";\n    ",
-		 "$INDX ixIn(Ndims,NnzIn)",    ##-- sorted nz-indices of projected dimensions (1..Ndims), with repeats
+		 "indx ixIn(Ndims,NnzIn)",    ##-- sorted nz-indices of projected dimensions (1..Ndims), with repeats
 		 'nzvalsIn(NnzIn)',            ##-- all nz-values
 		 'missing()',                  ##-- missing value         (default: $PDL::undefval (0))
-		 "$INDX N()",                     ##-- size of 0th dimension (<=0 to ignore missing values)
-		 "$INDX\ [o]ixOut(Ndims,NnzOut)", ##-- unique indices of projected dimensions
+		 "indx N()",                     ##-- size of 0th dimension (<=0 to ignore missing values)
+		 "indx [o]ixOut(Ndims,NnzOut)", ##-- unique indices of projected dimensions
 		 (
 		  ($args{out_type} ? ($args{out_type}.' ') : '   ').'[o]nzvalsOut(NnzOut)'
 		 ),		               ##-- unique nz-values of projected dims which contain >=1 input nz
-		 "$INDX\ [o]nOut()",           ##-- number of unique output index-vectors
+		 "indx [o]nOut()",           ##-- number of unique output index-vectors
 		 '')),
      HandleBad => 1,
      PMCode =>
@@ -134,13 +110,13 @@ sub ccs_accum_hash {
    : "").q(
    @nnzOut = $nzvalsOut->dims if (!@nnzOut && defined($nzvalsOut) && !$nzvalsOut->isempty);
    @nnzOut = @nnzIn           if (!@nnzOut);
-   $ixOut  = PDL->zeroes(ccs_indx(), $ndims,@nnzOut)
+   $ixOut  = PDL->zeroes(indx(), $ndims,@nnzOut)
      if (!defined($ixOut)      || $ixOut->isempty);
 ).'
    $nzvalsOut = PDL->zeroes(('.($args{out_type_perl} ? "$args{out_type_perl}()" : '$nzvalsIn->type').'), @nnzOut)
      if (!defined($nzvalsOut) || $nzvalsOut->isempty);
 '.q(
-   $nOut = PDL->pdl(ccs_indx(),0)                  if (!defined($nOut) || $nOut->isempty);
+   $nOut = PDL->pdl(indx(),0)                  if (!defined($nOut) || $nOut->isempty);
    ##
    ##-- guts
    &PDL::_ccs_accum_).${op_codename}.q(_int($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nOut);
@@ -155,9 +131,9 @@ sub ccs_accum_hash {
 )),
 	   Code =>
 (q(
- CCS_Indx nnzii_prev=-1, nnzii=0, nnzoi=0;
- CCS_Indx sizeNnzIn=$SIZE(NnzIn), sizeNnzOut=$SIZE(NnzOut), nMissing, nMissingInit;
- CCS_Indx ival1,ival2;
+ PDL_Indx nnzii_prev=-1, nnzii=0, nnzoi=0;
+ PDL_Indx sizeNnzIn=$SIZE(NnzIn), sizeNnzOut=$SIZE(NnzOut), nMissing, nMissingInit;
+ PDL_Indx ival1,ival2;
  int cmpval, carp_unsorted=0;
  $GENERIC(nzvalsOut) missingOut;
  $GENERIC(missing)   missingVal = $missing();
@@ -472,8 +448,8 @@ EOMD
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): maximum_nz_ind ~ maximum_ind
 ccs_accum_def('maximum_nz_ind', 'maximum_nz_ind',
-	      out_type       =>"$INDX",
-	      out_type_perl  => 'ccs_indx',
+	      out_type       =>'indx',
+	      out_type_perl  =>'indx',
 	      decls          =>'$GENERIC(nzvalsIn) curval, bestval;',
 	      init_missingOut=>'missingOut = -1;',
 	      tmp_addmissing =>'if (nMissing > 0 && $ISGOOD(missing()) && missingVal > bestval) { tmp=missingOut; }',
@@ -489,8 +465,8 @@ EOMD
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): minimum_nz_ind ~ minimum_ind
 ccs_accum_def('minimum_nz_ind', 'minimum_nz_ind',
-	      out_type       =>"$INDX",
-	      out_type_perl  => 'ccs_indx',
+	      out_type       =>'indx',
+	      out_type_perl  =>'indx',
 	      decls          =>'$GENERIC(nzvalsIn) curval, bestval;',
 	      init_missingOut=>'missingOut = -1;',
 	      tmp_addmissing =>'if (nMissing > 0 && $ISGOOD(missing()) && missingVal < bestval) { tmp=missingOut; }',
@@ -509,7 +485,7 @@ require PDL::Bad;
 ccs_accum_def('nbad', 'number of bad values',
 	      extra          =>{HandleBad=>1},
 	      out_type       =>'indx',
-	      max_type_perl  =>'ccs_indx', #$PDL::CCS::Config::ccsConfig{INT_TYPE_MAX_IONAME},
+	      max_type_perl  =>'indx', #$PDL::CCS::Config::ccsConfig{INT_TYPE_MAX_IONAME},
 	      #
 	      #init_missingOut=>'missingOut=$N();',
 	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
@@ -543,7 +519,7 @@ EOMD
 ccs_accum_def('ngood', 'number of good values',
 	      extra          =>{HandleBad=>1},
 	      out_type       =>'indx',
-	      max_type_perl  =>'ccs_indx', #$PDL::CCS::Config::ccsConfig{INT_TYPE_MAX_IONAME},
+	      max_type_perl  =>'indx', #$PDL::CCS::Config::ccsConfig{INT_TYPE_MAX_IONAME},
 	      #init_missingOut=>'missingOut=$N();',
 	      init_missingOut=>'missingOut=missingVal;', ##-- not really right, but compatible
 	      ($PDL::Bad::Status
@@ -597,7 +573,7 @@ EOMD
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): average
 ccs_accum_def('average', 'average',
-	      decls => 'CCS_Indx ntmp;',
+	      decls => 'PDL_Indx ntmp;',
 	      out_type => 'float+',
 	      init_missingOut=>'if ($N() > 0) { missingOut=missingVal; } else { missingOut=INFINITY; }',
 	      tmp_reset      =>'tmp  = $nzvalsIn(NnzIn=>nnzii); ntmp=1;',
