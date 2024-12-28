@@ -28,8 +28,8 @@ require PDL;
 $cconfig{INDX_CTYPE} = "PDL_Indx";
 $cconfig{INDX_SIG}   = "indx";
 $cconfig{INDX_FUNC}  = "indx";
-$cconfig{INDX_TYPEDEF} = "typedef $cconfig{INDX_CTYPE} CCS_Indx;  /**< typedef for CCS indices */\n";
-$cconfig{INDX_FUNCDEF} = "*ccs_indx = \\&PDL::$cconfig{INDX_FUNC}; ##-- typecasting for CCS indices\n";
+$cconfig{INDX_TYPEDEF} = "typedef $cconfig{INDX_CTYPE} CCS_Indx;  /**< typedef for CCS indices (deprecated) */\n";
+$cconfig{INDX_FUNCDEF} = "*ccs_indx = \\&PDL::$cconfig{INDX_FUNC}; ##-- typecasting for CCS indices (deprecated)\n";
 
 ##-- figure out what integer types we have available
 require PDL::Types;
