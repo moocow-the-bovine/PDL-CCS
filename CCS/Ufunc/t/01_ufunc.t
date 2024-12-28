@@ -76,6 +76,9 @@ sub test_ufunc {
 
 my $BAD = pdl(0)->setvaltobad(0);
 
+##----------------------------------------------------------------------
+## generic tests
+
 for my $missing (0,1,31,$BAD) {
   for my $pdl_ufunc_name (
     qw(sumover),
@@ -90,6 +93,29 @@ for my $missing (0,1,31,$BAD) {
       $ccs_ufunc_name =~ s/over$//;
       test_ufunc($pdl_ufunc_name, $ccs_ufunc_name, $missing);
     }
+}
+
+
+##----------------------------------------------------------------------
+## specific tests
+
+##-- test explicit output allocation
+my $dense_rv = $a->sumover;
+my $which_prealloc = zeroes(indx, 1, 6);
+my $nzvals_prealloc = zeroes($a->type, 6);
+foreach (
+  [null, null],
+  [null, $nzvals_prealloc],
+  [$which_prealloc, null],
+  [$which_prealloc, $nzvals_prealloc],
+) {
+  my $label = "sumover with explicit output PDLs (".join(', ', map {$_->isnull ? 'null' : 'pre-allocated'} @$_).")";
+  my ($tmp_which, $tmp_nzvals) = @$_;
+  my ($which_rv,$nzvals_rv) = ccs_accum_sum($awhich1, $avals, 0, 0, $tmp_which, $tmp_nzvals);
+  my $decoded_rv = $dense_rv->zeroes;
+  $decoded_rv->indexND($which_rv) .= $nzvals_rv;
+
+  pdlok($label, $decoded_rv, $dense_rv);
 }
 
 print "\n";

@@ -59,21 +59,13 @@ vvpp_def(
     indx [o]nOut();
     ',
 
-  ##-- try dimension-twiddling via RedoDimsCode
+  ##-- dimension-twiddling via RedoDimsCode
+  ##   + null-detection adapted from PDL_MAYBE_SIZE macro at https://github.com/PDLPorters/pdl-linearalgebra/blob/f789c4100d04ba9d1b50f8c18249bdef29338496/Real/real.pd#L63-L75
   RedoDimsCode => q(
- fprintf(stderr, "RedoDimsCode: got NnzOut=%zd\n", $SIZE(NnzOut));
- /*
-  * If $ixOut and $nzvalsOut are passed as PDL->null, this gets NnzOut=1.
-  *
-  * Is there a better way to determine if we were passed a null output PDL? (maybe
-  * the user is really doing a flat sum() and know that they're going to need
-  * only 1 output value)
-  *   --> looking it Core.xs isnull def: pdl *self; RETVAL= !!(self->state & PDL_NOMYDIMS);
-  */
-
-  fprintf(stderr, "RedoDimsCode: got ixOut.isnull=%d\n", !!($COMP(ixOut)->state & PDL_NOMYDIMS));
-  /* --> no joy; sadly, this gets us "ixOut.isnull=1" */
-),
+  if ( $PDL(ixOut)->state & $PDL(nzvalsOut)->state & PDL_MYDIMS_TRANS ) {
+    /*-- output PDLs passed as null; use default output dimensions --*/
+    $SIZE(NnzOut) = $SIZE(NnzIn);
+  }),
 
   ##-- code
   'Code' => '
@@ -173,7 +165,7 @@ if (0) {
    $nOut //= PDL->null;           # ok
    $ixOut //= PDL->null;
    $nzvalsOut //= PDL->null;
-   print STDERR "PM-DEBUG: passing ixOut=$ixOut ; nzvalsOut=$nzvalsOut ; nOut=$nOut\n";
+   print STDERR "PM-DEBUG: passing ixIn~(", join(" ", $ixIn->dims), ") ; ixOut=$ixOut ; nzvalsOut=$nzvalsOut ; nOut=$nOut\n";
 
    ##
    ##-- guts
