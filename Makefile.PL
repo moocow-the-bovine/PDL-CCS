@@ -1,4 +1,5 @@
 use ExtUtils::MakeMaker;
+require 5.10.0;  ##-- for the `//=` operator
 require "./pdlmaker.plm";
 pdlmaker_init();
 
