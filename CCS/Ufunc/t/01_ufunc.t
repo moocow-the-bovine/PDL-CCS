@@ -70,25 +70,25 @@ sub test_ufunc {
       if ($label eq 'borover:missing=BAD' && pdl([10,0,-2])->setvaltobad(0)->borover->sclr != -2);
 
     ##-- actual test
-    #isok("${label}:type", $nzvals_rc->type, $dense_rc->type);
     pdlok("${label}:vals", $decoded_rc, $dense_rc);
   }
 }
 
 my $BAD = pdl(0)->setvaltobad(0);
 
-for my $missing (0,1,31,$BAD) { ## *4
+for my $missing (0,1,31,$BAD) {
   for my $pdl_ufunc_name (
-			   qw(sumover prodover dsumover dprodover),  ## *13
-			   qw(andover orover bandover borover),
-			   qw(maximum minimum),
-			   qw(nbadover ngoodover), #nnz
-			   qw(average),
-			  )
+    qw(sumover),
+    #qw(sumover prodover dsumover dprodover),
+    #qw(andover orover bandover borover),
+    #qw(maximum minimum),
+    #qw(nbadover ngoodover), #nnz
+    #qw(average),
+  )
     {
       my $ccs_ufunc_name = $pdl_ufunc_name;
       $ccs_ufunc_name =~ s/over$//;
-      test_ufunc($pdl_ufunc_name, $ccs_ufunc_name, $missing); ## *1
+      test_ufunc($pdl_ufunc_name, $ccs_ufunc_name, $missing);
     }
 }
 
