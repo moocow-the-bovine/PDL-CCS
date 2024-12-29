@@ -83,12 +83,11 @@ my $BAD = pdl(0)->setvaltobad(0);
 
 for my $missing (0,1,31,$BAD) {
   for my $pdl_ufunc_name (
-    qw(sumover),
-    #qw(sumover prodover dsumover dprodover),
-    #qw(andover orover bandover borover),
-    #qw(maximum minimum),
-    #qw(nbadover ngoodover), #nnz
-    #qw(average),
+    qw(sumover prodover dsumover dprodover),
+    qw(andover orover bandover borover),
+    qw(maximum minimum),
+    qw(nbadover ngoodover), #nnz
+    qw(average),
   )
     {
       my $ccs_ufunc_name = $pdl_ufunc_name;
