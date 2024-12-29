@@ -53,7 +53,7 @@ require "../Config.pm";
 ##  - [X] drop missing() parameter; pass missing-value in nzvalsIn
 ##  - [X] add sanity check NnzInPlus1 > NnzIn
 ##  - [X] rename nzvals* --> vals*
-##  - [ ] ? modernize CopyBadStatusCode -> https://github.com/moocow-the-bovine/PDL-CCS/issues/6#issuecomment-1100767227
+##  - [X] modernize bad-handling -> https://github.com/moocow-the-bovine/PDL-CCS/issues/6#issuecomment-1100767227
 ##  - [ ] re-generalize ccs_accum_def
 ##  - [ ] update CCS::Nd wrapper methods
 ##  - [ ] cleanup
@@ -72,7 +72,7 @@ vvpp_def(
   ##   + null-detection adapted from PDL_MAYBE_SIZE macro at https://github.com/PDLPorters/pdl-linearalgebra/blob/f789c4100d04ba9d1b50f8c18249bdef29338496/Real/real.pd#L63-L75
   RedoDimsCode => q(
   if ( $SIZE(NvalsIn) <= $SIZE(NnzIn) ) {
-    croak("PDL::CCS::Ufunc::ccs_accum_sum: bad input dimension NvalsIn=%ld must be greater than NnzIn=%ld", $SIZE(NvalsIn), $SIZE(NnzIn));
+    croak("PDL::ccs_accum_sum: bad input dimension NvalsIn=%ld must be greater than NnzIn=%ld", $SIZE(NvalsIn), $SIZE(NnzIn));
   }
   if ( $PDL(ixOut)->state & $PDL(valsOut)->state & PDL_MYDIMS_TRANS ) {
     /*-- output PDLs passed as null; use default output dimensions --*/
@@ -81,13 +81,14 @@ vvpp_def(
 
   ##-- code
   'Code' => '
+int cmpval, carp_unsorted=0;
+broadcastloop %{
  PDL_Indx nnzii_prev=-1, nnzii=0, nnzoi=0;
  PDL_Indx sizeNnzIn=$SIZE(NnzIn), sizeNvalsOut=$SIZE(NvalsOut), nMissing, nMissingInit;
  PDL_Indx ival1,ival2;
- int cmpval, carp_unsorted=0;
  $GENERIC(valsOut) missingOut;
  $GENERIC(valsIn)  missingVal = $valsIn(NvalsIn=>sizeNnzIn);
- 
+
  $GENERIC(valsOut) tmp;
  //
  //-- init
@@ -122,7 +123,7 @@ vvpp_def(
  //
  //-- sanity check
  if (nnzii<sizeNnzIn) {
-   warn("PDL::CCS::Ufunc::ccs_accum_sum(): too few output values provided: some input values were ignored");
+   warn("PDL::ccs_accum_sum(): too few output values provided: some input values were ignored");
  }
  //
  //-- set final computed output values
@@ -141,12 +142,17 @@ vvpp_def(
    loop (Ndims) %{ $ixOut(NvalsOut=>nnzoi) = 0; %}
    $valsOut(NvalsOut=>nnzoi) = missingOut;
  }
- //
- //-- carp?
- if (carp_unsorted) {
-   warn("PDL::ccs_accum_sum(): unsorted input vector list detected: output will be incorrect");
- }
- //-- END
+%}
+//
+//-- carp?
+if (carp_unsorted) {
+  warn("PDL::ccs_accum_sum(): unsorted input vector list detected: output will be incorrect");
+}
+//
+//-- propagate badflags
+if ($ISPDLSTATEBAD($PDL(ixIn))) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
+if ($ISPDLSTATEBAD($PDL(valsIn))) { $PDLSTATESETBAD(valsOut); } else { $PDLSTATESETGOOD(valsOut); }
+//-- END
 ',
 
   ##-- pmcode
@@ -158,12 +164,12 @@ vvpp_def(
    $nOut //= PDL->null;
    $ixOut //= PDL->null;
    $valsOut //= PDL->null;
-   print STDERR "PM-DEBUG: passing ixIn~(", join(" ", $ixIn->dims), ") ; ixOut=$ixOut ; valsOut=$valsOut ; nOut=$nOut\n";
+   #print STDERR "PM-DEBUG: passing ixIn~(", join(" ", $ixIn->dims), ") ; ixOut=$ixOut ; valsOut=$valsOut ; nOut=$nOut\n";
 
    ##
    ##-- guts
    &PDL::_ccs_accum_sum_int($ixIn,$valsIn, $N, $ixOut,$valsOut,$nOut);
-   print STDERR "PM-DEBUG: got nOut=$nOut\n";
+   #print STDERR "PM-DEBUG: got nOut=$nOut\n";
    ##
    ##-- auto-trim
    my $trim_slice = "0:".($nOut->max-1);
@@ -174,28 +180,6 @@ vvpp_def(
    return wantarray ? ($ixOut,$valsOut,$nOut) : $valsOut;
  }
 ',
-
-  ##-- bad
-  'HandleBad' => 1,
-  'CopyBadStatusCode' => '
-  /* set ixOut badflag */
-  if ( $ISPDLSTATEBAD(ixIn) ) {
-    $SETPDLSTATEBAD(ixOut);
-    PDL->propagate_badflag( ixOut, 1 );
-  } else {
-    $SETPDLSTATEGOOD(ixOut);
-    PDL->propagate_badflag( ixOut, 0 );
-  }
-  /* set valsOut badflag */
-  if ( $ISPDLSTATEBAD(valsIn) ) {
-    $SETPDLSTATEBAD(valsOut);
-    PDL->propagate_badflag( valsOut, 1 );
-  } else {
-    $SETPDLSTATEGOOD(valsOut);
-    PDL->propagate_badflag( valsOut, 0 );
-  }
-  ',
-
 );
 
 # Always make sure that you finish your PP declarations with
