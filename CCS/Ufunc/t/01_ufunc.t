@@ -35,6 +35,8 @@ my $awhich   = $a->whichND;
 my $awhich1  = $awhich->slice("(1)")->qsort->slice("*1,");
 my $awhich1i = $awhich->slice("(1)")->qsorti;
 my $avals    = $a->indexND($awhich)->index($awhich1i);
+$avals->reshape($avals->nelem + 1); # allocate missing elemkent
+my $amissing = $avals->slice("-1");
 
 ##-- i..(i+2): test_ufunc($pdl_ufunc_name, $ccs_ufunc_name, $missing_val)
 sub test_ufunc {
@@ -51,11 +53,11 @@ sub test_ufunc {
   if ($missing_val->isbad) { $a = $a->setbadif($abad); }
   else                     { $a->where($abad) .= $missing_val; $a->badflag(0); }
 
-  $missing_val = $missing_val->convert($a->type);
-  my @ccs_ufunc_missing = $missing_val->isbad && $ccs_ufunc_name !~ /^n(?:bad|good)/ ? (0,0) : ($missing_val,$a->dim(0));
+  $amissing .= $missing_val;
+  my $aN = $missing_val->isbad && $ccs_ufunc_name !~ /^n(?:bad|good)/ ? 0 : $a->dim(0);
 
   my $dense_rc = $pdl_ufunc->($a);
-  my ($which_rc,$nzvals_rc) = $ccs_ufunc->($awhich1, $avals, @ccs_ufunc_missing);
+  my ($which_rc,$nzvals_rc) = $ccs_ufunc->($awhich1, $avals, $aN);
   my $decoded_rc = $dense_rc->zeroes;
   $decoded_rc   .= $missing_val;
   $decoded_rc->indexND($which_rc) .= $nzvals_rc;
@@ -111,7 +113,7 @@ foreach (
 ) {
   my $label = "sumover with explicit output PDLs (".join(', ', map {$_->isnull ? 'null' : 'pre-allocated'} @$_).")";
   my ($tmp_which, $tmp_nzvals) = @$_;
-  my ($which_rv,$nzvals_rv) = ccs_accum_sum($awhich1, $avals, 0, 0, $tmp_which, $tmp_nzvals);
+  my ($which_rv,$nzvals_rv) = ccs_accum_sum($awhich1, $avals, 0, $tmp_which, $tmp_nzvals);
   my $decoded_rv = $dense_rv->zeroes;
   $decoded_rv->indexND($which_rv) .= $nzvals_rv;
 

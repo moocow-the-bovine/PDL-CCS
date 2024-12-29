@@ -47,12 +47,20 @@ require "../Config.pm";
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): overhaul WIP
+
+## TODOs
+##  - [X] use RedoDimsCode for dimension twiddling
+##  - [X] drop missing() parameter; pass missing-value in nzvalsIn
+##  - [ ] ? add sanity check NnzInPlus1 == NnzIn
+##  - [ ] rename nzvals* --> vals*
+##  - [ ] ? modernize CopyBadStatusCode -> https://github.com/moocow-the-bovine/PDL-CCS/issues/6#issuecomment-1100767227
+##  - [ ] update CCS::Nd wrapper methods
+##  - [ ] cleanup
 vvpp_def(
   'ccs_accum_sum',
   'Pars' => '
     indx ixIn(Ndims,NnzIn);
-    nzvalsIn(NnzIn);
-    missing();
+         nzvalsIn(NnzInPlus1);
     indx N();
     indx [o]ixOut(Ndims,NnzOut);
          [o]nzvalsOut(NnzOut);
@@ -74,7 +82,7 @@ vvpp_def(
  PDL_Indx ival1,ival2;
  int cmpval, carp_unsorted=0;
  $GENERIC(nzvalsOut) missingOut;
- $GENERIC(missing)   missingVal = $missing();
+ $GENERIC(nzvalsIn)  missingVal = $nzvalsIn(NnzInPlus1=>sizeNnzIn);
  
  $GENERIC(nzvalsOut) tmp;
  //
@@ -83,7 +91,7 @@ vvpp_def(
  if ($N() > 0) { missingOut = $N() * missingVal; } else { missingOut = missingVal; }
  nMissingInit = $N()-1;
  nMissing     = nMissingInit;
- tmp = $SIZE(NnzIn) == 0 ? 0 : $nzvalsIn(NnzIn=>0); /* initialize tmp */
+ tmp = $SIZE(NnzIn) == 0 ? 0 : $nzvalsIn(NnzInPlus1=>0); /* initialize tmp */
  //
  //-- loop
  for (nnzii_prev=0,nnzii=1; nnzii<sizeNnzIn && nnzoi<sizeNnzOut; nnzii_prev=nnzii++) {
@@ -97,12 +105,12 @@ vvpp_def(
      nnzoi++;
      //
      // ... and reset temps
-     tmp = $nzvalsIn(NnzIn=>nnzii); /* reset tmp */
+     tmp = $nzvalsIn(NnzInPlus1=>nnzii); /* reset tmp */
      nMissing = nMissingInit;
    }
    else if (cmpval <= 0) {
      // CASE: ix >= ix_prev : accumulate to temps
-     tmp += $nzvalsIn(NnzIn=>nnzii);;
+     tmp += $nzvalsIn(NnzInPlus1=>nnzii);;
      nMissing--;
      if (cmpval < 0) { carp_unsorted=1; } /*-- CASE: ix < ix_prev : GARBAGE (treat as equal) --*/
    }
@@ -140,44 +148,26 @@ vvpp_def(
   ##-- pmcode
   'PMCode' => '
  sub PDL::ccs_accum_sum {
-   my ($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nOut) = @_;
+   #my ($ixIn,$nzvalsIn, $missing,$N, $ixOut,$valsOut,$nOut) = @_;
+   my ($ixIn,$valsIn, $N, $ixOut,$valsOut,$nOut) = @_;
 
-##--WIP: move this logic to RedoDimsCode
-if (0) {
-   my ($ndims,@nnzIn) = $ixIn->dims;
-   my (@nnzOut);
-   if (defined($ixOut)) {
-     @nnzOut = $ixOut->dims;
-     shift(@nnzOut);
-   }
-
-   @nnzOut = $nzvalsOut->dims if (!@nnzOut && defined($nzvalsOut) && !$nzvalsOut->isempty);
-   @nnzOut = @nnzIn           if (!@nnzOut);
-   $ixOut  = PDL->zeroes(indx(), $ndims,@nnzOut)
-     if (!defined($ixOut)      || $ixOut->isempty);
-
-   $nzvalsOut = PDL->zeroes(($nzvalsIn->type), @nnzOut)
-     if (!defined($nzvalsOut) || $nzvalsOut->isempty);
-
-   #$nOut = PDL->pdl(indx(),0)                  if (!defined($nOut) || $nOut->isempty);
-}
-##-- NEW
-   $nOut //= PDL->null;           # ok
+   $nOut //= PDL->null;
    $ixOut //= PDL->null;
-   $nzvalsOut //= PDL->null;
-   print STDERR "PM-DEBUG: passing ixIn~(", join(" ", $ixIn->dims), ") ; ixOut=$ixOut ; nzvalsOut=$nzvalsOut ; nOut=$nOut\n";
+   $valsOut //= PDL->null;
+   print STDERR "PM-DEBUG: passing ixIn~(", join(" ", $ixIn->dims), ") ; ixOut=$ixOut ; valsOut=$valsOut ; nOut=$nOut\n";
 
    ##
    ##-- guts
-   &PDL::_ccs_accum_sum_int($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nOut);
+   &PDL::_ccs_accum_sum_int($ixIn,$valsIn, $N, $ixOut,$valsOut,$nOut);
    print STDERR "PM-DEBUG: got nOut=$nOut\n";
    ##
    ##-- auto-trim
-   $ixOut      = $ixOut->slice(",0:".($nOut->max-1));
-   $nzvalsOut  = $nzvalsOut->slice("0:".($nOut->max-1));
+   my $trim_slice = "0:".($nOut->max-1);
+   $ixOut    = $ixOut->slice(",$trim_slice");
+   $valsOut  = $valsOut->slice($trim_slice);
    ##
    ##-- return
-   return wantarray ? ($ixOut,$nzvalsOut,$nOut) : $nzvalsOut;
+   return wantarray ? ($ixOut,$valsOut,$nOut) : $valsOut;
  }
 ',
 
@@ -193,7 +183,7 @@ if (0) {
     PDL->propagate_badflag( ixOut, 0 );
   }
   /* set nzvalsOut badflag */
-  if ( $ISPDLSTATEBAD(nzvalsIn) || $ISPDLSTATEBAD(missing) ) {
+  if ( $ISPDLSTATEBAD(nzvalsIn) ) {
     $SETPDLSTATEBAD(nzvalsOut);
     PDL->propagate_badflag( nzvalsOut, 1 );
   } else {
