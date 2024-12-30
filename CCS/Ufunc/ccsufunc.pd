@@ -329,7 +329,6 @@ EOMD
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): or
 ccs_accum_def('or', 'logical "or"',
-              extra          => { GenericTypes=>$PDL::CCS::Config::ccsConfig{INT_TYPE_CHRS} },
               tmp_type       => 'char',
               init_missingOut=>'missingOut = missingVal;',
               tmp_addmissing =>'if (nMissing > 0) { tmp = tmp || missingVal; }   tmp = !!tmp; /* canonicalize */',
@@ -347,7 +346,6 @@ EOMD
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): and
 ccs_accum_def('and', 'logical "and"',
-              extra          => { GenericTypes=>$PDL::CCS::Config::ccsConfig{INT_TYPE_CHRS} },
               tmp_type       => 'char',
               init_missingOut=>'missingOut = missingVal;',
               tmp_addmissing =>'if (nMissing > 0) { tmp = tmp && missingVal; }   tmp = !!tmp; /* canonicalize */',
