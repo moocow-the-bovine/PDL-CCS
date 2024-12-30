@@ -1,12 +1,13 @@
 ## Automatically generated, remove to re-configure!
 
 package PDL::CCS::Config;
+use strict;
 use PDL qw();
 our @ISA = qw(Exporter);
 our (%ccsConfig);
 our @EXPORT      = qw(ccs_indx);
 our @EXPORT_OK   = ('%ccsConfig', 'ccs_indx');
-our %EXPORT_TAGS = (config=>['%ccsConfig'], Func=>\@Export, default=>\@EXPORT, all=>\@EXPORT_OK);
+our %EXPORT_TAGS = (config=>['%ccsConfig'], Func=>\@EXPORT, default=>\@EXPORT, all=>\@EXPORT_OK);
 
 %ccsConfig = (
                'INDX_CTYPE' => 'PDL_Indx',
