@@ -67,31 +67,19 @@ require "../Config.pm";
 ## Operations: Accumulators (Ufuncs)
 ##======================================================================
 
-## TODOs
-##  - [X] use RedoDimsCode for dimension twiddling
-##  - [X->o] drop missing() parameter; pass missing-value in nzvalsIn
-##    + works ok here, but makes CCS::Nd wrappers *much* harder --> reverting
-##  - [X] add sanity check NnzInPlus1 > NnzIn
-##  - [X] rename nzvals* --> vals*
-##  - [X] modernize bad-handling -> https://github.com/moocow-the-bovine/PDL-CCS/issues/6#issuecomment-1100767227
-##  - [X] re-generalize ccs_accum_def
-##  - [o] see if we can use sumover-style 'tmp_init' keyword anywhere else (tmp_reset is maybe ok too)
-##  - [ ] update CCS::Nd wrapper methods (-> do we want/need to tease apart NnzOut and NvalsOut?)
-##  - [ ] cleanup
-
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): Generic
 
 ## %vvpp_def_hash = ccs_accum_hash($op_codename, $op_docname, %args)
 ## + known %args
-##    out_type        => $pptype_or_undef,   ##-- set type of output $vals (default: match input $vals)
+##    out_type        => $pptype_or_undef,   ##-- set type of output $nzvals (default: match input $nzvals)
 ##    init_missingOut => $ppcode_or_undef,   ##-- sets value missingOut: default: 'missingOut=missingVal;'
 ##    init_code       => $ppcode_or_undef,   ##-- misc initialization
-##    tmp_type        => $ppcode_or_undef,   ##-- default: $GENERIC(valsOut)
+##    tmp_type        => $ppcode_or_undef,   ##-- default: $GENERIC(nzvalsOut)
 ##    tmp_addmissing  => $ppcode_or_undef,   ##-- updates C var 'tmp' before insertion (may reference nMissing)
 ##    tmp_addval      => $ppcode_or_undef,   ##-- add PP value $nzvalsIn(NnzIn=>nnzii) to tmp
-##    tmp_reset       => $ppcode_or_undef,   ##-- reset tmp on index change (default: tmp=$valsIn(NvalsIn=>nnzii)) --> QUITE USELESS
-##    tmp_init        => $ppcode_or_undef,   ##-- special case for $tmp_reset with nzii==0; default CROAKs on empty nzValsIn
+##    tmp_reset       => $ppcode_or_undef,   ##-- reset tmp on index change (default: tmp=$nzvalsIn(NnzIn=>nnzii)) --> QUITE USELESS
+##    tmp_init        => $ppcode_or_undef,   ##-- special case for $tmp_reset with nzii==0; default CROAKs if NnzIn==0
 ##    doc_addmissing  => $addmissing_doc,    ##-- doc for 'addmissing'
 ##    setbad          => $ppcode_or_undef,   ##-- post-broadcastloop bad-handling code
 ##    extra           => \%extraPPArgs,      ##-- extra args for vvpp_def()
