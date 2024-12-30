@@ -32,16 +32,16 @@ our @EXPORT_OK =
 our %EXPORT_TAGS =
   (
    Func => [
-	    @{$PDL::CCS::Config::EXPORT_TAGS{Func}},
-	    @{$PDL::CCS::Compat::EXPORT_TAGS{Func}},
-	    @{$PDL::CCS::Functions::EXPORT_TAGS{Func}},
-	    @{$PDL::CCS::Utils::EXPORT_TAGS{Func}},
-	    @{$PDL::CCS::Ufunc::EXPORT_TAGS{Func}},
-	    @{$PDL::CCS::Ops::EXPORT_TAGS{Func}},
-	    @{$PDL::CCS::MatrixOps::EXPORT_TAGS{Func}},
-	    @{$PDL::CCS::Nd::EXPORT_TAGS{Func}},
-	    @{$PDL::CCS::IO::FastRaw::EXPORT_TAGS{Func}},
-	   ],               ##-- respect PDL conventions (hopefully)
+            @{$PDL::CCS::Config::EXPORT_TAGS{Func}},
+            @{$PDL::CCS::Compat::EXPORT_TAGS{Func}},
+            @{$PDL::CCS::Functions::EXPORT_TAGS{Func}},
+            @{$PDL::CCS::Utils::EXPORT_TAGS{Func}},
+            @{$PDL::CCS::Ufunc::EXPORT_TAGS{Func}},
+            @{$PDL::CCS::Ops::EXPORT_TAGS{Func}},
+            @{$PDL::CCS::MatrixOps::EXPORT_TAGS{Func}},
+            @{$PDL::CCS::Nd::EXPORT_TAGS{Func}},
+            @{$PDL::CCS::IO::FastRaw::EXPORT_TAGS{Func}},
+           ],               ##-- respect PDL conventions (hopefully)
   );
 our @EXPORT = @{$EXPORT_TAGS{Func}};
 

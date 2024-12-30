@@ -103,13 +103,13 @@ along the the 1st dimension.
 ## nnza() : get number of non-approximate zero values
 use PDL;
 my %absfunc = (
-	       map {
-		 my $typ = PDL->can($_);
-		 ($typ
-		  ? ($typ->()->ppsym => ($typ->()->ctype eq 'long' ? "labs" : "llabs"))
-		  : qw())
-	       } qw (longlong indx)
-	      );
+               map {
+                 my $typ = PDL->can($_);
+                 ($typ
+                  ? ($typ->()->ppsym => ($typ->()->ctype eq 'long' ? "labs" : "llabs"))
+                  : qw())
+               } qw (longlong indx)
+              );
 pp_def('nnza',
        Pars => 'a(N); eps(); int+ [o]nnz();',
        Code => ('
@@ -324,7 +324,7 @@ EOPM
 ## ccs_xindex1d()
 ##  + optimized dice_axis on 0th dimension, no pointer required
 vvpp_def('ccs_xindex1d',
-	 Pars => "which(Ndims,Nnz); a(Na); [o]nzia(NnzA); [o]nnza()",
+         Pars => "which(Ndims,Nnz); a(Na); [o]nzia(NnzA); [o]nnza()",
    PMCode=>
 (q{
  sub PDL::ccs_xindex1d {
@@ -340,7 +340,7 @@ vvpp_def('ccs_xindex1d',
    return $nzia->reshape($nnza->sclr);
  }
 }),
-	 Code =>
+         Code =>
 (q(
 long a_min=0, a_max=$SIZE(Nnz);
 long a_lb, a_ub, a_ubmax=a_max;
@@ -389,7 +389,7 @@ EOD
 ## ccs_xindex2d()
 ##  + Cartesian-product index
 vvpp_def('ccs_xindex2d',
-	 Pars => "which(Ndims,Nnz); a(Na); b(Nb); [o]ab(Nab); [o]nab()",
+         Pars => "which(Ndims,Nnz); a(Na); b(Nb); [o]ab(Nab); [o]nab()",
    PMCode=>
 (q{
  sub PDL::ccs_xindex2d {
@@ -408,7 +408,7 @@ vvpp_def('ccs_xindex2d',
    return $ab->reshape($nab->sclr);
  }
 }),
-	 Code =>
+         Code =>
 (q(
 long a_min=0, a_max=$SIZE(Nnz);
 long a_lb, a_ub, a_ubmax=a_max;

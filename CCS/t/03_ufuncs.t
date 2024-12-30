@@ -84,14 +84,14 @@ sub test_ufunc {
 ## generic tests
 for my $missing (0,1,255,$BAD) { ##-- *4
   for my $ufunc (
-		  qw(sumover prodover dsumover dprodover),  ## *17
-		  qw(andover orover bandover borover),
-		  qw(maximum minimum),
-		  qw(maximum_ind minimum_ind),
-		  qw(nbadover ngoodover), #nnz
-		  qw(average),
-		  qw(qsort qsorti)
-		 )
+                  qw(sumover prodover dsumover dprodover),  ## *17
+                  qw(andover orover bandover borover),
+                  qw(maximum minimum),
+                  qw(maximum_ind minimum_ind),
+                  qw(nbadover ngoodover), #nnz
+                  qw(average),
+                  qw(qsort qsorti)
+                 )
     {
       test_ufunc($ufunc,$missing);
     }

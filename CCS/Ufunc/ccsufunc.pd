@@ -264,7 +264,7 @@ is multiplied into $nzvalsOut: this is probably What You Want if you are computi
 dimension in a sparse index-encoded PDL (see PDL::CCS::Nd for a wrapper class).
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): dprod
@@ -304,7 +304,7 @@ is added to $nzvalsOut: this is probably What You Want if you are summing over a
 dimension in a sparse index-encoded PDL (see PDL::CCS::Nd for a wrapper class).
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): dsum
@@ -373,24 +373,24 @@ into each result value at each output index with a run length of less than $N() 
 This is probably What You Want.
 
 EOMD
-	     );
+             );
 
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): band
 ccs_accum_def('band', 'bitwise "and"',
-	      extra          => { GenericTypes=>$PDL::CCS::Config::ccsConfig{INT_TYPE_CHRS} },
-	      init_missingOut=>'missingOut = missingVal;',
-	      tmp_addmissing =>'if (nMissing > 0) { tmp &= missingVal; }',
-	      tmp_addval     =>'tmp &= $nzvalsIn(NnzIn=>nnzii);',
-	      doc_addmissing => <<'EOMD',
+              extra          => { GenericTypes=>$PDL::CCS::Config::ccsConfig{INT_TYPE_CHRS} },
+              init_missingOut=>'missingOut = missingVal;',
+              tmp_addmissing =>'if (nMissing > 0) { tmp &= missingVal; }',
+              tmp_addval     =>'tmp &= $nzvalsIn(NnzIn=>nnzii);',
+              doc_addmissing => <<'EOMD',
 
 If $N() is specified and greater than zero, $missing() is bitwise (and)ed
 into each result value at each output index with a run length of less than $N() in $ixIn().
 This is probably What You Want.
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): maximum
@@ -407,7 +407,7 @@ of less than $N(), then $missing() is used as the output value for that key.
 This is probably What You Want.
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): minimum
@@ -424,7 +424,7 @@ of less than $N(), then $missing() is used as the output value for that key.
 This is probably What You Want.
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): maximum_nz_ind ~ maximum_ind
@@ -441,7 +441,7 @@ ccs_accum_def('maximum_nz_ind', 'maximum_nz_ind',
 Output indices index $nzvalsIn, -1 indicates that the missing value is maximal.
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): minimum_nz_ind ~ minimum_ind
@@ -458,7 +458,7 @@ ccs_accum_def('minimum_nz_ind', 'minimum_nz_ind',
 Output indices index $nzvalsIn, -1 indicates that the missing value is minimal.
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): nbad
@@ -489,7 +489,7 @@ ccs_accum_def('nbad', 'number of bad values',
 Should handle missing values appropriately.
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): ngood
@@ -518,7 +518,7 @@ ccs_accum_def('ngood', 'number of good values',
 Should handle missing values appropriately.
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): nnz
@@ -532,12 +532,12 @@ ccs_accum_def('nnz', 'number of non-zero values',
                 if ($ISPDLSTATEBAD($PDL(ixIn))) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
                 $PDLSTATESETGOOD(nzvalsOut); /*-- nzvalsOut state is always good --*/
               },
-	      doc_addmissing => <<'EOMD',
+              doc_addmissing => <<'EOMD',
 
 Should handle missing values appropriately.
 
 EOMD
-	     );
+             );
 
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): average
@@ -548,8 +548,8 @@ ccs_accum_def('average', 'average',
               tmp_reset      =>'tmp  = $nzvalsIn(NnzIn=>nnzii); ntmp=1;',
               tmp_addval     =>'tmp += $nzvalsIn(NnzIn=>nnzii); ntmp++;',
               tmp_addmissing =>(
-				'if (nMissing > 0) { tmp += nMissing * missingVal; }
-				 if ($N() > 0) { tmp /= $N(); } else { tmp /= ntmp; }'
+                                'if (nMissing > 0) { tmp += nMissing * missingVal; }
+                                 if ($N() > 0) { tmp /= $N(); } else { tmp /= ntmp; }'
               ),
               doc_addmissing => <<'EOMD',
 
@@ -561,7 +561,7 @@ is added to $nzvalsOut: this is probably What You Want if you are averaging over
 dimension in a sparse index-encoded PDL (see PDL::CCS::Nd for a wrapper class).
 
 EOMD
-	     );
+             );
 
 
 ##--------------------------------------------------------------

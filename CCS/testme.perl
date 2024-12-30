@@ -95,32 +95,32 @@ sub test_all {
 ## test data
 sub test_data_0 {
   our $p = pdl(double, [
-			[10,0,0,0,-2,0],
-			[3,9,0,0,0,3],
-			[0,7,8,7,0,0],
-			[3,0,8,7,5,0],
-			[0,8,0,9,9,13],
-			[0,4,0,0,2,-1],
-		       ]);
+                        [10,0,0,0,-2,0],
+                        [3,9,0,0,0,3],
+                        [0,7,8,7,0,0],
+                        [3,0,8,7,5,0],
+                        [0,8,0,9,9,13],
+                        [0,4,0,0,2,-1],
+                       ]);
   our $a = $p;
 }
 
 sub test_data_1 {
   our $p = pdl(double, [
-			[10,0,0,0,-2],
-			[3,9,0,0,0],
-			[0,7,8,7,0],
-			[3,0,8,7,5],
-			[0,8,0,9,9],
-			[0,4,0,0,2],
-		       ]);
+                        [10,0,0,0,-2],
+                        [3,9,0,0,0],
+                        [0,7,8,7,0],
+                        [3,0,8,7,5],
+                        [0,8,0,9,9],
+                        [0,4,0,0,2],
+                       ]);
   our $a = $p;
 }
 
 sub test_data_2 {
   our $a = pdl([[1,0,0,2],
-		[0,3,4,0],
-		[5,0,0,6]]);
+                [0,3,4,0],
+                [5,0,0,6]]);
 }
 sub test_data_bg {
   our $bgdata      = Storable::retrieve("bgdata.bin");
@@ -144,12 +144,12 @@ sub test_bg_blocksize {
   $bg0->[$VALS] = $bg0->[$VALS]->double;
 
   cmpthese(4,
-	   {
-	    'bs=0'    => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=0;     $bg1 = $bg0*$bg0; },
-	    'bs=65535'=> sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=65535; $bg1 = $bg0*$bg0; },
-	    'bs=8192' => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=8192;  $bg1 = $bg0*$bg0; },
-	    'bs=4096' => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=1024;  $bg1 = $bg0*$bg0; },
-	   });
+           {
+            'bs=0'    => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=0;     $bg1 = $bg0*$bg0; },
+            'bs=65535'=> sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=65535; $bg1 = $bg0*$bg0; },
+            'bs=8192' => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=8192;  $bg1 = $bg0*$bg0; },
+            'bs=4096' => sub { $PDL::CCS::Nd::BINOP_BLOCKSIZE_MAX=1024;  $bg1 = $bg0*$bg0; },
+           });
 }
 #test_bg_blocksize;
 
@@ -266,12 +266,12 @@ sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for in
       #print OUT map { ($ixc[2*$_],"\t",$ixc[2*$_+1],"\n") } (0..($ixc_e->dim(1)-1));
       ##--
       if (0) { ##-- debug: dump to text file
-	print "<DEBUG> dumping block of size=".(1+$nzci_max-$nzci_prv). " to '$outfile' ... ";
-	ccs_dump_which($ixc_cur, \*OUT, "%d", " ", "\n");
-	print "dumped.\n";
+        print "<DEBUG> dumping block of size=".(1+$nzci_max-$nzci_prv). " to '$outfile' ... ";
+        ccs_dump_which($ixc_cur, \*OUT, "%d", " ", "\n");
+        print "dumped.\n";
       } else {
-	##-- show what we've aligned
-	print "<DEBUG> aligned block of size ".sprintf("%8d\n", 1+$nzci_max-$nzci_prv);
+        ##-- show what we've aligned
+        print "<DEBUG> aligned block of size ".sprintf("%8d\n", 1+$nzci_max-$nzci_prv);
       }
       undef($ixc_f);
       undef($ixc_e);
@@ -280,11 +280,11 @@ sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for in
     ##-- add to final output pdl
     if (1) {
       if (!defined($ixc_out) || $ixc_out->isempty) {
-	$ixc_out = $ixc_cur->ushort if (defined($ixc_cur));
+        $ixc_out = $ixc_cur->ushort if (defined($ixc_cur));
       } else {
-	my $ixc_dim1_old = $ixc_out->dim(1);
-	$ixc_out->reshape($ixc_out->dim(0), $ixc_out->dim(1)+$ixc_cur->dim(1));
-	$ixc_out->slice(",${ixc_dim1_old}:-1") .= $ixc_cur;
+        my $ixc_dim1_old = $ixc_out->dim(1);
+        $ixc_out->reshape($ixc_out->dim(0), $ixc_out->dim(1)+$ixc_cur->dim(1));
+        $ixc_out->slice(",${ixc_dim1_old}:-1") .= $ixc_cur;
       }
     }
     undef($ixc_cur);
@@ -295,8 +295,8 @@ sub align_neighbors { ##-- like threaded matmult with 'or' instead of '+' for in
       $nzci_cur  = 0;
 
       if ($nzci_nxt > $nzai->dim(0)) {
-	$nzai    = $nzai->reshape($nzci_nxt+$blksz);
-	$nzbi    = $nzbi->reshape($nzci_nxt+$blksz);
+        $nzai    = $nzai->reshape($nzci_nxt+$blksz);
+        $nzbi    = $nzbi->reshape($nzci_nxt+$blksz);
       }
 
       $istate .= $ostate;
@@ -752,14 +752,14 @@ sub test_nd_binop_sclr_all {
   foreach $missing ($BAD) {
     foreach $swap (0,1) {
       foreach $binop (
-		      qw(plus minus mult divide modulo power),
-		      qw(gt ge lt le eq ne spaceship),
-		      qw(and2 or2 xor),
-		      qw(shiftleft shiftright), #)
-		     ) {
-	foreach $sclr (0,42) {
-	  test_nd_binop_sclr($binop,$sclr,$missing,$swap);
-	}
+                      qw(plus minus mult divide modulo power),
+                      qw(gt ge lt le eq ne spaceship),
+                      qw(and2 or2 xor),
+                      qw(shiftleft shiftright), #)
+                     ) {
+        foreach $sclr (0,42) {
+          test_nd_binop_sclr($binop,$sclr,$missing,$swap);
+        }
       }
     }
   }
@@ -832,14 +832,14 @@ sub test_nd_binop_cvrv_all {
   foreach $missing ($BAD) {
     foreach $swap (0,1) {
       foreach $binop (
-		      qw(plus minus mult divide modulo power),
-		      qw(gt ge lt le eq ne spaceship),
-		      qw(and2 or2 xor),
-		      qw(shiftleft shiftright),
-		     )
-	{
-	  test_nd_binop_cvrv_mia($binop,$missing,$swap);
-	}
+                      qw(plus minus mult divide modulo power),
+                      qw(gt ge lt le eq ne spaceship),
+                      qw(and2 or2 xor),
+                      qw(shiftleft shiftright),
+                     )
+        {
+          test_nd_binop_cvrv_mia($binop,$missing,$swap);
+        }
     }
   }
 }
@@ -897,14 +897,14 @@ sub test_nd_binop_mia_all {
   foreach $missing ($BAD) {
     foreach $swap (0,1) {
       foreach $binop (
-		      qw(plus minus mult divide modulo power),
-		      qw(gt ge lt le eq ne spaceship),
-		      qw(and2 or2 xor),
-		      qw(shiftleft shiftright),
-		     )
-	{
-	  test_nd_binop_mia($binop,$missing,$swap);
-	}
+                      qw(plus minus mult divide modulo power),
+                      qw(gt ge lt le eq ne spaceship),
+                      qw(and2 or2 xor),
+                      qw(shiftleft shiftright),
+                     )
+        {
+          test_nd_binop_mia($binop,$missing,$swap);
+        }
     }
   }
 }
@@ -1000,16 +1000,16 @@ sub test_nd_ufunc_all {
   my ($ufunc,$missing);
   foreach $missing (0,1,$BAD) {
     foreach $ufunc (
-		    qw(sumover dsumover prodover dprodover),
-		    qw(andover orover bandover borover),
-		    qw(maximum minimum),
-		    qw(nnz nbadover ngoodover),
-		    ##
-		    ##-- scalars
-		    qw(sum dsum prod dprod max min nbad ngood),
-		   )
+                    qw(sumover dsumover prodover dprodover),
+                    qw(andover orover bandover borover),
+                    qw(maximum minimum),
+                    qw(nnz nbadover ngoodover),
+                    ##
+                    ##-- scalars
+                    qw(sum dsum prod dprod max min nbad ngood),
+                   )
       {
-	test_nd_ufunc_1($ufunc,$missing);
+        test_nd_ufunc_1($ufunc,$missing);
       }
   }
 }
@@ -1336,9 +1336,9 @@ sub test_ccs_binop_plus_byblock_1 {
     }
 
     &PDL::_ccs_binop_plus_int($ixa->slice(",${nnzai_from}:${nnzai_to}"), $nza->slice("${nnzai_from}:${nnzai_to}"), $za,
-			      $ixb->slice(",${nnzbi_from}:${nnzbi_to}"), $nzb->slice("${nnzbi_from}:${nnzbi_to}"), $zb,
-			      $ixc->slice(",${nnzci_from}:${nnzci_to}"), $nzc->slice("${nnzci_from}:${nnzci_to}"), $zc,
-			      $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
+                              $ixb->slice(",${nnzbi_from}:${nnzbi_to}"), $nzb->slice("${nnzbi_from}:${nnzbi_to}"), $zb,
+                              $ixc->slice(",${nnzci_from}:${nnzci_to}"), $nzc->slice("${nnzci_from}:${nnzci_to}"), $zc,
+                              $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
 
     $nnzai_from += $nnzai_nxt->sclr;
     $nnzbi_from += $nnzbi_nxt->sclr;
@@ -1355,9 +1355,9 @@ sub test_ccs_binop_plus_byblock_1 {
       $nzc->reshape($nnzci_to+1);
     }
     &PDL::_ccs_binop_plus_int($ix_gobble, $nza->slice("${nnzai_from}:-1"), $za,
-			      $ix_gobble, $zb->slice("*${ngobbled}")->flat, $zb,
-			      $ixc->slice(",${nnzci_from}:-1"), $nzc->slice("${nnzci_from}:-1"), $zc,
-			      $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
+                              $ix_gobble, $zb->slice("*${ngobbled}")->flat, $zb,
+                              $ixc->slice(",${nnzci_from}:-1"), $nzc->slice("${nnzci_from}:-1"), $zc,
+                              $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
   }
   elsif ($nnzbi_from < $nnzbi_max) {
     ##-- gobble leftover data from $b()
@@ -1369,9 +1369,9 @@ sub test_ccs_binop_plus_byblock_1 {
       $nzc->reshape($nnzci_to+1);
     }
     &PDL::_ccs_binop_plus_int($ix_gobble, $za->slice("*${ngobbled}")->flat, $za,
-			      $ix_gobble, $nzb->slice(",${nnzbi_from}:-1"), $zb,
-			      $ixc->slice(",${nnzci_from}:-1"), $nzc->slice("${nnzci_from}:-1"), $zc,
-			      $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
+                              $ix_gobble, $nzb->slice(",${nnzbi_from}:-1"), $zb,
+                              $ixc->slice(",${nnzci_from}:-1"), $nzc->slice("${nnzci_from}:-1"), $zc,
+                              $nnzai_nxt, $nnzbi_nxt, $nnzci_nxt);
   }
 
   ##-- finally, trim the output pdls & return
@@ -1709,9 +1709,9 @@ sub test_ccsencode_1 {
   our $nnz   = $p->flat->nnz;
   our $nrows = $p->dim(1);
   ccsencodefull($p,
-		$ptr=zeroes(long,$p->dim(0)),
-		$rowids=zeroes(long,$nnz),
-		$nzvals=zeroes($p->type,$nnz));
+                $ptr=zeroes(long,$p->dim(0)),
+                $rowids=zeroes(long,$nnz),
+                $nzvals=zeroes($p->type,$nnz));
 
   isok("ccsencodefull:ptr",    all($ptr==pdl([0,3,7,9,12,16])));
   isok("ccsencodefull:rowids", all($rowids==pdl([0,1,3,1,2,4,5,2,3,2,3,4,0,3,4,5,1,4,5])));
@@ -1795,7 +1795,7 @@ sub test_ccs_compat {
     isok("resort:randomized:decode",  all($ccs->decode==$a));
     isok("resort:randomized:pointer", all($cwhich->dice_axis(1,$pnzix)==$cwhich->vv_qsortvec));
     isok("resort:randomized:pointer:decode",
-	 all($a==ccsdecode($pix->slice("0:-2"), $cwhich->slice("(1),")->index($pnzix), $cvals->index($pnzix))));
+         all($a==ccsdecode($pix->slice("0:-2"), $cwhich->slice("(1),")->index($pnzix), $cvals->index($pnzix))));
     $ccs->sortwhich();
     $cwhich = $ccs->whichND;
     $cvals  = $ccs->vals;
@@ -1803,7 +1803,7 @@ sub test_ccs_compat {
     isok("resort:randomized+resorted:decode", all($ccs->decode==$a));
     isok("resort:randomized+resorted:pointer", all($cwhich->dice_axis(1,$pnzix)==$cwhich->vv_qsortvec));
     isok("resort:randomized+resorted:pointer:decode",
-	 all($a==ccsdecode($pix->slice("0:-2"), $cwhich->slice("(1),")->index($pnzix), $cvals->index($pnzix))));
+         all($a==ccsdecode($pix->slice("0:-2"), $cwhich->slice("(1),")->index($pnzix), $cvals->index($pnzix))));
   }
 
   ##-- object: at,set

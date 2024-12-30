@@ -42,10 +42,10 @@ if (version->parse($PDL::VERSION) >= version->parse("2.037")) {
 } else {
   ##-- integer types for b*over &c, PDL < v2.037: functional (and mostly equivalent)
   $cconfig{INT_TYPE_KEYS} = [map {$_->{sym}}
-			     sort {$a->{numval} <=> $b->{numval}}
-			     grep {$_->{ppsym} =~ /^(?:[BSULQN]|LL|US)$/}
-			     values %PDL::Types::typehash
-			    ];
+                             sort {$a->{numval} <=> $b->{numval}}
+                             grep {$_->{ppsym} =~ /^(?:[BSULQN]|LL|US)$/}
+                             values %PDL::Types::typehash
+                            ];
   $cconfig{INT_TYPE_CHRS} = [map {$_->{ppsym}} @PDL::Types::typehash{ @{$cconfig{INT_TYPE_KEYS}} }];
 
   ##-- PDL < v2.037 downcasts to 'indx' if available (but probably should use 'longlong' if it could)

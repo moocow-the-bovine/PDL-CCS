@@ -21,13 +21,13 @@ sub tnnz {
 use vars qw($ptr $rowids $nzvals $nrows);
 sub tccs1 {
   $p = pdl(double, [
-		    [10,0,0,0,-2,0],
-		    [3,9,0,0,0,3],
-		    [0,7,8,7,0,0],
-		    [3,0,8,7,5,0],
-		    [0,8,0,9,9,13],
-		    [0,4,0,0,2,-1],
-		   ]);
+                    [10,0,0,0,-2,0],
+                    [3,9,0,0,0,3],
+                    [0,7,8,7,0,0],
+                    [3,0,8,7,5,0],
+                    [0,8,0,9,9,13],
+                    [0,4,0,0,2,-1],
+                   ]);
 }
 
 ##---------------------------------------------------------------------
@@ -41,17 +41,17 @@ sub tccs2 {
   $nnz = $p->flat->nnz; ##-- 19
   $nrows = $p->dim(1);
   ccsencodefull($p,
-		$ptr=zeroes(long,$p->dim(0)),    ##-- [0,3,7,9,12,16]
-		$rowids=zeroes(long,$nnz),       ##-- [0,1,3,1,2,4,5,2,3,2,3,4,0,3,4,5,1,4,5]
-		$nzvals=zeroes($p->type, $nnz)); ##-- [10,3,3,9,7,8,4,8,8,7,7,9,-2,5,9,2,3,13,-1]
+                $ptr=zeroes(long,$p->dim(0)),    ##-- [0,3,7,9,12,16]
+                $rowids=zeroes(long,$nnz),       ##-- [0,1,3,1,2,4,5,2,3,2,3,4,0,3,4,5,1,4,5]
+                $nzvals=zeroes($p->type, $nnz)); ##-- [10,3,3,9,7,8,4,8,8,7,7,9,-2,5,9,2,3,13,-1]
 }
 sub tccs2a {
   $nnz = $p->flat->nnza($eps);  ##-- 19
   $nrows = $p->dim(1);
   ccsencodefulla($p,$eps,
-		 $ptr=zeroes(long,$p->dim(0)),    ##-- [0,3,7,9,12,16]
-		 $rowids=zeroes(long,$nnz),       ##-- [0,1,3,1,2,4,5,2,3,2,3,4,0,3,4,5,1,4,5]
-		 $nzvals=zeroes($p->type, $nnz)); ##-- [10,3,3,9,7,8,4,8,8,7,7,9,-2,5,9,2,3,13,-1]
+                 $ptr=zeroes(long,$p->dim(0)),    ##-- [0,3,7,9,12,16]
+                 $rowids=zeroes(long,$nnz),       ##-- [0,1,3,1,2,4,5,2,3,2,3,4,0,3,4,5,1,4,5]
+                 $nzvals=zeroes($p->type, $nnz)); ##-- [10,3,3,9,7,8,4,8,8,7,7,9,-2,5,9,2,3,13,-1]
 }
 
 
@@ -69,9 +69,9 @@ sub tccs_enc_w2d {
   ($ptr,$rowids,$nzvals) = ccsencode($a);
 
   ccsencodefull_i2d($awcols,$awrows,$avals,
-		    $wptr   =zeroes(long,     $a->dim(0)),
-		    $wrowids=zeroes(long,     $avals->dim(0)),
-		    $wnzvals=zeroes($a->type, $avals->dim(0)));
+                    $wptr   =zeroes(long,     $a->dim(0)),
+                    $wrowids=zeroes(long,     $avals->dim(0)),
+                    $wnzvals=zeroes($a->type, $avals->dim(0)));
 
   print "encoding: full: indexND: ", (all(ccsdecode($wptr,$wrowids,$wnzvals)==$a) ? "ok" : "NOT ok"), "\n";
 
@@ -88,10 +88,10 @@ sub tccs_enc_wflat {
   ($ptr,$rowids,$nzvals) = ccsencode($a);
 
   ccsencodefull_i($awflat, $avals,
-		  $wptr   =zeroes(long,     $a->dim(0)),
-		  $wrowids=zeroes(long,     $avals->dim(0)),
-		  $wnzvals=zeroes($a->type, $avals->dim(0)),
-		 );
+                  $wptr   =zeroes(long,     $a->dim(0)),
+                  $wrowids=zeroes(long,     $avals->dim(0)),
+                  $wnzvals=zeroes($a->type, $avals->dim(0)),
+                 );
   print "encoding: full: flat: ", (all(ccsdecode($wptr,$wrowids,$wnzvals)==$a) ? "ok" : "NOT ok"), "\n";
 
   ($wptr,$wrowids,$wnzvals) = ccsencode_i($awflat, $avals, $a->dim(0));
@@ -119,8 +119,8 @@ sub tccsdc {
 
 sub tp_data {
   $a = pdl([[1,0,0,2],
-	    [0,3,4,0],
-	    [5,0,0,6]]);
+            [0,3,4,0],
+            [5,0,0,6]]);
   ($ptr,$rowids,$nzvals) = ccsencode($a);
 }
 
@@ -150,8 +150,8 @@ sub tp_test2 {
 
 sub ta_data {
   $a = pdl([[1,0,0,2],
-	    [0,3,4,0],
-	    [5,0,0,6]]);
+            [0,3,4,0],
+            [5,0,0,6]]);
   ($ptr, $rowids, $nzvals)  = ccsencode($a);
   ($ptrT,$rowidsT,$nzvalsT) = ccstranspose($ptr,$rowids,$nzvals);
 }
@@ -176,9 +176,9 @@ sub ta_index_flat {
   $allbcvals = ccsget($ptr,$rowids,$nzvals, $allai,$badval);
   print
     "index (some present / bad): ", (all($allbcvals->where($allbcvals->isgood) == $allavals->where($allbcvals->isgood))
-					 &&
-					 all($allavals->where($allbcvals->isbad) == 0)
-					 ? "ok" : "NOT ok"), "\n";
+                                         &&
+                                         all($allavals->where($allbcvals->isbad) == 0)
+                                         ? "ok" : "NOT ok"), "\n";
 }
 #ta_index_flat();
 
@@ -203,9 +203,9 @@ sub ta_index_2d {
   $allbcvals = ccsget2d($ptr,$rowids,$nzvals, $allacoli,$allarowi,$badval);
   print
     "index2d (some present / bad): ", (all($allbcvals->where($allbcvals->isgood) == $allavals->where($allbcvals->isgood))
-					 &&
-					 all($allavals->where($allbcvals->isbad) == 0)
-					 ? "ok" : "NOT ok"), "\n";
+                                         &&
+                                         all($allavals->where($allbcvals->isbad) == 0)
+                                         ? "ok" : "NOT ok"), "\n";
 }
 #ta_index_2d();
 
@@ -231,8 +231,8 @@ sub ta_whichfull {
 
 sub top_data {
   $a = pdl([[1,0,0,2],
-	    [0,3,4,0],
-	    [5,0,0,6]]);
+            [0,3,4,0],
+            [5,0,0,6]]);
   our @ccs  = ($ptr, $rowids, $nzvals)  = ccsencode($a);
   our @ccst = ($ptrT,$rowidsT,$nzvalsT) = ccstranspose($ptr,$rowids,$nzvals);
 }
@@ -294,20 +294,20 @@ BEGIN {
 sub newFromDense {
   my ($that,$p,$missing) = @_;
   $missing     = (defined($missing)
-		  ? PDL->pdl($p->type,$missing)
-		  : ($p->badflag
-		     ? PDL->pdl($p->type,0)->setvaltobad(0)
-		     : PDL->pdl($p->type,0)));
+                  ? PDL->pdl($p->type,$missing)
+                  : ($p->badflag
+                     ? PDL->pdl($p->type,0)->setvaltobad(0)
+                     : PDL->pdl($p->type,0)));
   my $pwhichND = ($missing->isbad->any
-		  ? $p->isgood()
-		  : ($p != $missing)
-		 )->whichND;
+                  ? $p->isgood()
+                  : ($p != $missing)
+                 )->whichND;
   my $pnz      = PDL->pdl($p->indexND($pwhichND));
   return bless([
-		[$p->dims],
-		$missing,
-		PDL::CCS::ccsencode_i2d($pwhichND->xchg(0,1)->dog, $pnz, $p->getdim(0)),
-	       ], ref($that)||$that);
+                [$p->dims],
+                $missing,
+                PDL::CCS::ccsencode_i2d($pwhichND->xchg(0,1)->dog, $pnz, $p->getdim(0)),
+               ], ref($that)||$that);
 }
 
 ## DESTROY : avoid PDL inheritance?
@@ -329,12 +329,12 @@ sub copy { bless [ [@{$_[0][$DIMS]}], map {PDL->pdl($_)} @{$_[0]}[$MISSING,@CCS]
 ##  + like clone(), but only clones dimensions & indices
 sub clonei {
   bless [
-	 [@{$_[0][$DIMS]}],
-	 PDL->pdl($_[0][$MISSING]),
-	 PDL->pdl($_[0][$PTR]),
-	 PDL->pdl($_[0][$ROWIDS]),
-	 PDL->topdl($_[1]),
-	], ref($_[0]);
+         [@{$_[0][$DIMS]}],
+         PDL->pdl($_[0][$MISSING]),
+         PDL->pdl($_[0][$PTR]),
+         PDL->pdl($_[0][$ROWIDS]),
+         PDL->topdl($_[1]),
+        ], ref($_[0]);
 }
 
 ##--------------------------------------------------------------
@@ -343,9 +343,9 @@ sub clonei {
 ## $dense = $obj->decode()
 sub decode {
   PDL::CCS::ccsdecodecols(@{$_[0]}[@CCS],
-			  PDL->sequence(PDL::long(), $_[0][$DIMS][0]),
-			  $_[0][$MISSING],
-			  $_[0][$DIMS][1]);
+                          PDL->sequence(PDL::long(), $_[0][$DIMS][0]),
+                          $_[0][$MISSING],
+                          $_[0][$DIMS][1]);
 }
 
 ##--------------------------------------------------------------
@@ -452,10 +452,10 @@ sub set {
 ## $objT = $obj->transpose()
 sub transpose {
   bless [
-	 [@{$_[0][$DIMS]}[1,0,2..$#{$_[0][$DIMS]}]],
-	 @{$_[0]}[$MISSING],
-	 PDL::CCS::ccstranspose(@{$_[0]}[@CCS]),
-	], ref($_[0]);
+         [@{$_[0][$DIMS]}[1,0,2..$#{$_[0][$DIMS]}]],
+         @{$_[0]}[$MISSING],
+         PDL::CCS::ccstranspose(@{$_[0]}[@CCS]),
+        ], ref($_[0]);
 }
 
 ##--------------------------------------------------------------
@@ -528,8 +528,8 @@ sub xstring { $_[0]->xpdl->string(); }
 BEGIN {
   package PDL::CCS::Obj;
   use overload (
-		"\"\"" => \&string,
-	       );
+                "\"\"" => \&string,
+               );
 }
 
 
@@ -538,9 +538,9 @@ package main;
 
 sub ccsobj_data {
   our $al = pdl(long,
-		[[1,0,0,2],
-		 [0,3,4,0],
-		 [5,0,0,6]]);
+                [[1,0,0,2],
+                 [0,3,4,0],
+                 [5,0,0,6]]);
   our $ad = $al->convert(double);
   our $b  = $al->setvaltobad(0);
   our $a  = $al;
@@ -698,10 +698,10 @@ sub testnull_min {
   ## barf()s with:
   # Problem with assignment: PDL::Ops::assgn(a,b): Parameter 'b':
   # Mismatched implicit thread dimension 0: should be 0, is 2
-  # 	 at Basic/Core/Core.pm.PL (i.e. PDL::Core.pm) line 256
-  # 	PDL::Core::barf('PDL=SCALAR(0xa026630)', 'PDL=SCALAR(0xa026690)') called at Basic/Core/Core.pm.PL (i.e. PDL::Core.pm) line 701
-  # 	eval {...} called at Basic/Core/Core.pm.PL (i.e. PDL::Core.pm) line 700
-  # 	__ANON__[Basic/Core/Core.pm.PL (i.e. PDL::Core.pm):712]('PDL=SCALAR(0xa026690)', 'PDL=SCALAR(0xa026630)', undef) called at (eval 160)[/usr/share/perl/5.10/perl5db.pl:638] line 2
+  #      at Basic/Core/Core.pm.PL (i.e. PDL::Core.pm) line 256
+  #     PDL::Core::barf('PDL=SCALAR(0xa026630)', 'PDL=SCALAR(0xa026690)') called at Basic/Core/Core.pm.PL (i.e. PDL::Core.pm) line 701
+  #     eval {...} called at Basic/Core/Core.pm.PL (i.e. PDL::Core.pm) line 700
+  #     __ANON__[Basic/Core/Core.pm.PL (i.e. PDL::Core.pm):712]('PDL=SCALAR(0xa026690)', 'PDL=SCALAR(0xa026630)', undef) called at (eval 160)[/usr/share/perl/5.10/perl5db.pl:638] line 2
 
 }
 #testnull_min();
@@ -772,13 +772,13 @@ sub test_ufunc_2_039 {
   
   ##-- common data (CCS/t/common.plt)
   our $a = pdl(double, [
-			[10,0,0,0,-2],
-			[3,9,0,0,0],
-			[0,7,8,6,0],
-			[3,0,8,7,5],
-			[0,8,0,9,7],
-			[0,4,0,0,2],
-		       ]);
+                        [10,0,0,0,-2],
+                        [3,9,0,0,0],
+                        [0,7,8,6,0],
+                        [3,0,8,7,5],
+                        [0,8,0,9,7],
+                        [0,4,0,0,2],
+                       ]);
   our $abad   = ($a==0);
   our $agood  = !$abad;
   our $awhich = $a->whichND;
@@ -849,9 +849,9 @@ sub pdlok {
   $got  = PDL->topdl($got) if (defined($got));
   $want = PDL->topdl($want) if (defined($want));
   my $ok = (defined($got) && defined($want)
-	    && cmp_dims($got,$want)
-	    && all(matchpdl($want,$got))
-	   );
+            && cmp_dims($got,$want)
+            && all(matchpdl($want,$got))
+           );
   isok(labstr($label,$ok,$got,$want), $ok);
 }
 
