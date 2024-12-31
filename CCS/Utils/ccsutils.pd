@@ -130,40 +130,6 @@ For 1d PDLs, should be equivalent to:
       );
 
 
-##------------------------------------------------------
-## ngoodover() : get number of good values: BUILTIN in PDL::Bad
-#pp_def('ngoodover',
-#       Pars => 'a(N); int+ [o]ngood()',
-#       Code => '$ngood() = $SIZE(N);',
-#       HandleBad=>1,
-#       BadCode=>
-#('
-#  $GENERIC(a) a_val;
-#  threadloop %{
-#   $GENERIC(ngood) ngoodi = 0;
-#   loop(N) %{
-#    a_val = $a();
-#    if ( $ISGOODVAR(a_val,a) ) { ++ngoodi; }
-#   %}
-#   $ngood() = ngoodi;
-#  %}
-#'),
-#       CopyBadStatusCode => '$SETPDLSTATEGOOD(ngood); /* always make sure the output is "good" */',
-#       BadDoc=>'The output PDL $ngood() always has its bad flag cleared.',
-#       Doc =>
-#q(Get number of good elements in a PDL $a();
-#For 1d PDLs, should be equivalent to:
-#
-# $ngood = nelem(which($a->isgood()));
-#
-#For k>1 dimensional PDLs, projects via number of good elements
-#to N-1 dimensions by computing the number of good elements
-#along the the 1st dimension.
-#),
-#      );
-
-
-
 ##======================================================================
 ## Encoding
 ##======================================================================
@@ -188,14 +154,21 @@ pp_def
  sub PDL::ccs_encode_pointers {
    my ($ix,$N,$ptr,$ixix) = @_;
    barf("Usage: ccs_encode_pointers(ix(Nnz), N(), [o]ptr(N+1), [o]ixix(Nnz)") if (!defined($ix));
-   $N    = $ix->max()+1                               if (!defined($N));
-   $ptr = PDL->zeroes(ccs_indx(), $N+1)              if (!defined($ptr));
-   $ixix = PDL->zeroes(ccs_indx(), $ix->dim(0))      if (!defined($ixix));
-   &PDL::_ccs_encode_pointers_int($ix,$N,$ptr,$ixix);
+   &PDL::_ccs_encode_pointers_int($ix, ($N // $ix->max+1), ($ptr //= null), ($ixix //= null));
    return ($ptr,$ixix);
  }
 }),
-   Code =>
+  RedoDimsCode => q(
+    fprintf(stderr, "RedoDims: got N=%zd\n", $N());
+    if ( $PDL(ptr)->state & PDL_MYDIMS_TRANS ) {
+      /*-- output PDL passed as null; use default output dimension --*/
+      $SIZE(Nplus1) = $N() + 1;
+    }
+    else if ( $SIZE(Nplus1) <= $N() ) {
+      $CROAK("dimension Nplus1 (=%ld) must be greater than N (=%ld)", $SIZE(Nplus1), (long)$N());
+    }
+),
+  Code =>
 (q(
  /*-- Local variables --*/
  CCS_Indx ixval, ixval_next, ixval_prev, nzi, nzj, sizeN=$SIZE(Nplus1)-1, sizeNnz=$SIZE(Nnz);
@@ -241,6 +214,9 @@ guaranteed to be stably sorted along dimension $N():
 EOD
   );
 
+
+pp_done();
+__END__
 
 ##======================================================================
 ## Decoding
