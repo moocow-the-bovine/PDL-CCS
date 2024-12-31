@@ -159,7 +159,6 @@ pp_def
  }
 }),
   RedoDimsCode => q(
-    fprintf(stderr, "RedoDims: got N=%zd\n", $N());
     if ( $PDL(ptr)->state & PDL_MYDIMS_TRANS ) {
       /*-- output PDL passed as null; use default output dimension --*/
       $SIZE(Nplus1) = $N() + 1;
@@ -215,9 +214,6 @@ EOD
   );
 
 
-pp_done();
-__END__
-
 ##======================================================================
 ## Decoding
 ##======================================================================
@@ -233,30 +229,36 @@ EOPM
 
 ##------------------------------------------------------
 ## ccs_decode_pointer() : decode a CCS-encoded pointer
-pp_def
-  ('ccs_decode_pointer',
-   Pars => "$INDX ptr(Nplus1); $INDX proj(Nproj); $INDX\ [o]projix(NnzProj); $INDX\ [o]nzix(NnzProj)",
-   PMCode=>
+pp_def(
+  'ccs_decode_pointer',
+  Pars => "$INDX ptr(Nplus1); $INDX proj(Nproj); $INDX\ [o]projix(NnzProj); $INDX\ [o]nzix(NnzProj)",
+  OtherPars => 'PDL_Indx nnzProj;',
+  PMCode=>
 (q{
  sub PDL::ccs_decode_pointer {
-   my ($ptr,$proj,$projix,$nzix) = @_;
-   barf("Usage: ccs_decode_pointer(ptr(N+1), proj(Nproj), [o]projix(NnzProj), [o]nzix(NnzProj)")
+   my ($ptr,$proj,$projix,$nzix,$nnzproj) = @_;
+   barf("Usage: ccs_decode_pointer(ptr(N+1), proj(Nproj), [o]projix(NnzProj), [o]nzix(NnzProj), NnzProj?")
      if (!defined($ptr));
-   my ($nnzproj);
    if (!defined($proj)) {
      $proj    = PDL->sequence(ccs_indx(), $ptr->dim(0)-1);
      $nnzproj = $ptr->at(-1);
    }
-   if (!defined($projix) || !defined($nzix)) {
-     $nnzproj = ($ptr->index($proj+1)-$ptr->index($proj))->sum if (!defined($nnzproj));
-     return (null,null) if (!$nnzproj);
-     $projix  = PDL->zeroes(ccs_indx(), $nnzproj) if (!defined($projix));
-     $nzix    = PDL->zeroes(ccs_indx(), $nnzproj) if (!defined($nzix));
+   $projix //= null;
+   $nzix //= null;
+   if (!defined($nnzproj) && $projix->isnull && $nzix->isnull) {
+     $nnzproj = ($ptr->index($proj+1)-$ptr->index($proj))->sum;
    }
-   &PDL::_ccs_decode_pointer_int($ptr,$proj,$projix,$nzix);
+   return (null,null) if (!$nnzproj);
+   &PDL::_ccs_decode_pointer_int($ptr,$proj, $projix,$nzix, $nnzproj);
    return ($projix,$nzix);
  }
 }),
+  RedoDimsCode => q(
+    if ( $PDL(projix)->state & $PDL(nzix)->state & PDL_MYDIMS_TRANS ) {
+      /*-- output PDLs passed as null; use output dimension from OtherPars --*/
+      $SIZE(NnzProj) = $COMP(nnzProj);
+    }
+),
    Code =>
 (q(
  /*-- Local variables --*/
@@ -275,13 +277,14 @@ pp_def
   Doc=><<'EOD'
 General CCS decoding utility.
 
-Project indices $proj() from a compressed storage "pointer" vector $proj().
+Project indices $proj() from a compressed storage "pointer" vector $ptr().
 If unspecified, $proj() defaults to:
 
- sequence($ptr->dim(0))
+ sequence($ptr->dim(0) - 1)
 
 EOD
 );
+
 
 ##======================================================================
 ## Indexing
