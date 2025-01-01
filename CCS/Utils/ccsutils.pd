@@ -248,46 +248,51 @@ pp_def(
   'ccs_decode_pointer',
   Pars => "$INDX ptr(Nplus1); $INDX proj(Nproj); $INDX\ [o]projix(NnzProj); $INDX\ [o]nzix(NnzProj)",
   OtherPars => 'PDL_Indx nnzProj;',
-  PMCode=>
-(q{
- sub PDL::ccs_decode_pointer {
-   my ($ptr,$proj,$projix,$nzix,$nnzproj) = @_;
-   barf("Usage: ccs_decode_pointer(ptr(N+1), proj(Nproj), [o]projix(NnzProj), [o]nzix(NnzProj), NnzProj?")
-     if (!defined($ptr));
-   if (!defined($proj)) {
-     $proj    = PDL->sequence(ccs_indx(), $ptr->dim(0)-1);
-     $nnzproj = $ptr->at(-1);
-   }
-   $projix //= null;
-   $nzix //= null;
-   if (!defined($nnzproj) && $projix->isnull && $nzix->isnull) {
-     $nnzproj = ($ptr->index($proj+1)-$ptr->index($proj))->sum;
-   }
-   return (null,null) if (!$nnzproj);
-   &PDL::_ccs_decode_pointer_int($ptr,$proj, $projix,$nzix, $nnzproj);
-   return ($projix,$nzix);
- }
-}),
-  RedoDimsCode => q(
+  PMCode=> q{
+    sub PDL::ccs_decode_pointer {
+      my ($ptr,$proj,$projix,$nzix,$nnzproj) = @_;
+      barf("Usage: ccs_decode_pointer(ptr(N+1), proj(Nproj), [o]projix(NnzProj), [o]nzix(NnzProj), NnzProj?")
+        if (!defined($ptr));
+      if (!defined($proj)) {
+        $proj    = PDL->sequence(ccs_indx(), $ptr->dim(0)-1);
+        $nnzproj //= $ptr->at(-1);
+      }
+      $projix //= null;
+      $nzix //= null;
+      $nnzproj //= (
+         $projix->isnull
+         ? ($nzix->isnull
+            ? ($ptr->index($proj+1)-$ptr->index($proj))->sum
+            : $nzix->dim(0))
+         : $projix->dim(0)
+      );
+      return (null,null) if (!$nnzproj);
+      &PDL::_ccs_decode_pointer_int($ptr,$proj, $projix,$nzix, $nnzproj);
+      return ($projix,$nzix);
+    }
+  },
+
+  RedoDimsCode => q{
     if ( CCS_PDL_IS_NULL($PDL(projix)) && CCS_PDL_IS_NULL($PDL(nzix)) ) {
       $SIZE(NnzProj) = $COMP(nnzProj);
     }
-),
-   Code =>
-(q(
- /*-- Local variables --*/
- CCS_Indx ni,ni_next, nzi,nzi_next, ixi=0, sizeNproj=$SIZE(Nproj), sizeNnzProj=$SIZE(NnzProj);
- loop (Nproj) %{
-   ni         = $proj();
-   ni_next    = ni+1;
-   nzi        = $ptr(Nplus1=>ni);
-   nzi_next   = $ptr(Nplus1=>ni_next);
-   for ( ; nzi < nzi_next && ixi < sizeNnzProj; nzi++, ixi++) {
-     $projix(NnzProj=>ixi) = Nproj;
-     $nzix(NnzProj=>ixi)   = nzi;
-   }
- %}
-)),
+  },
+
+  Code => q{
+    /*-- Local variables --*/
+    CCS_Indx ni,ni_next, nzi,nzi_next, ixi=0, sizeNproj=$SIZE(Nproj), sizeNnzProj=$SIZE(NnzProj);
+    loop (Nproj) %{
+      ni         = $proj();
+      ni_next    = ni+1;
+      nzi        = $ptr(Nplus1=>ni);
+      nzi_next   = $ptr(Nplus1=>ni_next);
+      for ( ; nzi < nzi_next && ixi < sizeNnzProj; nzi++, ixi++) {
+        $projix(NnzProj=>ixi) = Nproj;
+        $nzix(NnzProj=>ixi)   = nzi;
+      }
+    %}
+  },
+
   Doc=><<'EOD'
 General CCS decoding utility.
 
