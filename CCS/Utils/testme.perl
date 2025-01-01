@@ -48,6 +48,32 @@ sub test_ccs_pointer {
 #test_ccs_pointer;
 
 ##---------------------------------------------------------------------
+## test: ccs: xindex1d
+sub test_ccs_xindex1d {
+  my $m = pdl(double, [
+    [10,0,0,0,-2],
+    [3,9,0,0,0],
+    [0,7,8,7,0],
+    [3,0,8,7,5],
+    [0,8,0,9,9],
+    [0,4,0,0,2],
+  ]);
+  my $mwhich = $m->whichND()->vv_qsortvec;
+  my $mvals  = $m->indexND($mwhich);
+
+  my $a = pdl(indx, [1,2,4]);
+  my $want = $m->dice_axis(0, $a);
+
+  my $nzia = ccs_xindex1d($mwhich, $a);
+  my $got = $m->zeroes;
+  $got->indexND($mwhich->dice_axis(1, $nzia)) .= $mvals->index($nzia);
+  $got = $got->dice_axis(0, $a);
+
+  print STDERR "what now?\n";
+}
+#test_ccs_xindex1d();
+
+##---------------------------------------------------------------------
 ## test: ccs: xindex2d
 sub test_ccs_xindex2d {
   test_ccs_data();
