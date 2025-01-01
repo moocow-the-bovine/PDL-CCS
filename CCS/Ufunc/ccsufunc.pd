@@ -42,10 +42,12 @@ EOPM
 pp_addhdr(<<'EOH');
 
 #include <math.h>
+#include "../Utils/ccsutils.h"
 
 #ifndef INFINITY
 # define INFINITY (1.0/0.0)
 #endif
+
 
 EOH
 
@@ -121,12 +123,11 @@ sub ccs_accum_hash {
 )),
 
     ##-- dimension-twiddling via RedoDimsCode
-    ##   + null-detection adapted from PDL_MAYBE_SIZE macro at https://github.com/PDLPorters/pdl-linearalgebra/blob/f789c4100d04ba9d1b50f8c18249bdef29338496/Real/real.pd#L63-L75
     RedoDimsCode => q(
-  if ( $PDL(ixOut)->state & $PDL(nzvalsOut)->state & PDL_MYDIMS_TRANS ) {
-    /*-- output PDLs passed as null; use default output dimensions --*/
-    $SIZE(NnzOut) = $SIZE(NnzIn);
-  }),
+      if ( CCS_PDL_IS_NULL($PDL(ixOut)) && CCS_PDL_IS_NULL($PDL(nzvalsOut)) ) {
+        $SIZE(NnzOut) = $SIZE(NnzIn);
+      }
+    ),
 
     ##-- pp code
     Code => (q(
