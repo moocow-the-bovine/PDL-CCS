@@ -81,7 +81,7 @@ EOPM
 ## nnz() : get number of nonzero values
 pp_def(
   'nnz',
-  Pars => 'a(N); int+ [o]nnz()',
+  Pars => "a(N); $INDX\ [o]nnz()",
 
   Code => q{
     $nnz()=0;
@@ -117,7 +117,7 @@ my %absfunc = (
               );
 pp_def(
   'nnza',
-  Pars => 'a(N); eps(); indx [o]nnz();',
+  Pars => "a(N); eps(); $INDX\ [o]nnz();",
   Code => '
     $nnz()=0;
     loop (N) %{
@@ -240,7 +240,7 @@ EOPM
 pp_def(
   'ccs_decode_pointer',
   Pars => "$INDX ptr(Nplus1); $INDX proj(Nproj); $INDX\ [o]projix(NnzProj); $INDX\ [o]nzix(NnzProj)",
-  OtherPars => 'PDL_Indx nnzProj;',
+  OtherPars => 'CCS_Indx nnzProj;',
   PMCode=>
 (q{
  sub PDL::ccs_decode_pointer {
