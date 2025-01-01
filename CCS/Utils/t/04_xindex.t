@@ -40,7 +40,7 @@ my $a0 = pdl(indx, [1,2,4]);
 my $want = $m->dice_axis(0, $a0);
 sub test_xindex1d {
   my ($label, @args) = @_;
-  print STDERR "# xindex1d:$label\n";
+  print "# xindex1d:$label\n";
   my $nzia = ccs_xindex1d($mwhich, $a0, @args);
   pdlok("ccs_index1d:$label:which[1]", $mwhich->dice_axis(1, $nzia)->slice("1:"), $want->whichND->vv_qsortvec->slice("1:"));
   pdlok("ccs_index1d:$label:vals", $mvals->index($nzia), $m->indexND($mwhich->dice_axis(1, $nzia)));
@@ -69,7 +69,7 @@ my $abi_want = sequence(indx, $mwhich->dim(1));
 
 sub test_xindex2d {
   my ($label, @args) = @_;
-  print STDERR "# xindex2d:$label\n";
+  print "# xindex2d:$label\n";
   my $abi = ccs_xindex2d($mwhich, $ai, $bi, @args);
   pdlok("ccs_xindex2d:$label:indices", $abi, $abi_want);
 }

@@ -82,12 +82,15 @@ EOPM
 pp_def(
   'nnz',
   Pars => "a(N); $INDX\ [o]nnz()",
-
+  HandleBad => 1,
   Code => q{
-    $nnz()=0;
-    loop (N) %{
-      if ($a()!=0) ++$nnz();
+    broadcastloop %{
+      $nnz()=0;
+      loop (N) %{
+        if ($a()!=0) ++$nnz();
+      %}
     %}
+    $PDLSTATESETGOOD(nnz); /*-- output is always good --*/
   },
 
   Doc => <<'EOD',
@@ -118,14 +121,18 @@ my %absfunc = (
 pp_def(
   'nnza',
   Pars => "a(N); eps(); $INDX\ [o]nnz();",
+  HandleBad => 1,
   Code => '
-    $nnz()=0;
-    loop (N) %{
-      types(BSUL) %{ if ( abs($a()) > $eps()) ++$nnz(); %}
-     '.join("\n ", map {"types($_) %{ if ($absfunc{$_}(\$a()) > \$eps()) ++\$nnz(); %}"} sort keys(%absfunc)).'
-      types(F)    %{ if (fabsf($a()) > $eps()) ++$nnz(); %}
-      types(D)    %{ if (fabs ($a()) > $eps()) ++$nnz(); %}
+    broadcastloop %{
+      $nnz()=0;
+      loop (N) %{
+        types(BSUL) %{ if ( abs($a()) > $eps()) ++$nnz(); %}
+       '.join("\n ", map {"types($_) %{ if ($absfunc{$_}(\$a()) > \$eps()) ++\$nnz(); %}"} sort keys(%absfunc)).'
+        types(F)    %{ if (fabsf($a()) > $eps()) ++$nnz(); %}
+        types(D)    %{ if (fabs ($a()) > $eps()) ++$nnz(); %}
+      %}
     %}
+    $PDLSTATESETGOOD(nnz); /*-- output is always good --*/
   ',
 
   Doc => <<'EOD'
@@ -240,7 +247,7 @@ EOPM
 pp_def(
   'ccs_decode_pointer',
   Pars => "$INDX ptr(Nplus1); $INDX proj(Nproj); $INDX\ [o]projix(NnzProj); $INDX\ [o]nzix(NnzProj)",
-  OtherPars => 'CCS_Indx nnzProj;',
+  OtherPars => 'PDL_Indx nnzProj;',
   PMCode=>
 (q{
  sub PDL::ccs_decode_pointer {
@@ -393,24 +400,8 @@ vvpp_def(
       my ($which,$a,$b,$ab,$nab) = @_;
       barf("Usage: ccs_xindex2d(which(2,Nnz), a(Na), b(Nb), [o]nab(), [o]ab(Nab)")
         if ((grep {!defined($_)} @_[0..2]) || $which->ndims != 2 || $which->dim(0) < 2);
-if (1) {
-      $nab = $ab->dim(0) if (defined($ab) && !defined($nab));
-      if (!defined($nab)) {
-        $nab = $a->nelem*$b->nelem;
-        $nab = $which->dim(1) if ($which->dim(1)) < $nab;
-      }
-      $nab = pdl($which->type, $nab) if (!ref($nab));
-      $ab = PDL->zeroes($which->type, $nab->sclr) if (!defined($ab));
-}
-   my $showpdls = sub { return join(" ; ", map {"$_->[0]=".(defined($_->[1]) ? $_->[1]->info : 'undef')} @_)."\n" };
-   print STDERR "PMCode: ", $showpdls->([which=>$which], [a=>$a], [b=>$b], [ab=>$ab], [nab=>$nab]);
-
-      &PDL::_ccs_xindex2d_int($which,$a,$b,$ab,$nab);
-
-   print STDERR "PMCode: got nab=$nab\n";
-
-      return ($ab,$nab) if (wantarray);
-      return $ab->reshape($nab->sclr);
+      &PDL::_ccs_xindex2d_int($which,$a,$b, ($ab//=null), ($nab//=null));
+      return wantarray ? ($ab,$nab) : $ab->reshape($nab->sclr);
     }
   },
 
