@@ -50,6 +50,7 @@ EOPM
 ## Includes / defines
 pp_addhdr(<<'EOH');
 #include <math.h> /*-- for NAN --*/
+#include "../Utils/ccsutils.h"
 EOH
 
 ##------------------------------------------------------
@@ -78,39 +79,57 @@ pp_addhdr( $PDL::CCS::Config::ccsConfig{INDX_TYPEDEF} );
 #  + Problematic because we use $zc() as an initializer, which for missing==BAD
 #    winds up setting the entire result to BAD.
 #  + missing==BAD support might need a temporary to count the number
-#    of (non-)missing per "N", and only add in $zc() if required (in which
+#    of (non-)missing "N" values per "O", and only add in $zc() if required (in which
 #    case we wouldn't want/need to pass in $zc() at all)
+#  + probably doable with an 'indx [t]nnzc(N)' temporary
 
 ##--------------------------------------------------------------
 pp_def
   ('ccs_matmult2d_sdd',
    Pars => ("\n    "
             .join("\n    ",
-                  "$INDX ixa(NdimsA,NnzA); nza(NnzA); missinga();", ## a(M,N) (M~i, N~x): formerly here as a(N,M)
+                  "$INDX ixa(Two,NnzA); nza(NnzA); missinga();",  ## a(M,N) (M~i, N~x): formerly here as a(N,M)
                   'b(O,M);',                                      ## b(O,M) (O~z, M~i)
                   'zc(O);',                                       ## zc(O)
                   '[o]c(O,N)',                                    ## c(O,N) (O~z, N~x)
                   '')),
-   Code =>
-(q(
- //-- initialize: set output to $zc()
- loop (O) %{
-   $GENERIC(zc) zc_o = $zc();
-   loop (N) %{
-     $c() = zc_o;
-   %}
- %}
- //
- //-- main loop
- loop (NnzA) %{
-   CCS_Indx mi = $ixa(NdimsA=>0);
-   CCS_Indx ni = $ixa(NdimsA=>1);
-   loop (O) %{
-     //--# c(o,n) = sum for m=1 to M [a(m,n) * b(o,m)]
-     $c(N=>ni) += $b(M=>mi) * ($nza() - $missinga());
-   %}
- %}
-)),
+   OtherPars => 'PDL_Indx sizeN;',
+   HandleBad => 1,
+   RedoDimsCode => q{
+     /*--  we're getting SIZE(N)==1 if c() is passed in as null here too --*/
+     if ( CCS_PDL_IS_NULL($PDL(c)) )
+       $SIZE(N) = $COMP(sizeN);
+     if ($SIZE(Two) != 2)
+       $CROAK("dimension Two should be 2, but got %td", $SIZE(Two));
+   },
+   Code => q{
+    broadcastloop %{
+      //-- initialize: set output to zc()
+      loop (O) %{
+        $GENERIC(zc) zc_o = $zc();
+        loop (N) %{ $c() = zc_o; %}
+      %}
+      //
+      //-- main loop
+      loop (NnzA) %{
+        CCS_Indx mi = $ixa(Two=>0);
+        CCS_Indx ni = $ixa(Two=>1);
+        loop (O) %{
+          //--# c(o,n) = sum for m=1 to M [a(m,n) * b(o,m)]
+          $c(N=>ni) += $b(M=>mi) * ($nza() - $missinga());
+        %}
+      %}
+    %}
+    if ($PDLSTATEISBAD(nza)
+        || $PDLSTATEISBAD(missinga)
+        || $PDLSTATEISBAD(b)
+        || $PDLSTATEISBAD(zc)) {
+      $PDLSTATESETBAD(c);
+    } else {
+      $PDLSTATESETGOOD(c);
+    }
+  },
+
   Doc =>
 (q{
 Two-dimensional matrix multiplication of a sparse index-encoded PDL
@@ -127,7 +146,7 @@ a $missinga()-row ("M") to an output column ("O"), i.e.
 
  $zc = ((zeroes($M,1)+$missinga) x $b)->flat;
 
-$SIZE(Ndimsa) is assumed to be 2.
+$SIZE(Two) must be 2.
 }),
  ); ##--/ccs_matmult2d_sdd
 
@@ -137,40 +156,47 @@ pp_def
   ('ccs_matmult2d_zdd',
    Pars => ("\n    "
             .join("\n    ",
-                  "$INDX ixa(Ndimsa,NnzA); nza(NnzA);", ## a(M,N) (M~i, N~x)
+                  "$INDX ixa(Two,NnzA); nza(NnzA);", ## a(M,N) (M~i, N~x)
                   'b(O,M);',                          ## b(O,M) (O~z, M~i)
                   '[o]c(O,N)',                        ## c(O,N) (O~z, N~x)
-              '')),
+                  '')),
+   OtherPars => 'PDL_Indx sizeN;',
    HandleBad => 1,
-   Code =>
-(q(
- //-- initialize output to zero
- loop (N) %{
-   loop (O) %{
-     $c()=0;
-   %}
- %}
- //
- //-- main loop over CCS-encoded a()
- loop (NnzA) %{
-   CCS_Indx Mi = $ixa(Ndimsa=>0);
-   CCS_Indx Ni = $ixa(Ndimsa=>1);
-   loop (O) %{
-     PDL_IF_BAD( if ( $ISBAD(nza()) || $ISBAD(b(M=>Mi)) || $ISBAD(c(N=>Ni)) ) { $SETBAD(c(N=>Ni)); continue; },)
-     $c(N=>Ni) += $nza() * $b(M=>Mi);
-   %}
- %}
-)),
-  CopyBadStatusCode => q{
-  if ( $ISPDLSTATEBAD(nza) || $ISPDLSTATEBAD(b) ) {
-    $SETPDLSTATEBAD(c);
-  } else {
-    $SETPDLSTATEGOOD(c);
-    PDL->propagate_badflag(c, 0);
-  }
-},
-  Doc =>
-(q{
+
+   RedoDimsCode => q{
+     if ( CCS_PDL_IS_NULL($PDL(c)) )
+       $SIZE(N) = $COMP(sizeN);
+     if ($SIZE(Two) != 2)
+       $CROAK("dimension Two should be 2, but got %td", $SIZE(Two));
+   },
+
+   Code => q{
+     broadcastloop %{
+       //-- initialize output to zero
+       loop (N) %{
+         loop (O) %{
+           $c()=0;
+         %}
+       %}
+       //
+       //-- main loop over CCS-encoded a()
+       loop (NnzA) %{
+         CCS_Indx Mi = $ixa(Two=>0);
+         CCS_Indx Ni = $ixa(Two=>1);
+         loop (O) %{
+           PDL_IF_BAD( if ($ISBAD(nza()) || $ISBAD(b(M=>Mi)) || $ISBAD(c(N=>Ni))) { $SETBAD(c(N=>Ni)); continue; }, )
+           $c(N=>Ni) += $nza() * $b(M=>Mi);
+         %}
+       %}
+     %}
+     if ( $PDLSTATEISBAD(nza) || $PDLSTATEISBAD(b) ) {
+       $PDLSTATESETBAD(c);
+     } else {
+       $PDLSTATESETGOOD(c);
+     }
+   },
+
+  Doc => q{
 Two-dimensional matrix multiplication of a sparse index-encoded PDL
 $a() with a dense pdl $b(), with output to a dense pdl $c().
 
@@ -179,8 +205,8 @@ dimension "M" and 1st dimension "N", just as for the
 built-in PDL::Primitive::matmult().
 
 "Missing" values in $a() are treated as zero.
-$SIZE(Ndimsa) is assumed to be 2.
-}),
+$SIZE(Two) must be 2.
+},
  ); ##--/ccs_matmult2d_zdd
 
 ##--------------------------------------------------------------
