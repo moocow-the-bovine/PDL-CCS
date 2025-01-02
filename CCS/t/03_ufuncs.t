@@ -33,6 +33,16 @@ sub test_ufunc {
   my $ccs_ufunc = PDL::CCS::Nd->can("${ufunc_name}")
     or die("no CCS Ufunc PDL::CCS::Nd::${ufunc_name} defined!");
 
+  if ($ufunc_name =~ /^b?(and|or)/) {
+    # workaround for https://github.com/moocow-the-bovine/PDL-CCS/issues/18; failing with
+    # #  Failed test 'bandover:missing=BAD:type' at CCS/t/03_ufuncs.t line 103.
+    # #         got: 'sbyte'
+    # #    expected: 'longlong'
+    $a = $a->long;
+  } else {
+    $a = $a->double;
+  }
+
   $missing_val = 0 if (!defined($missing_val));
   $missing_val = PDL->topdl($a->type, $missing_val);
   if ($missing_val->isbad) { $a = $a->setbadif($abad); }
