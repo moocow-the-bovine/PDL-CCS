@@ -177,14 +177,14 @@ pp_def(
     }
   },
 
-  RedoDimsCode => q(
-    if (CCS_PDL_IS_NULL($PDL(ptr))) {
+  RedoDimsCode => q{
+    if ($SIZE(Nplus1) < 0) {
       $SIZE(Nplus1) = $N() + 1;
     }
     else if ($SIZE(Nplus1) <= $N()) {
       $CROAK("dimension Nplus1 (=%ld) must be greater than N (=%ld)", $SIZE(Nplus1), (long)$N());
     }
-),
+  },
 
   Code => q{
     /*-- Local variables --*/
@@ -273,7 +273,7 @@ pp_def(
   },
 
   RedoDimsCode => q{
-    if ( CCS_PDL_IS_NULL($PDL(projix)) && CCS_PDL_IS_NULL($PDL(nzix)) ) {
+    if ($SIZE(NnzProj) < 0) {
       $SIZE(NnzProj) = $COMP(nnzProj);
     }
   },
@@ -324,6 +324,7 @@ EOPM
 vvpp_def(
   'ccs_xindex1d',
   Pars => "$INDX which(Ndims,Nnz); $INDX a(Na); $INDX\ [o]nzia(NnzA); $INDX\ [o]nnza()",
+  OtherPars => 'PDL_Indx sizeNnzA;',
 
   PMCode=> q{
     sub PDL::ccs_xindex1d {
@@ -332,18 +333,14 @@ vvpp_def(
         if ((grep {!defined($_)} @_[0..1]) || $which->ndims < 2 || $which->dim(0) < 1);
       $nzia //= null;
       $nnza //= null;
-      &PDL::_ccs_xindex1d_int($which,$a,$nzia,$nnza);
+      &PDL::_ccs_xindex1d_int($which,$a,$nzia,$nnza, ($nnza ? $nnza->sclr : -1));
       return wantarray ? ($nzia,$nnza) : $nzia->reshape($nnza->sclr);
     }
   },
 
   RedoDimsCode => q(
-    if (CCS_PDL_IS_NULL($PDL(nzia))) {
-      if (CCS_PDL_IS_NULL($PDL(nnza))) {
-        $SIZE(NnzA) = $SIZE(Nnz);
-      } else {
-        $SIZE(NnzA) = $nnza();
-      }
+    if ($SIZE(NnzA) < 0) {
+      $SIZE(NnzA) = $COMP(sizeNnzA) >= 0 ? $COMP(sizeNnzA) : $SIZE(Nnz);
     }
   ),
 
@@ -411,11 +408,11 @@ vvpp_def(
   },
 
   RedoDimsCode => q{
-    if (CCS_PDL_IS_NULL($PDL(ab))) {
-      if (CCS_PDL_IS_NULL($PDL(nab))) {
-        $SIZE(Nab) = ($SIZE(Na)*$SIZE(Nb)) < $SIZE(Nnz) ? ($SIZE(Na)*$SIZE(Nb)) : $SIZE(Nnz);
-      } else {
+    if ($SIZE(Nab) < 0) {
+      if ($PDL(nab)->nvals > 0) {
         $SIZE(Nab) = $nab();
+      } else {
+        $SIZE(Nab) = ($SIZE(Na)*$SIZE(Nb)) < $SIZE(Nnz) ? ($SIZE(Na)*$SIZE(Nb)) : $SIZE(Nnz);
       }
     }
   },

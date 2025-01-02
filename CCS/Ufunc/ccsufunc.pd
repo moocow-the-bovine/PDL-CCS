@@ -104,115 +104,115 @@ sub ccs_accum_hash {
     HandleBad => ($args{HandleBad} // 1),
 
     ##-- pmcode
-    PMCode => (q(
- sub PDL::ccs_accum_).${op_codename}.q( {
-   my ($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nOut) = @_;
-   $nOut //= PDL->null;
-   $ixOut //= PDL->null;
-   $nzvalsOut //= PDL->null;
-   &PDL::_ccs_accum_).${op_codename}.q(_int($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nOut);
-   ##
-   ##-- auto-trim
-   my $trim_slice = "0:".($nOut->max-1);
-   $ixOut     = $ixOut->slice(",$trim_slice");
-   $nzvalsOut = $nzvalsOut->slice($trim_slice);
-   ##
-   ##-- return
-   return wantarray ? ($ixOut,$nzvalsOut,$nOut) : $nzvalsOut;
- }
-)),
-
-    ##-- dimension-twiddling via RedoDimsCode
-    RedoDimsCode => q(
-      if ( CCS_PDL_IS_NULL($PDL(ixOut)) && CCS_PDL_IS_NULL($PDL(nzvalsOut)) ) {
-        $SIZE(NnzOut) = $SIZE(NnzIn);
-      }
+    PMCode => q(
+        sub PDL::ccs_accum_).${op_codename}.q( {
+          my ($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nOut) = @_;
+          $nOut //= PDL->null;
+          $ixOut //= PDL->null;
+          $nzvalsOut //= PDL->null;
+          &PDL::_ccs_accum_).${op_codename}.q(_int($ixIn,$nzvalsIn, $missing,$N, $ixOut,$nzvalsOut,$nOut);
+          ##
+          ##-- auto-trim
+          my $trim_slice = "0:".($nOut->max-1);
+          $ixOut     = $ixOut->slice(",$trim_slice");
+          $nzvalsOut = $nzvalsOut->slice($trim_slice);
+          ##
+          ##-- return
+          return wantarray ? ($ixOut,$nzvalsOut,$nOut) : $nzvalsOut;
+        }
     ),
 
+    ##-- dimension-twiddling via RedoDimsCode
+    RedoDimsCode => q{
+        if ( CCS_PDL_IS_NULL($PDL(ixOut)) && CCS_PDL_IS_NULL($PDL(nzvalsOut)) ) {
+          /*-- strangely, SIZE(NnzOut)==1 here if both ixOut and nzvalsOut are passed as null --*/
+          $SIZE(NnzOut) = $SIZE(NnzIn);
+        }
+    },
+
     ##-- pp code
-    Code => (q(
- int cmpval, carp_unsorted=0;
- broadcastloop %{
-   PDL_Indx nnzii_prev=-1, nnzii=0, nnzoi=0;
-   PDL_Indx sizeNnzIn=$SIZE(NnzIn), sizeNnzOut=$SIZE(NnzOut), nMissing, nMissingInit;
-   PDL_Indx ival1,ival2;
-   $GENERIC(nzvalsOut) missingOut;
-   $GENERIC(nzvalsIn)  missingVal = $missing();
-   ).($args{decls}    ? $args{decls}    : '').q(
-   ).($args{tmp_type} ? $args{tmp_type} : '$GENERIC(nzvalsOut)').q( tmp;
-   //
-   //-- init
-   ).($args{init_code}||'').q(
-   ).($args{init_missingOut} || 'missingOut = missingVal;').q(
-   nMissingInit = $N()-1;
-   nMissing     = nMissingInit;
-   ).(defined($args{tmp_init}) ? $args{tmp_init}
-     : (defined($args{tmp_reset}) ? $args{tmp_reset}
-        : 'if ($SIZE(NnzIn) == 0) $CROAK("called with empty nzvalsIn"); tmp = $nzvalsIn(NnzIn=>0);')
-    ).q( /* initialize tmp */
-   //
-   //-- loop
-   for (nnzii_prev=0,nnzii=1; nnzii<sizeNnzIn && nnzoi<sizeNnzOut; nnzii_prev=nnzii++) {
-     $CMPVEC('$ixIn(NnzIn=>nnzii)','$ixIn(NnzIn=>nnzii_prev)','Ndims','cmpval',var1=>'ival1',var2=>'ival2');
-     if (cmpval > 0) {
-       //-- CASE: ix > ix_prev : insert accumulated value
-       ).($args{tmp_addmissing}||"").q(
-       //-- always insert output value
-       loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = $ixIn(NnzIn=>nnzii_prev); %}
-       $nzvalsOut(NnzOut=>nnzoi) = tmp;
-       nnzoi++;
+    Code => q(
+     int cmpval, carp_unsorted=0;
+     broadcastloop %{
+       PDL_Indx nnzii_prev=-1, nnzii=0, nnzoi=0;
+       PDL_Indx sizeNnzIn=$SIZE(NnzIn), sizeNnzOut=$SIZE(NnzOut), nMissing, nMissingInit;
+       PDL_Indx ival1,ival2;
+       $GENERIC(nzvalsOut) missingOut;
+       $GENERIC(nzvalsIn)  missingVal = $missing();
+       ).($args{decls}    ? $args{decls}    : '').q(
+       ).($args{tmp_type} ? $args{tmp_type} : '$GENERIC(nzvalsOut)').q( tmp;
        //
-       // ... and reset temps
-       ).(defined($args{tmp_reset}) ? $args{tmp_reset} :  'tmp = $nzvalsIn(NnzIn=>nnzii);').q( /* reset tmp */
-       nMissing = nMissingInit;
-     }
-     else if (cmpval <= 0) {
-       // CASE: ix >= ix_prev : accumulate to temps
-       ).($args{tmp_addval}||'').q(;
-       nMissing--;
-       if (cmpval < 0) { carp_unsorted=1; } /*-- CASE: ix < ix_prev : GARBAGE (treat as equal) --*/
-     }
-   }
-   //
-   //-- sanity check).'
-   if (nnzii<sizeNnzIn) {
-     warn("PDL::ccs_accum_'.${op_codename}.'(): too few output values provided: some input values were ignored");
-   }'.q(
-   //
-   //-- set final computed output values
-   ).($args{tmp_addmissing}||'').q(
-   if (nnzii_prev >= 0 && nnzii_prev < $SIZE(NnzIn)) {
-     loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = $ixIn(NnzIn=>nnzii_prev); %}
-   }
-   if ($SIZE(NnzOut) > nnzoi) {
-     $nzvalsOut(NnzOut=>nnzoi) = tmp;
-     nnzoi++;
-   }
-   $nOut() = nnzoi;
-   //
-   //-- set any remaining output values to 0 (indices) or "N*missing" (values)
-   for ( ; nnzoi<sizeNnzOut; nnzoi++) {
-     loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = 0; %}
-     $nzvalsOut(NnzOut=>nnzoi) = missingOut;
-   }
- %}
- //
- //-- carp?).'
- if (carp_unsorted) {
-   warn("PDL::ccs_accum_'.${op_codename}.'(): unsorted input vector list detected: output will be incorrect");
- }'.q(
- //
- //-- set BAD-flags
- ).($args{setbad} || q(
- if ($ISPDLSTATEBAD($PDL(ixIn))) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
- if ($ISPDLSTATEBAD($PDL(nzvalsIn))) { $PDLSTATESETBAD(nzvalsOut); } else { $PDLSTATESETGOOD(nzvalsOut); }
- )).q(
- //-- END
-)),
+       //-- init
+       ).($args{init_code}||'').q(
+       ).($args{init_missingOut} || 'missingOut = missingVal;').q(
+       nMissingInit = $N()-1;
+       nMissing     = nMissingInit;
+       ).(defined($args{tmp_init}) ? $args{tmp_init}
+         : (defined($args{tmp_reset}) ? $args{tmp_reset}
+            : 'if ($SIZE(NnzIn) == 0) $CROAK("called with empty nzvalsIn"); tmp = $nzvalsIn(NnzIn=>0);')
+        ).q( /* initialize tmp */
+       //
+       //-- loop
+       for (nnzii_prev=0,nnzii=1; nnzii<sizeNnzIn && nnzoi<sizeNnzOut; nnzii_prev=nnzii++) {
+         $CMPVEC('$ixIn(NnzIn=>nnzii)','$ixIn(NnzIn=>nnzii_prev)','Ndims','cmpval',var1=>'ival1',var2=>'ival2');
+         if (cmpval > 0) {
+           //-- CASE: ix > ix_prev : insert accumulated value
+           ).($args{tmp_addmissing}||"").q(
+           //-- always insert output value
+           loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = $ixIn(NnzIn=>nnzii_prev); %}
+           $nzvalsOut(NnzOut=>nnzoi) = tmp;
+           nnzoi++;
+           //
+           // ... and reset temps
+           ).(defined($args{tmp_reset}) ? $args{tmp_reset} :  'tmp = $nzvalsIn(NnzIn=>nnzii);').q( /* reset tmp */
+           nMissing = nMissingInit;
+         }
+         else if (cmpval <= 0) {
+           // CASE: ix >= ix_prev : accumulate to temps
+           ).($args{tmp_addval}||'').q(;
+           nMissing--;
+           if (cmpval < 0) { carp_unsorted=1; } /*-- CASE: ix < ix_prev : GARBAGE (treat as equal) --*/
+         }
+       }
+       //
+       //-- sanity check).'
+       if (nnzii<sizeNnzIn) {
+         warn("PDL::ccs_accum_'.${op_codename}.'(): too few output values provided: some input values were ignored");
+       }'.q(
+       //
+       //-- set final computed output values
+       ).($args{tmp_addmissing}||'').q(
+       if (nnzii_prev >= 0 && nnzii_prev < $SIZE(NnzIn)) {
+         loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = $ixIn(NnzIn=>nnzii_prev); %}
+       }
+       if ($SIZE(NnzOut) > nnzoi) {
+         $nzvalsOut(NnzOut=>nnzoi) = tmp;
+         nnzoi++;
+       }
+       $nOut() = nnzoi;
+       //
+       //-- set any remaining output values to 0 (indices) or "N*missing" (values)
+       for ( ; nnzoi<sizeNnzOut; nnzoi++) {
+         loop (Ndims) %{ $ixOut(NnzOut=>nnzoi) = 0; %}
+         $nzvalsOut(NnzOut=>nnzoi) = missingOut;
+       }
+     %}
+     //
+     //-- carp?).'
+     if (carp_unsorted) {
+       warn("PDL::ccs_accum_'.${op_codename}.'(): unsorted input vector list detected: output will be incorrect");
+     }'.q(
+     //
+     //-- set BAD-flags
+     ).($args{setbad} || q(
+     if ($ISPDLSTATEBAD($PDL(ixIn))) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
+     if ($ISPDLSTATEBAD($PDL(nzvalsIn))) { $PDLSTATESETBAD(nzvalsOut); } else { $PDLSTATESETGOOD(nzvalsOut); }
+     )).q(
+     //-- END
+    ),
 
     ##-- docs
-    Doc =>
-(q(
+    Doc => q(
 Accumulated ).${op_docname}.q( over values $nzvalsIn() associated with non-missing vector-valued keys $ixIn().
 On return,
 $ixOut() holds the unique non-"missing" values of $ixIn(),
@@ -226,8 +226,9 @@ Returned PDLs are implicitly sliced such that NnzOut==$nOut().
 
 In scalar context, returns only $nzvalsOut().
 
-)),
-  ($args{extra} ? %{$args{extra}} : qw()),
+),
+
+    ($args{extra} ? %{$args{extra}} : qw()),
   ); ##--/ccs_accum_hash: return
 } ##--/ccs_accum_hash: sub
 
