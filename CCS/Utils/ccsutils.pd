@@ -182,7 +182,7 @@ pp_def(
       $SIZE(Nplus1) = $N() + 1;
     }
     else if ($SIZE(Nplus1) <= $N()) {
-      $CROAK("dimension Nplus1 (=%ld) must be greater than N (=%ld)", $SIZE(Nplus1), (long)$N());
+      $CROAK("dimension Nplus1 (=%td) must be greater than N (=%td)", $SIZE(Nplus1), $N());
     }
   },
 
@@ -345,15 +345,15 @@ vvpp_def(
   ),
 
   Code => q{
-    long a_min=0, a_max=$SIZE(Nnz);
-    long a_lb, a_ub, a_ubmax=a_max;
+    CCS_Indx a_min=0, a_max=$SIZE(Nnz);
+    CCS_Indx a_lb, a_ub, a_ubmax=a_max;
     CCS_Indx nnzai = 0;
     #if 0
      /*-- DEBUG --*/
-     long size_nnz = $SIZE(Nnz);
-     long size_na  = $SIZE(Na);
-     long size_nnza = $SIZE(NnzA);
-     printf("Nnz=%d, Na=%d [%d:%d], NnzA=%d\n", size_nnz, size_na,$a(Na=>0),$a(Na=>size_na-1), size_nnza);
+     CCS_Indx size_nnz = $SIZE(Nnz);
+     CCS_Indx size_na  = $SIZE(Na);
+     CCS_Indx size_nnza = $SIZE(NnzA);
+     printf("Nnz=%td, Na=%td [%td:%td], NnzA=%td\n", size_nnz, size_na,$a(Na=>0),$a(Na=>size_na-1), size_nnza);
     #endif
     loop (Na) %{
       a_ubmax = a_max;
@@ -418,37 +418,37 @@ vvpp_def(
   },
 
   Code => q{
-    long a_min=0, a_max=$SIZE(Nnz);
-    long a_lb, a_ub, a_ubmax=a_max;
-    long b_min, b_max, b_lb;
+    CCS_Indx a_min=0, a_max=$SIZE(Nnz);
+    CCS_Indx a_lb, a_ub, a_ubmax=a_max;
+    CCS_Indx b_min, b_max, b_lb;
     CCS_Indx abi = 0;
    #if 0
     /*-- DEBUG --*/
-     long size_nnz = $SIZE(Nnz);
-     long size_na  = $SIZE(Na);
-     long size_nb  = $SIZE(Nb);
-     long size_nab = $SIZE(Nab);
-     printf("Nnz=%d, Na=%d [%d:%d], Nb=%d [%d:%d], Nab=%d\n", size_nnz, size_na,$a(Na=>0),$a(Na=>size_na-1), size_nb,$b(Nb=>0),$b(Nb=>size_nb-1), size_nab);
+     CCS_Indx size_nnz = $SIZE(Nnz);
+     CCS_Indx size_na  = $SIZE(Na);
+     CCS_Indx size_nb  = $SIZE(Nb);
+     CCS_Indx size_nab = $SIZE(Nab);
+     printf("Nnz=%td, Na=%td [%td:%td], Nb=%td [%td:%td], Nab=%td\n", size_nnz, size_na,$a(Na=>0),$a(Na=>size_na-1), size_nb,$b(Nb=>0),$b(Nb=>size_nb-1), size_nab);
    #endif
     loop (Na) %{
       a_ubmax = a_max;
       $LB('$a()',   '$which(Ndims=>0,Nnz=>$_)', 'a_min','a_max',   'a_lb',ubmaxvar=>'a_ubmax');
-      //printf("a:LB(a=%d,min=%d,max=%d)=%d --> %d (ubmax=%d)\n", $a(),a_min,a_max,a_lb, $which(Ndims=>0,Nnz=>a_lb), a_ubmax); fflush(stdout);
+      //printf("a:LB(a=%td,min=%td,max=%td)=%td --> %td (ubmax=%td)\n", $a(),a_min,a_max,a_lb, $which(Ndims=>0,Nnz=>a_lb), a_ubmax); fflush(stdout);
       if ($which(Ndims=>0,Nnz=>a_lb) != $a()) { a_min=a_lb; continue; }
       //
       $LB('$a()+1', '$which(Ndims=>0,Nnz=>$_)', 'a_lb' ,'a_ubmax', 'a_ub');
       if ($which(Ndims=>0,Nnz=>a_ub) <= $a()) ++a_ub;
-      //printf("a:UB(a=%d,min=%d,max=%d)=%d --> %d\n", $a(),a_lb,a_ubmax,a_ub, $which(Ndims=>0,Nnz=>a_ub)); fflush(stdout);
+      //printf("a:UB(a=%td,min=%td,max=%td)=%td --> %td\n", $a(),a_lb,a_ubmax,a_ub, $which(Ndims=>0,Nnz=>a_ub)); fflush(stdout);
       //
       b_min = a_lb;
       b_max = a_ub;
       loop (Nb) %{
         if (b_min >= b_max) break;
-        //printf("+ b:LB(a=%d,b=%d,min=%d,max=%d)=", $a(),$b(),b_min,b_max); fflush(stdout);
+        //printf("+ b:LB(a=%td,b=%td,min=%td,max=%td)=", $a(),$b(),b_min,b_max); fflush(stdout);
         $LB('$b()', '$which(Ndims=>1,Nnz=>$_)', 'b_min','b_max', 'b_lb');
-        //printf("%d --> %d", b_lb, $which(Ndims=>1,Nnz=>b_lb));
+        //printf("%td --> %td", b_lb, $which(Ndims=>1,Nnz=>b_lb));
         if ($which(Ndims=>1,Nnz=>b_lb) == $b()) {
-          //printf(" *[%d]", abi); fflush(stdout);
+          //printf(" *[%td]", abi); fflush(stdout);
           $ab(Nab=>abi) = b_lb;
           ++abi;
           ++b_lb;
@@ -505,7 +505,7 @@ pp_def(
   PMCode=> q{
     sub PDL::ccs_dump_which {
       my ($which,$fh,$fmt,$fsep,$rsep) = @_;
-      $fmt  = '%d'  if (!defined($fmt)  || $fmt eq '');
+      $fmt  = '%td'  if (!defined($fmt)  || $fmt eq '');
       $fsep = " "   if (!defined($fsep) || $fsep eq '');
       $rsep = "$/"  if (!defined($rsep) || $rsep eq '');
       $fh = \*STDOUT if (!defined($fh));
@@ -539,7 +539,7 @@ pp_def(
 
   Doc=><<'EOD'
 Print a text dump of an index PDL to the filehandle C<HANDLE>, which default to C<STDUT>.
-C<$fmt> is a printf() format to use for output, which defaults to "%d".
+C<$fmt> is a printf() format to use for output, which defaults to "%td".
 C<$fsep> and C<$rsep> are field-and record separators, which default to
 a single space and C<$/>, respectively.
 
