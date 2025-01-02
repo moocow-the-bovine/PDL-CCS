@@ -104,6 +104,8 @@ to N-1 dimensions by computing the number of nonzero elements
 along the the 1st dimension.
 
 EOD
+
+    BadDoc=> 'The output PDL $nnz() never contains BAD values.',
 );
 
 
@@ -135,13 +137,15 @@ pp_def(
     $PDLSTATESETGOOD(nnz); /*-- output is always good --*/
   ',
 
-  Doc => <<'EOD'
+  Doc => <<'EOD',
 Like nnz() using tolerance constant $eps().
 For 1d PDLs, should be equivalent to:
 
  $nnz = nelem(which(!$a->approx(0,$eps)));
 
 EOD
+
+  BadDoc=> 'The output PDL $nnz() never contains BAD values.',
 );
 
 
@@ -259,13 +263,9 @@ pp_def(
       }
       $projix //= null;
       $nzix //= null;
-      $nnzproj //= (
-         $projix->isnull
-         ? ($nzix->isnull
-            ? ($ptr->index($proj+1)-$ptr->index($proj))->sum
-            : $nzix->dim(0))
-         : $projix->dim(0)
-      );
+      $nnzproj //= ($projix->isnull && $nzix->isnull
+                    ? ($ptr->index($proj+1)-$ptr->index($proj))->sum
+                    : -1);
       return (null,null) if (!$nnzproj);
       &PDL::_ccs_decode_pointer_int($ptr,$proj, $projix,$nzix, $nnzproj);
       return ($projix,$nzix);
