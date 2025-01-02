@@ -205,8 +205,8 @@ sub ccs_accum_hash {
      //
      //-- set BAD-flags
      ).($args{setbad} || q(
-     if ($ISPDLSTATEBAD($PDL(ixIn))) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
-     if ($ISPDLSTATEBAD($PDL(nzvalsIn))) { $PDLSTATESETBAD(nzvalsOut); } else { $PDLSTATESETGOOD(nzvalsOut); }
+     if ($PDLSTATEISBAD(ixIn)) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
+     if ($PDLSTATEISBAD(nzvalsIn)) { $PDLSTATESETBAD(nzvalsOut); } else { $PDLSTATESETGOOD(nzvalsOut); }
      )).q(
      //-- END
     ),
@@ -470,7 +470,7 @@ ccs_accum_def('nbad', 'number of bad values',
                )),
 
               setbad => q{
-                if ($ISPDLSTATEBAD($PDL(ixIn))) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
+                if ($PDLSTATEISBAD(ixIn)) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
                 $PDLSTATESETGOOD(nzvalsOut); /*-- nzvalsOut state is always good --*/
               },
 
@@ -499,7 +499,7 @@ ccs_accum_def('ngood', 'number of good values',
                )),
 
               setbad => q{
-                if ($ISPDLSTATEBAD($PDL(ixIn))) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
+                if ($PDLSTATEISBAD(ixIn)) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
                 $PDLSTATESETGOOD(nzvalsOut); /*-- nzvalsOut state is always good --*/
               },
 
@@ -519,7 +519,7 @@ ccs_accum_def('nnz', 'number of non-zero values',
               tmp_addval     =>'if ($nzvalsIn(NnzIn=>nnzii) != 0) tmp++;',
               tmp_reset      =>'tmp = ( $nzvalsIn(NnzIn=>nnzii) != 0 ) ? 1 : 0;',
               setbad => q{
-                if ($ISPDLSTATEBAD($PDL(ixIn))) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
+                if ($PDLSTATEISBAD(ixIn)) { $PDLSTATESETBAD(ixOut); } else { $PDLSTATESETGOOD(ixOut); }
                 $PDLSTATESETGOOD(nzvalsOut); /*-- nzvalsOut state is always good --*/
               },
               doc_addmissing => <<'EOMD',
