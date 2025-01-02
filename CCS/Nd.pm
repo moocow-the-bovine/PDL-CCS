@@ -1073,7 +1073,9 @@ sub _ufuncsub {
     ##
     ##-- guts
     my ($which2,$nzvals2) = $accumsub->($which1,$vals1,
-                                        ($allow_bad_missing || $missing->isgood ? ($missing,$dims[0]) : (0,0))
+                                        ($allow_bad_missing || $missing->isgood
+                                         ? ($missing, $dims[0])
+                                         : (PDL->pdl($vals1->type, 0), 0))
                                        );
     ##
     ##-- get output pdl

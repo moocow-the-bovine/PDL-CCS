@@ -4,6 +4,7 @@ use Test::More;
 use strict;
 use warnings;
 
+
 ##-- common subs
 my $TEST_DIR;
 BEGIN {
@@ -18,6 +19,7 @@ BEGIN {
 use PDL;
 use PDL::CCS::Ufunc;
 use PDL::VectorValued;
+use version;
 
 ##-- basic data
 my $a = pdl(double, [
@@ -117,6 +119,29 @@ foreach (
 
   pdlok($label, $decoded_rv, $dense_rv);
 }
+
+##-- test unexpected output type: https://github.com/moocow-the-bovine/PDL-CCS/issues/18
+sub test_borover_output_type {
+  my ($label, $missing) = @_;
+  PDL::_ccs_accum_bor_int(
+    my $ixIn=PDL->pdl(indx, [[0]]),
+    my $nzvalsIn=pdl(double, [65536]),
+    $missing,
+    0,
+    my $ixOut=null,
+    my $nzvalsOut=null,
+    my $nOut=null
+  );
+  SKIP: {
+    skip("expect the unexpected if missing is passed as a scalar", 1)
+      if (!ref($missing) && version->parse($PDL::VERSION) >= version->parse('2.096'));
+
+    isok("test_borover_output_type:$label:type", $nzvalsOut->type, longlong);
+    pdlok("test_borover_output_type:$label:vals", $nzvalsOut, $nzvalsIn);
+  }
+}
+test_borover_output_type('missing=double', pdl(double, 0));
+test_borover_output_type('missing=scalar', 0);
 
 print "\n";
 
