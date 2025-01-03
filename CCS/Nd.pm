@@ -1839,17 +1839,14 @@ sub matmult2d_sdd :lvalue {
   ##-- ensure $b dense, $a physically indexed ccs
   $b = todense($b) if ($b->isa(__PACKAGE__));
   $a = $a->to_physically_indexed();
-  if (!defined($c)) {
-    my $ctype = $a->type > $b->type ? $a->type : $b->type;
-    $c = PDL->zeroes($ctype, $b->dim(0),$a->dim(1));
-  }
+  $c //= PDL->null;
 
   ##-- compute $zc if required
   if (!defined($zc)) {
     $zc = (($a->missing + PDL->zeroes($a->type, $a->dim(0), 1)) x $b)->flat;
   }
 
-  ccs_matmult2d_sdd($a->_whichND,$a->_nzvals,$a->missing, $b, $zc, $c);
+  ccs_matmult2d_sdd($a->_whichND,$a->_nzvals,$a->missing->squeeze, $b, $zc, $c, $a->dim(1));
 
   return $c;
 }
@@ -1880,11 +1877,9 @@ sub matmult2d_zdd  :lvalue {
   ##-- ensure $b dense, $a physically indexed ccs
   $b = todense($b) if ($b->isa(__PACKAGE__));
   $a = $a->to_physically_indexed();
-  if (!defined($c)) {
-    my $ctype = $a->type > $b->type ? $a->type : $b->type;
-    $c = PDL->zeroes($ctype, $b->dim(0),$a->dim(1));
-  }
-  ccs_matmult2d_zdd($a->_whichND,$a->_nzvals, $b, $c);
+  $c //= PDL->null;
+
+  ccs_matmult2d_zdd($a->_whichND,$a->_nzvals, $b, $c, $a->dim(1));
 
   return $c;
 }
@@ -1893,12 +1888,8 @@ sub matmult2d_zdd  :lvalue {
 ##  + assumes $a->missing==0
 sub vnorm {
   my ($a,$pdimi,$vnorm) = @_;
-
-  ##-- ensure $a physically indexed ccs, $vnorm defined
   $a = $a->to_physically_indexed();
-  $vnorm = PDL->zeroes($a->type, $a->dim($pdimi)) if (!defined($vnorm));
-
-  ccs_vnorm($a->_whichND->slice("($pdimi),"), $a->_nzvals, $vnorm, $a->dim($pdimi));
+  ccs_vnorm($a->_whichND->slice("($pdimi),"), $a->_nzvals, ($vnorm//=PDL->null), $a->dim($pdimi));
   return $vnorm;
 }
 
