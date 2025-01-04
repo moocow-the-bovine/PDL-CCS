@@ -12,8 +12,6 @@ pp_setversion($VERSION);
 ## pm headers
 pp_addpm({At=>'Top'},<<'EOPM');
 
-#use PDL::CCS::Version; use strict;
-
 =pod
 
 =head1 NAME
@@ -22,7 +20,8 @@ PDL::CCS::Ufunc - Ufuncs for compressed storage sparse PDLs
 
 =head1 SYNOPSIS
 
- use PDL; use PDL::CCS::Ufunc;
+ use PDL;
+ use PDL::CCS::Ufunc;
 
  ##---------------------------------------------------------------------
  ## ... stuff happens
