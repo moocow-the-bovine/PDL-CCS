@@ -319,7 +319,7 @@ EOMD
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): or
 ccs_accum_def('or', 'logical "or"',
-              tmp_type       => 'char',
+              tmp_type       => 'signed char',
               init_missingOut=>'missingOut = missingVal;',
               tmp_addmissing =>'if (nMissing > 0) { tmp = tmp || missingVal; }   tmp = !!tmp; /* canonicalize */',
               tmp_addval     =>'tmp = tmp || $nzvalsIn(NnzIn=>nnzii);',
@@ -336,7 +336,7 @@ EOMD
 ##--------------------------------------------------------------
 ## Operations: Accumulators (Ufuncs): and
 ccs_accum_def('and', 'logical "and"',
-              tmp_type       => 'char',
+              tmp_type       => 'signed char',
               init_missingOut=>'missingOut = missingVal;',
               tmp_addmissing =>'if (nMissing > 0) { tmp = tmp && missingVal; }   tmp = !!tmp; /* canonicalize */',
               tmp_addval     =>'tmp = tmp && $nzvalsIn(NnzIn=>nnzii);',
